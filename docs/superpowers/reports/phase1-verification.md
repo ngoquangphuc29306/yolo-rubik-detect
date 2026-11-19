@@ -10,6 +10,11 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.2 | `npm run test` | 0 | 3 test files passed, 114 tests passed, 0 failed (legacy engine characterization incl. 75 invariance checks, legacy goldens, architecture guard). |
 | T1.2 | `npm run lint` (`tsc --noEmit`, `strict: true`) | 0 | no errors. |
 | T1.2 | `npm run build` (`vite build`) | 0 | built in 721ms; existing chunk-size warning (>500 kB) unchanged. |
+| T1.3 | `npx vitest run tests/engine/facelet-geometry tests/engine/cube-state` (RED, before impl) | 1 | 2 test files failed: `Cannot find package '@/engine/facelet-geometry'` (modules absent, expected). |
+| T1.3 | same command (GREEN) | 0 | 2 files passed, 24 tests passed. |
+| T1.3 | `npm run test` | 0 | 5 test files passed, 139 tests passed, 0 failed (adds geometry, cube-state, tightened architecture guard incl. temp-fixture scan test). |
+| T1.3 | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
+| T1.3 | `npm run build` | 0 | built in 735ms; existing chunk-size warning unchanged. |
 
 ## Notes
 
