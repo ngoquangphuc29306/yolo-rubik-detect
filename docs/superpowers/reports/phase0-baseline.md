@@ -189,3 +189,97 @@ Notes:
 - **(b)** Proceed without a browser. Every visual, WebGL and move-direction check in Phase 1 is reported as NOT RUN, and acceptance criteria 9 and 11 would remain open at the Phase 1 gate.
 
 The build, typecheck, install and audit gates are green. No refactoring has started.
+
+---
+
+## 15. Supplemental browser verification (2026-11-19, after the original gate report)
+
+This section is **new evidence**; §1–§14 above are the original results and are unchanged apart from cross-reference notes. The work was observation only: no source, config or dependency change was made.
+
+### 15.1 Environment
+
+| Item | Value |
+|---|---|
+| Application commit | `963168f` on `chore/phase-0-baseline` (application source identical to the baseline `ad7c23b`, except the removed `esbuild` devDependency) |
+| Tool | `playwright-cli` 0.1.25, installed globally with user approval (`npm install -g @playwright/cli@0.1.25`; it pulls in `playwright@1.66.0-alpha-2026-11-18`). **Not** added to the app's `package.json`. No browser was downloaded. |
+| Browser | System Google Chrome, **headless**, `HeadlessChrome/152.0.0.0` (`--browser=chrome`) |
+| WebGL | WebGL2 hardware: `ANGLE (NVIDIA GeForce GTX 1060 3GB, Direct3D11)`. Not software GL, so the app's SwiftShader quality fallback is not triggered. |
+| Dev server | `npx vite --host 127.0.0.1 --port 3000 --strictPort`. Listened on `127.0.0.1:3000` only. Baseline config was not edited. |
+| Viewports | Desktop 1440×900. Mobile 390×844 by **resize only**: no touch or DPR device emulation. |
+| Webcam | Never enabled. No camera prompt appeared. No personal footage. |
+| Executor | Browser walkthrough by a Sonnet subagent (requested model `sonnet`; runtime identity not observable). The orchestrator (Opus 5.5) independently re-checked the file count and dimensions, port closure, process cleanup, git status, and 4 screenshots visually. |
+
+**Environment incident:**
+- The first dev-server instance served a stale Vite dependency-optimizer cache. The page was blank, with `Invalid hook call` and `Cannot read properties of null (reading 'useCallback')` at `App.tsx:18`.
+- The server was restarted once with `--force`, which rebuilds the git-ignored `node_modules/.vite`. Everything was clean afterwards.
+- This is classified as an environment artefact, not an app defect. Nothing was edited. All results below come from the second instance.
+
+### 15.2 Screenshots — PASS (captured)
+
+- 51 PNGs, about 14 MB, in `docs/superpowers/reports/screenshots/baseline/`.
+- The orchestrator verified the dimensions:
+  - 20 at 1440×900 (desktop screens);
+  - 18 at 1440×836 (desktop move-direction captures);
+  - 8 at 390×844 (mobile viewport);
+  - 5 mobile full-page captures (390×935 to 390×3725).
+- **Desktop:** all six screens, covering:
+  - Landing;
+  - Scanning: normal plus 6 simulated conditions (02a–02f);
+  - Reconstruction: running, complete with the 2D net, 3D twin, invalid state;
+  - Alignment;
+  - Solving: mid-animation, countdown, paused, Lost-track dialog;
+  - 9 move-direction pairs (`05-move-stepNN-<move>-{mid,post}`);
+  - Completion: on arrival, before confirm, after confirm.
+- **Mobile:** all six screens at least once, plus full-page captures.
+- **NOT RUN:** mobile Solving paused and mobile Lost-track dialog; the duplicate "Normal" re-simulation (02g).
+
+### 15.3 Behaviour checks
+
+Screenshots and pixel diffs are observations. They do **not** establish correct animation or move semantics.
+
+| # | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | Pause stops the 3D animation | **FAIL** (defect **F8** reproduced) | Pause was pressed about 60 ms into an R2 animation, and the UI showed "Paused". Between a screenshot right after the click and one 400 ms later, 140,314 px changed and the move completed. `05-solving-paused-desktop.png` shows the L layer mid-turn under "Session paused". Unrelated changes of about 5,000 px also occur while paused. That region is most likely the pulsing move arrow (`RubiksCube3D.tsx:237-241`, an orchestrator inference), so hash equality could not be used as proof. |
+| 2 | Countdown | **PASS** (prototype behaviour) | Starts at 5 s about 1.1–1.4 s after a step begins, decrements about once per second, auto-advances at 0. Pause freezes it; Resume continues from the frozen value. |
+| 3 | Replay | **PASS** (prototype behaviour) | "Step 2 of 18" is unchanged and the same move re-animates. **Finding:** Replay while paused followed by Resume restarts the countdown at the full value. This is acceptable under the planned semantics; recorded for T1.9. |
+| 4 | Speed slider | Observed: it applies **immediately** to the current countdown ("4s" became "2s" at once) | Differs from ARCHITECTURE §7.3, where the change applies at the next step. Phase 1 changes this deliberately (plan §2.1 item 9). |
+| 5 | Prev/Next | Observed working | Next/Prev change the step; Prev is disabled at step 1; Next at step 18 goes to Completion. Removed in Phase 1 (D3-B). |
+| 5b | Step-back race **F10** | **NOT REPRODUCED** in the attempts made | Prev→Replay and Prev→Prev→Replay gave consistent steps. The race remains plausible from the code (plan §1.2). |
+| 6 | Empty solution **F11** | **NOT RUN** | Not reproducible from the UI (every preset has 18 moves). Covered by unit tests in Phase 1. |
+| 7 | Visible move directions | **PASS as observation only** | R, R', F, L, U2, B: consistent with the plan §6.7 table. D and U': probably consistent, low confidence. Move sequence: `D' F U' R2 B D2 L U' F' R U2 B2 L' D F2 R U' R'`. The orchestrator viewed `05-move-step10-R-mid`: the right layer rotates with the arrow arcing up the right face, consistent with R. |
+| 8 | Completion | **FAIL** (defect **F13** reproduced) | "Time Spent 1:12" after a run of about 10 s (72 s floor = `solution.length*4`, `CompletionScreen.tsx:84`). Confetti fires automatically on arrival. After confirm: "VERIFIED SOLVE … Solve confirmed across all 54 stickers". |
+| 9 | Browser console | **PASS** (no app errors after the cache rebuild) | 0 app errors. Warnings: `THREE.Clock … deprecated, use THREE.Timer` on every load. One `favicon.ico` 404 per load. |
+| 10 | Scanning fake detections **F1** | **FAIL** (defect reproduced) | Per-sticker labels such as "G 0.99" and "Detection Confidence 98.2%" over a static stock photo; the labels do not match the photo's stickers. The landing hero also shows "98.4% avg". Auto-capture advances on a timer, about 2.5 s per face. |
+| 11 | Responsive layout (390 px) | **FAIL** (layout defects) | No horizontal overflow on any screen (`scrollWidth == innerWidth == 390`). But **Solving** on mobile has an oversized, clipped cube, and the countdown ring and control dock overlap it (orchestrator viewed `05-solving-mobile.png`). **Completion** clips the cube and its badges overlap it. Landing, Scanning and Alignment look fine. |
+| 12 | Three.js / WebGL available | **PASS** | Hardware WebGL2. The 3D cube rendered on every screen that has one. |
+
+### 15.4 Additional defects for Phase 1 (new, observed in the browser)
+
+| ID | Defect | Phase 1 owner |
+|---|---|---|
+| N1 | Desktop and mobile Completion: the cube is clipped by its card (seen in `06-completion-before-confirm-desktop.png`), and the mobile badges overlap it | T1.13 (keep the visual design; fix the framing only if it is a trivial layout fix, otherwise log a follow-up) |
+| N2 | Mobile Solving: oversized, clipped canvas; HUD and countdown overlap the cube | T1.12 (record; a layout redesign is out of scope unless trivial and approved) |
+| N3 | "Test Invalid Cube State" shows "Parity check failed" while its message describes a colour-count mismatch | T1.15 (real validation stages replace this) |
+| N4 | The simulated "Loading AI Model" option has no visible effect; the loading UI appears only for about 1 s at startup | T1.14 (fake loading delay removed) |
+| N5 | Speed change applies to the current countdown, contrary to ARCHITECTURE §7.3 | T1.9 / T1.12 |
+| N6 | `THREE.Clock` deprecation warning; missing favicon (404) | T1.18 (favicon) and T1.11 (only if the clock is touched) |
+| N7 | Mobile Reconstruction opened on the 3D Twin tab while desktop opened on the 2D Net (timing-dependent; low priority) | T1.15 (observe) |
+
+### 15.5 Cleanup — PASS (verified by the orchestrator)
+
+- `playwright-cli close-all` was run.
+- The vite processes started by the agent were stopped by PID.
+- `netstat` shows nothing listening on :3000.
+- No headless Chrome processes remain.
+- No `.playwright-cli/` folder exists in the repo.
+- `git status` showed only the new screenshots folder, plus the user's pre-existing untracked `.claude/` and `skills-lock.json`, which were not staged.
+
+### 15.6 Updated recommendation
+
+The visual and WebGL baseline now exists, so blocker §13.1 is resolved. **Phase 1 may begin after your approval.**
+
+Remaining open points:
+- Desktop UI equivalence checks in Phase 1 can be compared against these screenshots.
+- Mobile Solving and Completion are already defective in the baseline, so mobile equivalence means "no worse than baseline", unless you approve layout fixes.
+- `playwright-cli` stays installed globally until you ask for it to be removed.
+- The screenshots add about 14 MB of binary files to the repository history.
