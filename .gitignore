@@ -1,0 +1,43 @@
+# Node.js
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# Environment and secrets
+.env*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# AI datasets and training artifacts
+datasets/
+runs/
+*.pt
+*.pth
+*.onnx
+
+# Model weights
+backend/weights/*
+!backend/weights/.gitkeep
+
+# Local agent configuration
+.claude/settings.local.json
+.codegraph/
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary captures
+captures/
+*.mp4
+*.mov

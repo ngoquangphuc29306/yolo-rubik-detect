@@ -1,0 +1,6 @@
+{
+  "name": "RubikVision",
+  "description": "AI-powered 3x3 Rubik's Cube coach combining computer vision scanning, digital twin reconstruction, and step-by-step interactive 3D guidance.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
