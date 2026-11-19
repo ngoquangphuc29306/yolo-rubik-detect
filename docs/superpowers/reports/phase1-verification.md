@@ -15,6 +15,12 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.3 | `npm run test` | 0 | 5 test files passed, 139 tests passed, 0 failed (adds geometry, cube-state, tightened architecture guard incl. temp-fixture scan test). |
 | T1.3 | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
 | T1.3 | `npm run build` | 0 | built in 735ms; existing chunk-size warning unchanged. |
+| T1.4a | `curl -fsSL` of ldez/cubejs `src/cube.coffee` and `LICENSE` at SHA 6b3da49 (not executed) | 0 | sha256 recorded in `frontend/tests/reference/PROVENANCE.md`; licence MIT. |
+| T1.4a | `npx vitest run tests/reference` (RED, before impl) | 1 | file failed: cannot resolve `./cubie-reference` (module absent, expected). |
+| T1.4a | same command (GREEN) | 0 | 1 file, 12 tests passed (incl. order 6 / 105 and hand-derived U move). |
+| T1.4a | `npm run test` | 0 | 6 test files passed, 155 tests passed, 0 failed. |
+| T1.4a | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
+| T1.4a | `npm run build` | 0 | built in 839ms; existing chunk-size warning unchanged. |
 
 ## Notes
 
