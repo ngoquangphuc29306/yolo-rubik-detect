@@ -628,7 +628,7 @@ git status --short && git ls-files | grep -E "(^|/)\.env$|\.pt$|\.onnx$"  # expe
 8. **Async races:** stale solve/health/camera results ignored (B7); late `getUserMedia` resolution stops its tracks; StrictMode leaves one stream/one rAF loop.
 9. **Empty solution:** no NaN/undefined; `snapshots[displayedSnapshotIndex]` defined in every reachable state; Alignment offers Finish; Solving cannot be entered with nothing to play.
 10. **Completion:** "Guidance time" = accumulated playback time (documented as not wall-clock); no auto-celebration; no physical-verification claim before user confirmation.
-11. **Visual regression:** six screens at 1440×900 and 390×844 equivalent to baseline except the enumerated intentional differences — or reported NOT RUN with the reason; the §6.7 direction table was executed on the running app (or NOT RUN).
+11. **Visual regression (desktop only, per §15):** the six screens at **1440×900** are equivalent to the Phase 0 desktop screenshots, except for the enumerated intentional differences. The §6.7 direction table was executed on the running app; NOT RUN is allowed only with a stated reason. Mobile (390×844) is **not** an acceptance criterion: no worse than baseline where practical, and defects are deferred.
 12. **Scaffold:** unused AI-Studio items removed only with T0.3 evidence; no version bumps; dev server loopback-only with proxy; legacy engine/store removed only in T1.17 after grep-clean; no empty directories or unused modules added.
 13. `fixtures/` holds the shared solve/health JSON used by frontend tests and ready for backend tests.
 14. Nothing from Phase 2+ (backend, weights, training) was started; the reports state limitations plainly.
@@ -692,3 +692,28 @@ Use the Superpowers executing-plans (or subagent-driven-development) flow task b
 - **H. Docs:** T1.20 runs before the Phase 1 gate; `CLAUDE.md`, README, architecture and real commands stay consistent; remove stale terms (e.g. `activeMs` → `playbackMs`).
 - **Process:** Superpowers skills are **not installed** in this environment (verified Phase 0); the equivalent protocol is followed manually: Sonnet implementer → separate Sonnet spec-compliance reviewer → separate Sonnet code-quality reviewer → orchestrator inspects evidence; Opus advisor on escalation. Git: per-phase branches, no remote/push/merge without approval.
 - **Addendum 2026-11-19 (after Phase 0 execution) — Superpowers now available.** The statement above was true for the original Phase 0 run and is kept as a historical record. Afterwards, the user installed the Superpowers skills (`obra/superpowers` @ `22f0b46`, recorded in the repo's untracked `skills-lock.json`). They are installed as **standalone skills**, not as a plugin, so they are invoked without a namespace: `subagent-driven-development`, `executing-plans`, `test-driven-development`, `requesting-code-review`, `receiving-code-review`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `finishing-a-development-branch`, `writing-plans`, `brainstorming`. Invocation was verified in-session (`using-superpowers`, `verification-before-completion` and the separate `playwright-cli` skill all loaded through the Skill tool). From Phase 1 onward these skills are invoked for real, and the manual protocol becomes the fallback only if a skill is unavailable.
+
+
+---
+
+## 15. Phase 1 scope update (user, 2026-11-20 — binding)
+
+- **Desktop-first.** RubikVision is a desktop/laptop CV app.
+  - Mobile optimization, responsive redesign and touch work are **out of scope**.
+  - Mobile visual regression is removed from mandatory acceptance (criterion 11 amended). Existing mobile styles are preserved where practical, and mobile defects are documented as deferred: **N1 (mobile part), N2, N7**.
+  - Mandatory: the desktop 1440×900 workflow, WebGL correctness, animation correctness and usability.
+- **User rulings on Phase 0 findings:**
+  - Pause not stopping the animation → fixed by the playback FSM (T1.9–T1.12).
+  - Completion time → "Guidance time" (T1.13).
+  - Confetti → only after confirmation (T1.13).
+  - Fake confidence → Demo/Live split (T1.14).
+  - D and U' directions → verified by the reference engine (T1.4b) **and** the browser (T1.19).
+  - Empty solution → automated tests.
+  - N1 (desktop clipping) / N3–N6 → per their owners in the Phase 0 report §15.4.
+  - Missing favicon → fix if simple (T1.18).
+  - `THREE.Clock` warning → **do not** upgrade Three.js for it.
+- **Repository hygiene:**
+  - Phase 0's 14 MB of screenshots is accepted. Phase 1 browser captures go to the git-ignored `.superpowers/` workspace; at most a few key desktop comparison images are committed, and only if they add evidence.
+  - `.claude/` and `skills-lock.json` are never staged.
+- **Skills:** standalone Superpowers skills are used by their registered names (no `superpowers:` prefix), with `playwright-cli` for desktop verification.
+- **Git:** work only on `refactor/phase-1-frontend`; no merge, remote or push.
