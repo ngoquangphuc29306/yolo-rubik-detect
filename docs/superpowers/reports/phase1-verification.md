@@ -21,6 +21,11 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.4a | `npm run test` | 0 | 6 test files passed, 155 tests passed, 0 failed. |
 | T1.4a | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
 | T1.4a | `npm run build` | 0 | built in 839ms; existing chunk-size warning unchanged. |
+| T1.4b | `npx vitest run tests/engine/move-engine` (RED, before `move-engine.ts`) | 1 | file failed to load: `@/engine/move-engine` could not be resolved (module absent, expected); 0 tests ran. |
+| T1.4b | same command (GREEN) | 0 | 1 file, 44 tests passed: 18-token parser, 9 hand-derived goldens, 500-sequence differential vs pinned reference (seed 0x5eed1234, every move), properties (incl. order 105), snapshots/verify, legacy golden cross-check, presentation parity. No engine/reference disagreement. |
+| T1.4b | `npm run test` | 0 | 7 test files passed, 211 tests passed, 0 failed. |
+| T1.4b | `npm run lint` (`tsc --noEmit`) | 0 | no errors (after typing the test helper `run` as `FaceletState`). |
+| T1.4b | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
 
 ## Notes
 
