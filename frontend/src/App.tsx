@@ -4,13 +4,13 @@
  */
 
 import * as React from 'react';
-import { useRubikStore } from '@/src/store/useRubikStore';
-import { LandingScreen } from '@/src/screens/LandingScreen';
-import { ScanningScreen } from '@/src/screens/ScanningScreen';
-import { ReconstructionScreen } from '@/src/screens/ReconstructionScreen';
-import { AlignmentScreen } from '@/src/screens/AlignmentScreen';
-import { SolvingScreen } from '@/src/screens/SolvingScreen';
-import { CompletionScreen } from '@/src/screens/CompletionScreen';
+import { useRubikStore } from '@/store/useRubikStore';
+import { LandingScreen } from '@/features/landing/LandingScreen';
+import { ScanningScreen } from '@/features/scanner/ScanningScreen';
+import { ReconstructionScreen } from '@/features/review/ReconstructionScreen';
+import { AlignmentScreen } from '@/features/align/AlignmentScreen';
+import { SolvingScreen } from '@/features/solver/SolvingScreen';
+import { CompletionScreen } from '@/features/solver/CompletionScreen';
 
 export default function App() {
   const screen = useRubikStore((s) => s.screen);

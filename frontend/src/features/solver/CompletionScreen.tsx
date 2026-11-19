@@ -7,12 +7,12 @@ import {
   RotateCcw,
   Sparkles,
 } from 'lucide-react';
-import { WorkspaceHeader } from '@/src/components/WorkspaceHeader';
-import { RubiksCube3D } from '@/src/components/three/RubiksCube3D';
-import { Button } from '@/src/components/ui/button';
-import { createSolvedCube } from '@/src/lib/cubeEngine';
-import { useRubikStore } from '@/src/store/useRubikStore';
-import { formatDuration, playSuccessChime } from '@/src/lib/utils';
+import { WorkspaceHeader } from '@/components/WorkspaceHeader';
+import { RubiksCube3D } from '@/components/three/RubiksCube3D';
+import { Button } from '@/components/ui/button';
+import { createSolvedCube } from '@/lib/cubeEngine';
+import { useRubikStore } from '@/store/useRubikStore';
+import { formatDuration, playSuccessChime } from '@/lib/utils';
 
 const SOLVED_CUBE = createSolvedCube();
 

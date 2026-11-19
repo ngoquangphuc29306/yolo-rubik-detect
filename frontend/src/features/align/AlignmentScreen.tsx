@@ -1,16 +1,16 @@
 import * as React from 'react';
 import { ArrowRight, CameraOff, Clock, Hand } from 'lucide-react';
-import { WorkspaceHeader } from '@/src/components/WorkspaceHeader';
-import { RubiksCube3D } from '@/src/components/three/RubiksCube3D';
-import { Button } from '@/src/components/ui/button';
-import { Slider } from '@/src/components/ui/slider';
+import { WorkspaceHeader } from '@/components/WorkspaceHeader';
+import { RubiksCube3D } from '@/components/three/RubiksCube3D';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import {
   STICKER_COLORS,
   StickerColor,
   getCenterColorForFace,
-} from '@/src/lib/cubeEngine';
-import { useRubikStore } from '@/src/store/useRubikStore';
-import { cn } from '@/src/lib/utils';
+} from '@/lib/cubeEngine';
+import { useRubikStore } from '@/store/useRubikStore';
+import { cn } from '@/lib/utils';
 
 const SPEED_PRESETS = [
   { label: 'Fast', seconds: 3 },

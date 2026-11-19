@@ -7,7 +7,7 @@ import {
   StickerColor,
   extractAllFaces,
   generateScrambleSession,
-} from '@/src/lib/cubeEngine';
+} from '@/lib/cubeEngine';
 
 export type AppScreen =
   | 'landing'

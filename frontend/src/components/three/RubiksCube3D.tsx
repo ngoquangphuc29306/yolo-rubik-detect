@@ -9,7 +9,7 @@ import {
   FaceKey,
   MoveDescriptor,
   STICKER_COLORS,
-} from '@/src/lib/cubeEngine';
+} from '@/lib/cubeEngine';
 
 const isSoftwareGl: boolean = (() => {
   if (typeof document === 'undefined') return false;

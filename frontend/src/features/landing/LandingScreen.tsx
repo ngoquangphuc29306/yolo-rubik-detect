@@ -9,11 +9,11 @@ import {
   ScanLine,
   Sparkles,
 } from 'lucide-react';
-import { BrandMark } from '@/src/components/BrandMark';
-import { Button } from '@/src/components/ui/button';
-import { RubiksCube3D } from '@/src/components/three/RubiksCube3D';
-import { useRubikStore } from '@/src/store/useRubikStore';
-import { cn } from '@/src/lib/utils';
+import { BrandMark } from '@/components/BrandMark';
+import { Button } from '@/components/ui/button';
+import { RubiksCube3D } from '@/components/three/RubiksCube3D';
+import { useRubikStore } from '@/store/useRubikStore';
+import { cn } from '@/lib/utils';
 
 const HERO_DETECTIONS = [
   { id: 'd1', label: 'G', conf: '0.99', top: '26%', left: '28%', w: '14%', h: '14%', color: '#16A34A' },

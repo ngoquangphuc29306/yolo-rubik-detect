@@ -13,25 +13,25 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { BrandMark } from '@/src/components/BrandMark';
-import { RubiksCube3D } from '@/src/components/three/RubiksCube3D';
-import { Button } from '@/src/components/ui/button';
-import { Slider } from '@/src/components/ui/slider';
-import { Dialog } from '@/src/components/ui/dialog';
+import { BrandMark } from '@/components/BrandMark';
+import { RubiksCube3D } from '@/components/three/RubiksCube3D';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { Dialog } from '@/components/ui/dialog';
 import {
   FACE_META,
   STICKER_COLORS,
   getCenterColorForFace,
   getCubeStateAtStep,
   parseMove,
-} from '@/src/lib/cubeEngine';
-import { useRubikStore } from '@/src/store/useRubikStore';
+} from '@/lib/cubeEngine';
+import { useRubikStore } from '@/store/useRubikStore';
 import {
   cn,
   playCountdownTick,
   playMoveSound,
   playSuccessChime,
-} from '@/src/lib/utils';
+} from '@/lib/utils';
 
 type StepPhase = 'animating' | 'countdown' | 'replaying' | 'finishing';
 

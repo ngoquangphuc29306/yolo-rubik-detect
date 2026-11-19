@@ -7,13 +7,13 @@ import {
   RefreshCw,
   RotateCcw,
 } from 'lucide-react';
-import { WorkspaceHeader } from '@/src/components/WorkspaceHeader';
-import { FaceGrid2D } from '@/src/components/FaceGrid2D';
-import { RubiksCube3D } from '@/src/components/three/RubiksCube3D';
-import { Button } from '@/src/components/ui/button';
-import { FACE_ORDER, FaceKey } from '@/src/lib/cubeEngine';
-import { useRubikStore } from '@/src/store/useRubikStore';
-import { cn } from '@/src/lib/utils';
+import { WorkspaceHeader } from '@/components/WorkspaceHeader';
+import { FaceGrid2D } from '@/components/FaceGrid2D';
+import { RubiksCube3D } from '@/components/three/RubiksCube3D';
+import { Button } from '@/components/ui/button';
+import { FACE_ORDER, FaceKey } from '@/lib/cubeEngine';
+import { useRubikStore } from '@/store/useRubikStore';
+import { cn } from '@/lib/utils';
 
 const CHECKLIST_ITEMS = [
   '54 stickers detected',

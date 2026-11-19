@@ -14,23 +14,24 @@ import {
   Settings,
   Video,
 } from 'lucide-react';
-import { WorkspaceHeader } from '@/src/components/WorkspaceHeader';
-import { FaceGrid2D } from '@/src/components/FaceGrid2D';
-import { RubiksCube3D } from '@/src/components/three/RubiksCube3D';
-import { Button } from '@/src/components/ui/button';
-import { Dialog } from '@/src/components/ui/dialog';
-import { Switch } from '@/src/components/ui/switch';
+import { WorkspaceHeader } from '@/components/WorkspaceHeader';
+import { FaceGrid2D } from '@/components/FaceGrid2D';
+import { RubiksCube3D } from '@/components/three/RubiksCube3D';
+import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import {
   FACE_META,
   FACE_ORDER,
   FaceKey,
   STICKER_COLORS,
   createSolvedCube,
-} from '@/src/lib/cubeEngine';
-import { ScanCondition, useRubikStore } from '@/src/store/useRubikStore';
-import { cn, playCaptureSound } from '@/src/lib/utils';
+} from '@/lib/cubeEngine';
+import { ScanCondition, useRubikStore } from '@/store/useRubikStore';
+import { cn, playCaptureSound } from '@/lib/utils';
+import webcamPreview from '@/assets/images/webcam_cube_hands_1795070971051.jpg';
 
-const WEBCAM_PREVIEW_SRC = '/src/assets/images/webcam_cube_hands_1795070971051.jpg';
+const WEBCAM_PREVIEW_SRC = webcamPreview;
 
 const REFERENCE_SOLVED_CUBE = createSolvedCube();
 

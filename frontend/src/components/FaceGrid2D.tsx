@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { STICKER_COLORS, StickerColor } from '@/src/lib/cubeEngine';
-import { cn } from '@/src/lib/utils';
+import { STICKER_COLORS, StickerColor } from '@/lib/cubeEngine';
+import { cn } from '@/lib/utils';
 
 interface FaceGrid2DProps {
   stickers?: StickerColor[];

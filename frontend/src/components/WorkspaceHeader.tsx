@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { BrandMark } from '@/src/components/BrandMark';
-import { AppScreen, useRubikStore } from '@/src/store/useRubikStore';
-import { cn } from '@/src/lib/utils';
+import { BrandMark } from '@/components/BrandMark';
+import { AppScreen, useRubikStore } from '@/store/useRubikStore';
+import { cn } from '@/lib/utils';
 
 interface WorkspaceHeaderProps {
   activeStage: 'scan' | 'reconstruct' | 'solve';
