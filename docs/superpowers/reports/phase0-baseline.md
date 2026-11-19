@@ -16,8 +16,8 @@ Status legend: **PASS** · **FAIL** · **NOT RUN** · **BLOCKED**. Every PASS/FA
 | 7 | Typecheck (`npm run lint`) | **PASS**: 0 errors. Strict mode, informational: 0 errors. |
 | 8 | Production build (`npm run build`) | **PASS**, with 2 warnings |
 | 9a | Dev-server HTTP / module-transform smoke (loopback) | **PASS** |
-| 9b | Browser smoke test, six screens and screenshots | **NOT RUN**. No browser automation is available in this environment. |
-| 10 | Prototype defects reproduced at runtime | **NOT RUN** (needs a browser). Defects are confirmed by source reading only. |
+| 9b | Browser smoke test, six screens and screenshots | Original run: **NOT RUN** (no browser tool). **Superseded by the supplemental run in §15: PASS**, with 51 screenshots. |
+| 10 | Prototype defects reproduced at runtime | Original run: **NOT RUN**. **Supplemental run (§15):** F1, F8 and F13 were reproduced; F10 was not reproduced; F11 is not reproducible from the UI. |
 | 11 | Dependency usage audit | **PASS** (recorded) |
 | 12 | Agent model allocation | Recorded below. The runtime model identity is not observable. |
 
@@ -168,16 +168,17 @@ Static `grep` of `src/`, `index.html`, `vite.config.ts` and the npm scripts:
 
 Notes:
 - **The Superpowers plugin is not installed.** No `superpowers:*` skills exist in this session and there is no plugin under `~/.claude/plugins`, so those skills could not be invoked. The plan's equivalent protocol was followed manually. This is recorded in plan §14.
+- **Addendum 2026-11-19, after the original run:** the statement above is kept as the historical record of the original Phase 0 execution. Afterwards, the user installed the Superpowers skills (`obra/superpowers` @ `22f0b46`, listed in the untracked `skills-lock.json`). They are standalone skills invoked without a namespace (for example `verification-before-completion`). Invocation was **verified** in-session: `using-superpowers`, `verification-before-completion` and the separate `playwright-cli` skill each loaded through the Skill tool. The plan §14 records the same addendum.
 - After the blocker, the orchestrator re-ran the install, lint and build directly instead of starting another agent, per the instruction "no extra agents solely for mechanical operations".
 
 ## 13. Remaining blockers and risks
 
-1. **No browser available, so there is no visual or WebGL baseline.** This is the main open issue. It affects plan §6.7, the T1.11/T1.12 renderer checks, and acceptance criteria 9 and 11. In Phase 1 those checks would also be NOT RUN unless a browser becomes available.
+1. ~~No browser available, so there is no visual or WebGL baseline.~~ **Resolved by the §15 supplemental run.** Original text kept: This is the main open issue. It affects plan §6.7, the T1.11/T1.12 renderer checks, and acceptance criteria 9 and 11. In Phase 1 those checks would also be NOT RUN unless a browser becomes available.
 2. The main JS bundle is 1.31 MB. This is out of scope and recorded.
 3. The `__dirname` Vite deprecation warning should be addressed when `vite.config.ts` is cleaned in T1.18 (`import.meta.dirname`).
 4. Three install scripts were not run (unused packages). Removing those packages in T1.18 resolves this.
 5. Five extraneous WASM-helper packages appear in `npm ls`; to be re-checked after T1.18.
-6. Superpowers skills are unavailable, and the subagent's model identity cannot be confirmed (see §12).
+6. ~~Superpowers skills are unavailable~~ (resolved; see the §12 addendum), and the subagent's model identity cannot be confirmed (see §12).
 7. The reference fetch in T1.4a still needs network access and a licence check; this stays a Phase 1 stop condition.
 
 ## 14. Recommendation
