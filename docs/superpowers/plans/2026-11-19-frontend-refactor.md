@@ -17,12 +17,12 @@ Scope: Phase 0 (baseline verification) and Phase 1 (frontend refactor, still exp
 | D1 | Landing "Try Interactive Demo" | **A** — keep the direct shortcut to Reconstruction in demo mode | The simulated scan walk-through stays reachable through an explicit "Walk through the simulated scan" link on Landing (T1.16). |
 | D2 | Package manager | **B — npm.** Package-manager migration and a new `package-lock.json` approved | **Baseline deviation, to be documented in the Phase 0 report:** Bun was not installed, so the `bun.lock` versions cannot be honoured; `npm install` resolves versions fresh. Installed versions are recorded verbatim (`npm ls --depth=0`) and `package-lock.json` becomes the reproducibility anchor. `bun.lock` stays in the untouched baseline commit and is deleted in T1.1 (after the Phase 0 gate). Never mix managers; use `npm ci` after the lockfile exists. |
 | D3 | Prev/Next dock controls | **B** — remove both | Dock = Play/Pause, Replay, Pace slider, camera lock, sound. "Scan Again" stays in the header link and the Lost-track dialog. **No `SKIP_WAIT` event.** Dialog's "Step Back & Replay" becomes "Replay current move". |
-| D4 | Git | **A** — `git init`, protect the baseline, branch `refactor/frontend`; audit secrets/ignored files **before** committing | T0.1 rewritten as a safe-baseline procedure (B6). |
+| D4 | Git | **A**, superseded by the user's *Updated Git Workflow*: the user initialized the repo and made baseline commit `ad7c23b` on `main` themselves. One branch per phase (`chore/phase-0-baseline`, `refactor/phase-1-frontend`, `feat/phase-2-backend`, `feat/phase-3-vision`, `feat/phase-4-integration`, `ml/phase-5-training`, `feat/phase-6-model-integration`); each phase merges into `main` only after its gate **and** explicit user approval. No remotes, no pushes, no destructive Git operations. | T0.1 adapted: audit the existing baseline commit and ignore rules, make the snapshot; no `git init`, and the baseline commit is not recreated. |
 | D5 | Browser regression | **A** — manual | T0.4 first checks that a supported browser is actually available; if not, the step is reported as **NOT RUN** with the limitation, never as passed. |
 | D6 | Test dependencies | Accept compatible ones only | `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`; versions chosen in T1.2 from peer ranges after Phase 0 installs cleanly. Nothing else added. |
 | D7 | Architecture doc location | Keep `docs/ARCHITECTURE.md` | Amend its §10 tree (T1.20). |
 
-Authorization boundary: approving *this plan* authorizes Phase 0 (including `git init`/baseline commit and `npm install`) and, after the Phase 0 gate, Phase 1. It does not authorize Phase 2+.
+Authorization boundary: approving *this plan* authorizes Phase 0 on `chore/phase-0-baseline` (audit, snapshot, `npm install`, lockfile commit) and, after the Phase 0 gate, Phase 1. It does not authorize Phase 2+.
 
 ### 0.2 Revision log — independent review (`docs/FRONTEND_PLAN_REVIEW.md`)
 
@@ -418,11 +418,9 @@ Conventions (all tasks):
 **T0.1 Safe Git baseline and snapshot** — Deps: plan approval (D4-A).
 - [ ] Inspect before touching anything: `ls -la`, current `.gitignore` (today: `node_modules/ build/ dist/ coverage/ .DS_Store *.log .env* !.env.example`), `find . -type f -size +1M` (expected: only `src/assets/images/…jpg`, ~710 KB, a stock-style demo image — confirm it is not a private capture before committing), list of `.env*` files (expected: only `.env.example` with placeholders), and a secret pattern scan over text files (`grep -rnEI "(api[_-]?key|secret|token|passwd|BEGIN [A-Z ]*PRIVATE KEY|AIza[0-9A-Za-z_-]{20,})"` excluding `bun.lock`), recording every hit and its disposition. Confirm `~/.claude`/`.claude/settings.local.json`/`.codegraph/` do not exist in the repo tree.
 - [ ] Snapshot, non-destructive: compute `dst=../rubik-solver-yolo-baseline-<YYYYMMDD-HHMM>`; **abort if it already exists**; copy the tree excluding `node_modules` and `dist`; write a SHA-256 manifest of source files into the Phase 0 report. Never overwrite an existing backup.
-- [ ] `git init` (default branch `main`); **do not** set or print the user's git identity; use whatever global identity exists. `git status --ignored` reviewed.
-- [ ] Housekeeping exception (documented): extend `.gitignore` **before the first `git add`** with `.venv/ venv/ __pycache__/ *.pyc datasets/ runs/ *.pt *.pth *.onnx *.mp4 *.mov backend/weights/* !backend/weights/.gitkeep .claude/settings.local.json .codegraph/`. `package-lock.json` must stay tracked (not ignored). The baseline commit therefore equals "original archive + ignore hardening"; list the exact lines added in the report.
-- [ ] Stage files explicitly (not `git add -A` blindly): first `git add --dry-run .`, review the list against the inspection, then add; review `git diff --cached --stat`; confirm no ignored/secret/binary surprises.
-- [ ] Commit 1 `chore: import AI Studio baseline (+ ignore hardening)` containing only the original application files (docs excluded); Commit 2 `docs: architecture, handoff, review, plans, CLAUDE.md`. Create branch `refactor/frontend`.
-- [ ] Verify: `git log --oneline`, `git status` clean, `git ls-files | grep -E "\\.env$|\\.pt$"` returns nothing.
+- [ ] (Adapted per the user's Git workflow.) Verify the existing repo: current branch is `chore/phase-0-baseline`, the baseline commit exists on `main` and is preserved, the working tree is clean, no remote is configured. Do **not** run `git init`, and do not recreate or amend the baseline commit. Audit the baseline commit's tracked files and its `.gitignore` (the user's `.gitignore` already contains the hardening lines listed in the original T0.1; record any gaps instead of silently editing it).
+- [ ] Phase 0 commits (lockfile, report) go on `chore/phase-0-baseline`, one meaningful commit each, after reviewing the staged diff.
+- [ ] Verify: `git log --oneline --all`, `git status` clean, `git remote -v` empty, no tracked `.env`/`.pt` files.
 
 **T0.2 Toolchain record, npm install, lockfile, baseline build** — Deps: T0.1.
 - [ ] Record `node -v` (v26.9.0 seen), `npm -v` (11.19.1 seen), OS.
@@ -442,7 +440,7 @@ Conventions (all tasks):
 
 **T0.5 Baseline report and gate** — Deps: T0.1–T0.4 (**including T0.3**).
 - [ ] Write `docs/superpowers/reports/phase0-baseline.md`: Git audit results and housekeeping exception, snapshot path + manifest, node/npm versions, **actual installed versions**, lint/build verbatim, T0.3 table, screenshot index or "NOT RUN", reproduced defects, open risks, the D2 baseline deviation.
-- [ ] Commit `docs: phase 0 baseline report`. **GATE: stop for your review.** A failing baseline build is not bypassed.
+- [ ] Commit `docs: phase 0 baseline report`. **GATE: stop for your review.** A failing baseline build is not bypassed. After approval, and only on explicit instruction, `chore/phase-0-baseline` is merged into `main` and `refactor/phase-1-frontend` is branched from the result.
 
 ### Phase 1 — Frontend refactor (executes only after the Phase 0 gate is approved)
 
@@ -586,7 +584,7 @@ Parallelizable: T1.9 with T1.5–T1.8; T1.14–T1.16 with T1.10–T1.13 once T1.
 | Hard-coded orientation | T1.3, T1.5, T1.13, T1.14 | Non-demo `centerColors` tests (Alignment, Solving tooltip, adapter) |
 | Canonical state compatibility | T1.3–1.6 | Differential vs independent reference; `fixtures/` shared with future backend |
 | Animation pause/resume | T1.9–T1.12 | Reducer + hook + manual mid-turn pause |
-| Playback timer reliability | T1.10 | Monotonic clock, dt clamp, hidden-tab test, `activeMs` |
+| Playback timer reliability | T1.10 | Monotonic clock, 250 ms dt cap, hidden-tab test, `playbackMs` ("Guidance time") |
 | Replay without double apply | T1.9, T1.12 | Derived state test (`displayedSnapshotIndex`) |
 | Empty solution handling | T1.9, T1.12, T1.13, T1.8 | Tests + "Already solved" path |
 | Stale callbacks after rescan | T1.6, T1.8, T1.9, T1.10, T1.14, T1.15 | generation guard in reducer (B1) + per-request guards (B7) + stale-success/stale-error tests |
@@ -620,7 +618,7 @@ git status --short && git ls-files | grep -E "(^|/)\.env$|\.pt$|\.onnx$"  # expe
 
 ## 10. Acceptance criteria (Phase 0 + 1 complete when all hold)
 
-1. **Git/baseline:** baseline commit audited (secrets, ignored files, large/binary artefacts) with the housekeeping exception documented; snapshot made without overwriting; work on `refactor/frontend`; no `.env`, weights or captures tracked.
+1. **Git/baseline:** baseline commit audited (secrets, ignored files, large/binary artefacts) with the housekeeping exception documented; snapshot made without overwriting; Phase 0 work on `chore/phase-0-baseline` and Phase 1 work on `refactor/phase-1-frontend` (created only after Phase 0 approval); merges into `main` only with user approval; no `.env`, weights or captures tracked.
 2. `phase0-baseline.md` contains real command output, actual installed versions, the D2 npm deviation, the T0.3 table, and screenshots **or** an explicit NOT RUN.
 3. `frontend/` type-checks under `strict`, `npm run test` is green with counts reported, `npm run build` succeeds; every commit on the branch built.
 4. **Engine:** 18 moves match the *independent, provenance-pinned* reference on ≥ 500 seeded sequences plus the hand-derived vectors; goldens were not generated by the code under test; `bindSolveResponse` rejects a valid-but-wrong response (test present); every demo outcome passes strict wire parsing, binding and replay-to-solved before playback.
@@ -679,3 +677,18 @@ git status --short && git ls-files | grep -E "(^|/)\.env$|\.pt$|\.onnx$"  # expe
 
 ## 13. Execution protocol after approval
 Use the Superpowers executing-plans (or subagent-driven-development) flow task by task with the checkbox steps in §7 (RED observed → GREEN → verify → commit). Stop only at the two gates (T0.5 and T1.19) or on a stop condition (install failure, baseline build failure, reference/engine disagreement, failing gate, unavailable network for T1.4a). Commits are authorized only as described in T0.1 and §7 conventions, one per task, after reviewing the staged diff. No dependency changes beyond D6 (adds) and T1.18 (evidence-based removals). Reports record only commands that were actually run; anything else is NOT RUN.
+
+---
+
+## 14. Approved execution constraints (user, 2026-11-19 — binding for Phase 0/1)
+
+- **A. Renderer buildability:** T1.11 must not leave `SolvingScreen` broken. Either keep a narrowly scoped temporary compatibility path for the old `animateMoveTrigger`/`onMoveAnimationComplete` API until T1.12 lands (removed in T1.12), or perform T1.11+T1.12 as one atomic cutover commit. Tests must show the displayed snapshot, active move and animation progress stay synchronized across every phase transition; a solved final state alone is not evidence.
+- **B. Playback generation:** distinguish the *session/scan* generation (`sessionId`) from the *playback-run* generation passed to RESET. Restarting playback of the same solution bumps only the playback-run generation, never resets captured cube data, and still rejects stale events (tests for restart/replay-from-completion + stale events after reset).
+- **C. Baseline browser safety:** Phase 0 dev servers are started with a host override (`npx vite --host 127.0.0.1`) without editing baseline config, and they are terminated after verification.
+- **D. Secrets/backups:** audit before staging/snapshots; reports and agent messages contain only redacted findings; backups live outside the repo and are never overwritten.
+- **E. Reference:** pinned upstream with provenance and verified licence; no tables from memory; stop on licence/network blockers; never weaken reference assertions.
+- **F. Dependencies:** npm only; document fresh resolution vs `bun.lock`; no silent up/downgrades, no `--force`/`--legacy-peer-deps`; stop on incompatibility.
+- **G. Browser verification:** jsdom ≠ WebGL; unavailable browser checks are NOT RUN, never PASS.
+- **H. Docs:** T1.20 runs before the Phase 1 gate; `CLAUDE.md`, README, architecture and real commands stay consistent; remove stale terms (e.g. `activeMs` → `playbackMs`).
+- **Process:** Superpowers skills are **not installed** in this environment (verified Phase 0); the equivalent protocol is followed manually: Sonnet implementer → separate Sonnet spec-compliance reviewer → separate Sonnet code-quality reviewer → orchestrator inspects evidence; Opus advisor on escalation. Git: per-phase branches, no remote/push/merge without approval.
+- **Addendum 2026-11-19 (after Phase 0 execution) — Superpowers now available.** The statement above was true for the original Phase 0 run and is kept as a historical record. Afterwards, the user installed the Superpowers skills (`obra/superpowers` @ `22f0b46`, recorded in the repo's untracked `skills-lock.json`). They are installed as **standalone skills**, not as a plugin, so they are invoked without a namespace: `subagent-driven-development`, `executing-plans`, `test-driven-development`, `requesting-code-review`, `receiving-code-review`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `finishing-a-development-branch`, `writing-plans`, `brainstorming`. Invocation was verified in-session (`using-superpowers`, `verification-before-completion` and the separate `playwright-cli` skill all loaded through the Skill tool). From Phase 1 onward these skills are invoked for real, and the manual protocol becomes the fallback only if a skill is unavailable.
