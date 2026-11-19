@@ -62,4 +62,26 @@ describe('cubie reference (self-test)', () => {
       'UUUUUUUUU' + 'BBBRRRRRR' + 'RRRFFFFFF' + 'DDDDDDDDD' + 'FFFLLLLLL' + 'LLLBBBBBB',
     );
   });
+
+  // Hand-derived from the physical definition (clockwise viewed from outside the face), URFDLB.
+  const PHYSICAL: Record<string, string> = {
+    R: 'UUFUUFUUF RRRRRRRRR FFDFFDFFD DDBDDBDDB LLLLLLLLL UBBUBBUBB',
+    F: 'UUUUUULLL URRURRURR FFFFFFFFF RRRDDDDDD LLDLLDLLD BBBBBBBBB',
+    D: 'UUUUUUUUU RRRRRRFFF FFFFFFLLL DDDDDDDDD LLLLLLBBB BBBBBBRRR',
+    L: 'BUUBUUBUU RRRRRRRRR UFFUFFUFF FDDFDDFDD LLLLLLLLL BBDBBDBBD',
+    B: 'RRRUUUUUU RRDRRDRRD FFFFFFFFF DDDDDDLLL ULLULLULL BBBBBBBBB',
+  };
+  it.each(Object.entries(PHYSICAL))('%s on solved matches the hand-derived physical result', (f, s) => {
+    expect(toFacelets(applyMove(SOLVED, f))).toBe(s.replaceAll(' ', ''));
+  });
+  it('R then U matches the hand-derived result and differs from U then R', () => {
+    const ru = toFacelets(applySequence(SOLVED, 'R U'));
+    expect(ru).toBe('UUUUUUFFF UBBRRRRRR RRRFFDFFD DDBDDBDDB FFDLLLLLL LLLUBBUBB'.replaceAll(' ', ''));
+    expect(ru).not.toBe(toFacelets(applySequence(SOLVED, 'U R')));
+  });
+  it.each(FACES)('%s\' on solved differs from %s and is its inverse', (f) => {
+    const prime = toFacelets(applyMove(SOLVED, `${f}'`));
+    expect(prime).not.toBe(toFacelets(applyMove(SOLVED, f)));
+    expect(toFacelets(applySequence(SOLVED, `${f} ${f}'`))).toBe(SOLVED_FACELETS);
+  });
 });
