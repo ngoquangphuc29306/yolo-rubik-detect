@@ -76,22 +76,28 @@ function tickState(s: PlaybackState, dtMs: number): PlaybackState {
   // so the loop is bounded by 2 * total + 1 iterations.
   while (rest > 0 && (status === 'animating' || status === 'waiting')) {
     if (status === 'animating') {
-      const applied = Math.min(rest, s.animMs[index]! - animElapsedMs);
-      animElapsedMs += applied;
-      playbackMs += applied;
-      rest -= applied;
-      if (animElapsedMs >= s.animMs[index]!) {
+      const dur = s.animMs[index]!;
+      const remaining = dur - animElapsedMs;
+      if (rest >= remaining) {
+        // Land exactly on the boundary, then carry the leftover.
+        animElapsedMs = dur;
+        playbackMs += remaining;
+        rest -= remaining;
         status = 'waiting';
         waitElapsedMs = 0;
         waitTotalMs = s.delayMs;
         isReplay = false;
+      } else {
+        animElapsedMs += rest;
+        playbackMs += rest;
+        rest = 0;
       }
     } else {
-      const applied = Math.min(rest, waitTotalMs - waitElapsedMs);
-      waitElapsedMs += applied;
-      playbackMs += applied;
-      rest -= applied;
-      if (waitElapsedMs >= waitTotalMs) {
+      const remaining = waitTotalMs - waitElapsedMs;
+      if (rest >= remaining) {
+        waitElapsedMs = waitTotalMs;
+        playbackMs += remaining;
+        rest -= remaining;
         if (index === s.total - 1) {
           status = 'complete';
           rest = 0; // leftover after the final wait is discarded
@@ -101,6 +107,10 @@ function tickState(s: PlaybackState, dtMs: number): PlaybackState {
           animElapsedMs = 0;
           waitElapsedMs = 0;
         }
+      } else {
+        waitElapsedMs += rest;
+        playbackMs += rest;
+        rest = 0;
       }
     }
   }
@@ -109,7 +119,7 @@ function tickState(s: PlaybackState, dtMs: number): PlaybackState {
 
 export function playbackReducer(s: PlaybackState, e: PlaybackEvent): PlaybackState {
   if (e.type === 'RESET') {
-    if (e.generation <= s.generation) return s;
+    if (!Number.isInteger(e.generation) || e.generation <= s.generation) return s;
     const animMs = Object.freeze(e.moves.map(animDurationMs));
     const total = animMs.length;
     return {
@@ -139,6 +149,10 @@ export function playbackReducer(s: PlaybackState, e: PlaybackEvent): PlaybackSta
       if (s.status !== 'animating' && s.status !== 'waiting') return s;
       return tickState(s, e.dtMs);
     case 'PAUSE':
+      if (s.status === 'paused') {
+        // A user pause outranks a hidden pause; never the other way round.
+        return e.reason === 'user' && s.pauseReason === 'hidden' ? { ...s, pauseReason: 'user' } : s;
+      }
       if (s.status !== 'animating' && s.status !== 'waiting') return s;
       return { ...s, status: 'paused', pausedFrom: s.status, pauseReason: e.reason };
     case 'RESUME':
@@ -146,6 +160,10 @@ export function playbackReducer(s: PlaybackState, e: PlaybackEvent): PlaybackSta
       return { ...s, status: s.pausedFrom, pausedFrom: null, pauseReason: null };
     case 'REPLAY':
       if (s.status !== 'animating' && s.status !== 'waiting' && s.status !== 'paused') return s;
+      if (s.status === 'paused' && s.pauseReason === 'hidden') {
+        // Hidden tab: reset the move but keep the clock stopped; resume stays deliberate.
+        return { ...s, pausedFrom: 'animating', animElapsedMs: 0, waitElapsedMs: 0, isReplay: true };
+      }
       return {
         ...s,
         status: 'animating',
@@ -168,6 +186,11 @@ export function playbackReducer(s: PlaybackState, e: PlaybackEvent): PlaybackSta
   }
 }
 
+/**
+ * Renderer contract: while animating, show S[index] and interpolate toward S[index+1]
+ * using animationProgress; while waiting or complete, show S[index+1] (progress 0);
+ * while paused, follow `pausedFrom`. Idle and empty solutions show S[0].
+ */
 export function displayedSnapshotIndex(s: PlaybackState): number {
   if (s.total === 0) return 0;
   switch (s.status) {
@@ -183,6 +206,7 @@ export function displayedSnapshotIndex(s: PlaybackState): number {
   }
 }
 
+/** Interpolation progress (0..1) from S[index] toward S[index+1]; 0 unless animating or paused-from-animating. */
 export function animationProgress(s: PlaybackState): number {
   const active = s.status === 'animating' || (s.status === 'paused' && s.pausedFrom === 'animating');
   if (!active || s.total === 0) return 0;

@@ -682,3 +682,110 @@ describe('invariants (seeded random event sequences)', () => {
     expect(steps).toBe(5 * 25 * 300);
   });
 });
+
+// ---------- R21 hardening ----------
+describe('M1 exact phase boundaries under fractional dt', () => {
+  function checkExact(s: PlaybackState) {
+    if (s.total > 0) expect(s.animElapsedMs).toBeLessThanOrEqual(s.animMs[s.index]!);
+    expect(s.animElapsedMs).toBeGreaterThanOrEqual(0);
+    expect(s.waitElapsedMs).toBeLessThanOrEqual(s.waitTotalMs);
+    expect(s.waitElapsedMs).toBeGreaterThanOrEqual(0);
+  }
+
+  it('repeated 16.6667 ms frames keep invariants exact and finish at the exact total', () => {
+    const moves: MoveToken[] = ['R', 'F2', "U'", 'B2', 'L'];
+    const delay = 2345.6;
+    let s = started(moves, 1, delay);
+    const expected = animSumLocal(moves) + moves.length * delay;
+    let guard = 0;
+    while (s.status !== 'complete' && guard++ < 100000) {
+      s = tick(s, 16.6667);
+      checkExact(s);
+    }
+    expect(s.status).toBe('complete');
+    expect(Math.abs(s.playbackMs - expected)).toBeLessThan(1e-6);
+  });
+
+  it('seeded random float dt: invariants exact at every step; total within 1e-6', () => {
+    const rnd = mulberry32(777);
+    for (const total of [1, 2, 5, 18]) {
+      for (let run = 0; run < 10; run++) {
+        const moves = randomMoves(rnd, total);
+        const delay = 2000 + rnd() * 13000;
+        let s = started(moves, 1, delay);
+        const expected = animSumLocal(moves) + total * delay;
+        let guard = 0;
+        while (s.status !== 'complete' && guard++ < 1000000) {
+          s = tick(s, rnd() * 40 + 0.001);
+          checkExact(s);
+        }
+        expect(s.status).toBe('complete');
+        expect(Math.abs(s.playbackMs - expected)).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it('a phase that fills lands EXACTLY (waitElapsed is 0 and animElapsed equals the duration at hand-off)', () => {
+    const s = tick(started(['R', 'U']), 0.1 + 0.2 + 779.7);
+    expect(s.status === 'animating' || s.status === 'waiting').toBe(true);
+    checkExact(s);
+  });
+
+  function animSumLocal(moves: readonly MoveToken[]): number {
+    return moves.reduce((a, m) => a + animDurationMs(m), 0);
+  }
+});
+
+describe('L5 REPLAY from a hidden pause must not start the clock', () => {
+  it('hidden pause (from animating) stays paused/hidden with a reset animation', () => {
+    const p = pause(tick(started(['R', 'U']), 400), 'hidden');
+    const r = replay(p);
+    expect(r).toMatchObject({
+      status: 'paused', pausedFrom: 'animating', pauseReason: 'hidden',
+      index: 0, animElapsedMs: 0, isReplay: true,
+    });
+    expect(tick(r, 500)).toBe(r);
+    expect(displayedSnapshotIndex(r)).toBe(0);
+    expect(resume(r)).toMatchObject({ status: 'animating', animElapsedMs: 0, isReplay: true });
+  });
+  it('hidden pause from waiting becomes a paused replay of the same move', () => {
+    const p = pause(tick(started(['R', 'U']), 780 + 500), 'hidden');
+    const r = replay(p);
+    expect(r).toMatchObject({ status: 'paused', pausedFrom: 'animating', pauseReason: 'hidden', index: 0, animElapsedMs: 0, waitElapsedMs: 0 });
+    expect(displayedSnapshotIndex(r)).toBe(0);
+  });
+  it('user pause still resumes into animating', () => {
+    const r = replay(pause(tick(started(['R', 'U']), 400), 'user'));
+    expect(r).toMatchObject({ status: 'animating', pausedFrom: null, pauseReason: null, isReplay: true });
+  });
+});
+
+describe('L6 PAUSE reason precedence', () => {
+  it("'user' upgrades a hidden pause (new state)", () => {
+    const h = pause(tick(started(['R']), 100), 'hidden');
+    const u = pause(h, 'user');
+    expect(u).not.toBe(h);
+    expect(u).toEqual({ ...h, pauseReason: 'user' });
+  });
+  it("'hidden' while user-paused is a same-object no-op", () => {
+    const u = pause(tick(started(['R']), 100), 'user');
+    expect(pause(u, 'hidden')).toBe(u);
+    expect(pause(u, 'user')).toBe(u);
+  });
+  it("'hidden' while hidden-paused is a no-op", () => {
+    const h = pause(tick(started(['R']), 100), 'hidden');
+    expect(pause(h, 'hidden')).toBe(h);
+  });
+});
+
+describe('L1 RESET requires an integer generation', () => {
+  it('NaN, 1.5 and Infinity are rejected', () => {
+    const s = createPlaybackState();
+    for (const g of [NaN, 1.5, Infinity]) {
+      expect(playbackReducer(s, { type: 'RESET', generation: g, moves: ['R'], delayMs: 2000 })).toBe(s);
+    }
+    const g1 = reset(['R']);
+    expect(playbackReducer(g1, { type: 'RESET', generation: 1.5, moves: ['R'], delayMs: 2000 })).toBe(g1);
+    expect(playbackReducer(g1, { type: 'RESET', generation: 2, moves: ['R'], delayMs: 2000 }).generation).toBe(2);
+  });
+});

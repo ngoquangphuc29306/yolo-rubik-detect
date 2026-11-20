@@ -53,6 +53,8 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.9 | `npm run test` | 0 | 22 files passed, 500 tests passed, 0 failed. |
 | T1.9 | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
 | T1.9 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
+| T1.9-R21 | `npx vitest run tests/engine/playback-fsm.test.ts` (RED) | 1 | 4 failed / 63 passed (L5 x2, L6, L1); M1 fractional tests passed pre-fix (no failure reproduced). |
+| T1.9-R21 | same (GREEN) / `npm run test` / lint / build | 0 | 67 passed; full 22 files, 510 tests; lint and build exit 0. |
 
 ## Notes
 
