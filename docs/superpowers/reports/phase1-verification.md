@@ -48,6 +48,11 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.8a | `npx vitest run` (GREEN) | 0 | 20 files passed, 423 tests passed, 0 failed (stores, runSolve incl. stale/session/mismatch/no-live-fallback, checkHealth, jsdom renderHook smoke, R15 service tests, architecture guard). |
 | T1.8a | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
 | T1.8a | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
+| T1.9 | `npx vitest run tests/engine/playback-fsm.test.ts` (RED, before impl) | 1 | suite failed to load: `Cannot find package '@/engine/playback-fsm'` (expected); 0 tests ran. |
+| T1.9 | `npx vitest run tests/engine/playback-fsm.test.ts` (GREEN) | 0 | 1 file, 57 tests passed (B1, B2, associativity 240 seeded cases, 7500-step invariant property, pause/resume, replay, SET_DELAY, empty/1-move, immutability, event-set exhaustiveness). |
+| T1.9 | `npm run test` | 0 | 22 files passed, 500 tests passed, 0 failed. |
+| T1.9 | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
+| T1.9 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
 
 ## Notes
 
