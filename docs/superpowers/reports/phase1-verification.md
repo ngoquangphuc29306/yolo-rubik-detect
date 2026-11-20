@@ -39,6 +39,11 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.6 | `npm run test` | 0 | 15 files passed, 379 tests passed, 0 failed (architecture guard green with services/). |
 | T1.6 | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
 | T1.6 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
+| T1.7 | `npx vitest run tests/demo` (RED, before impl) | 1 | suite failed to load: `@/demo/demo-fixtures` absent (expected); 0 tests ran. |
+| T1.7 | `npx vitest run tests/demo` (GREEN) | 0 | 1 file, 12 tests passed (3 demos + solved: strict parse, bind ok, provenance only on wrapper; unknown/malformed rejected REQUEST_INVALID; scrambles equal legacy literal; invalid-state error shape; scan conditions). |
+| T1.7 | `npm run test` | 0 | 16 files passed, 391 tests passed, 0 failed (architecture guard green with demo/). |
+| T1.7 | `npm run lint` (`tsc --noEmit`) | 0 | no errors (after typing test request helper). |
+| T1.7 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
 
 ## Notes
 
