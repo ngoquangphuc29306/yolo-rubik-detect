@@ -119,4 +119,89 @@ describe('bindSolveResponse', () => {
     const r = bindSolveResponse(requestFor(SCRAMBLED, ROTATED), responseFor(SCRAMBLED, DEMO, INVERSE));
     expect(r).toMatchObject({ ok: false, code: 'RESPONSE_MISMATCH' });
   });
+
+  describe('fail closed on malformed input (never throws)', () => {
+    const req = () => requestFor(SCRAMBLED, DEMO);
+    const good = () => responseFor(SCRAMBLED, DEMO, INVERSE);
+    const bind = (resp: unknown, ...request: unknown[]) =>
+      bindSolveResponse((request.length ? request[0] : req()) as SolveRequest, resp as SolveResponse);
+    const mismatch = { ok: false, code: 'RESPONSE_MISMATCH' };
+
+    it('null / undefined / primitive response', () => {
+      for (const r of [null, undefined, 5, 'x']) expect(() => bind(r), String(r)).not.toThrow();
+      for (const r of [null, undefined, 5, 'x']) expect(bind(r)).toMatchObject(mismatch);
+    });
+
+    it('throwing getter on the response', () => {
+      const r = good();
+      Object.defineProperty(r, 'initialState', {
+        get() {
+          throw new Error('x');
+        },
+      });
+      expect(bind(r)).toMatchObject(mismatch);
+    });
+
+    it('null request is REQUEST_INVALID', () => {
+      expect(bind(good(), null)).toMatchObject({ ok: false, code: 'REQUEST_INVALID' });
+      expect(bind(good(), undefined)).toMatchObject({ ok: false, code: 'REQUEST_INVALID' });
+    });
+
+    it('centerColors null, missing, or missing one face', () => {
+      const noU = { ...DEMO } as { -readonly [K in FaceId]?: ColorName };
+      delete noU.U;
+      for (const cc of [null, undefined, noU]) {
+        expect(bind({ ...good(), centerColors: cc })).toMatchObject(mismatch);
+      }
+    });
+
+    it('non-string initialState', () => {
+      expect(bind({ ...good(), initialState: 123 })).toMatchObject(mismatch);
+    });
+
+    it('moves not an array', () => {
+      for (const m of ['R U', { length: 1, 0: 'R' }]) {
+        expect(bind({ ...good(), moves: m, moveCount: 1 })).toMatchObject(mismatch);
+      }
+    });
+
+    it('non-string tokens', () => {
+      const sparse = new Array(2);
+      sparse[0] = 'R';
+      for (const moves of [[1], [null], sparse]) {
+        expect(bind({ ...good(), moves, moveCount: moves.length })).toMatchObject({
+          ok: false,
+          code: 'SOLUTION_REPLAY_MISMATCH',
+        });
+      }
+    });
+
+    it('moveCount undefined, NaN, "1"', () => {
+      for (const mc of [undefined, NaN, '1']) {
+        expect(bind({ ...responseFor(SOLVED, DEMO, ['U']), moveCount: mc })).toMatchObject(mismatch);
+      }
+      expect(bind({ ...good(), moveCount: undefined })).toMatchObject(mismatch);
+    });
+
+    it('swapping any single face centre colour is RESPONSE_MISMATCH', () => {
+      const faces: FaceId[] = ['U', 'R', 'F', 'D', 'L', 'B'];
+      for (const f of faces) {
+        const other = faces[(faces.indexOf(f) + 1) % 6];
+        const cc = { ...DEMO, [f]: DEMO[other] };
+        expect(bind({ ...good(), centerColors: cc }), f).toMatchObject(mismatch);
+      }
+    });
+
+    it('a different legal scramble state with matching moves is RESPONSE_MISMATCH', () => {
+      const seq = "F R U' B2";
+      const other = toFacelets(applySequence(REF_SOLVED, seq)) as FaceletState;
+      const inv = seq.split(' ').reverse().map((t) => (t.endsWith('2') ? t : t.endsWith("'") ? t[0] : `${t}'`));
+      expect(bind(responseFor(other, DEMO, inv))).toMatchObject(mismatch);
+    });
+
+    it('extra source field is ignored', () => {
+      const r = { ...good(), source: 'demo-fixture' };
+      expect(bind(r)).toMatchObject({ ok: true });
+    });
+  });
 });

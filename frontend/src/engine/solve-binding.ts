@@ -19,7 +19,20 @@ export type BindResult =
 
 const fail = (code: BindFailureCode, reason: string): BindResult => ({ ok: false, code, reason });
 
+/** Fails closed: any malformed input or unexpected exception yields a typed failure, never a throw. */
 export function bindSolveResponse(request: SolveRequest, response: SolveResponse): BindResult {
+  try {
+    return bindUnchecked(request, response);
+  } catch (e) {
+    return fail('RESPONSE_MISMATCH', `Response could not be read: ${e instanceof Error ? e.message : 'unknown error'}`);
+  }
+}
+
+function bindUnchecked(request: SolveRequest, response: SolveResponse): BindResult {
+  if (typeof request !== 'object' || request === null) return fail('REQUEST_INVALID', 'Request is not an object');
+  if (typeof response !== 'object' || response === null) {
+    return fail('RESPONSE_MISMATCH', 'Response is not an object');
+  }
   let built: { state: FaceletState; centers: CenterColors };
   try {
     built = buildFaceletState(request.faces as unknown as SixFaces);
