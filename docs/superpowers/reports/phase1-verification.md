@@ -62,6 +62,11 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.10 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
 | T1.10-R1 | `npx vitest run tests/hooks/usePlayback.test.tsx` (RED) | 1 | 7 failed / 15 passed (content reset, Activity re-arm, frameRef x4, setDelay removal). |
 | T1.10-R1 | same (GREEN) / `npm run test` / lint / build | 0 | 22 passed; full 23 files, 532 tests; lint and build exit 0. |
+| T1.11 | `npx vitest run tests/components/three/animation.test.ts` (RED, before impl) | 1 | suite failed to load (module `@/components/three/animation` absent, expected); 0 tests ran. |
+| T1.11 | same (GREEN) | 0 | 1 file, 21 tests passed (ease endpoints/legacy values/symmetry/monotonic, pivot per axis and sign, R and U' at 0.5, selectShown idle/animating/waiting/complete/paused/clamp/empty). |
+| T1.11 | `npm run lint` / `npm run build` | 0 / 0 | tsc clean; built, existing chunk-size warning unchanged. |
+| T1.11 | `npm run test` | 1 | 552 passed / 1 failed: `playback-fsm` seeded-invariant property test hit the 5000 ms timeout (10-13 s on this loaded machine; identical failure with my changes stashed; passes in isolation, 67/67). Not caused by T1.11. |
+| T1.11 | Browser (Chrome, vite 127.0.0.1:3000, 1440x900), legacy path | n/a | Landing, Reconstruction and Alignment cubes render and respond to drag; Solving via demo animates (arrow, mid-turn R2 layer captured, Step 1 to 4 advanced). Console: only favicon.ico 404 and THREE.Clock deprecation warnings. Controlled mode NOT RUN in browser (no consumer until T1.12). |
 
 ## Notes
 

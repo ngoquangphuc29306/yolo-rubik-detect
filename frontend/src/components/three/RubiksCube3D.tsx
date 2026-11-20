@@ -3,13 +3,16 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, RoundedBox } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import {
   CubieState,
   FaceKey,
   MoveDescriptor,
   STICKER_COLORS,
 } from '@/lib/cubeEngine';
+import type { MoveDescriptor as EngineMoveDescriptor } from '@/engine/move-presentation';
+import type { PlaybackFrame } from '@/hooks/usePlayback';
+import type { RenderCubie } from '@/types/cube';
+import { easeInOutCubic, pivotRotation, selectShown } from './animation';
 
 const isSoftwareGl: boolean = (() => {
   if (typeof document === 'undefined') return false;
@@ -27,6 +30,9 @@ const isSoftwareGl: boolean = (() => {
 })();
 
 const _targetCamPos = new THREE.Vector3();
+const EMPTY_SNAPSHOTS: readonly (readonly RenderCubie[])[] = [];
+const EMPTY_MOVES: readonly EngineMoveDescriptor[] = [];
+const EMPTY_CUBIES: readonly CubieState[] = [];
 
 function StudioEnvironment() {
   const { gl, scene } = useThree();
@@ -283,7 +289,18 @@ function MoveArrow3D({ move }: { move: MoveDescriptor }) {
   );
 }
 
-interface CubeSceneProps {
+type OrbitControlsImpl = React.ElementRef<typeof OrbitControls>;
+
+/** Controlled-mode inputs: the renderer reads `frameRef` each frame; it owns no clock. */
+interface ControlledProps {
+  frameRef?: React.MutableRefObject<PlaybackFrame>;
+  /** One toCubies result per snapshot S[0..N]; the caller memoises them. */
+  snapshots?: readonly (readonly RenderCubie[])[];
+  /** Move i turns S[i] into S[i+1]. */
+  activeMoves?: readonly EngineMoveDescriptor[];
+}
+
+interface CubeSceneProps extends ControlledProps {
   cubies: CubieState[];
   mode: 'hero' | 'interactive' | 'reference' | 'solving' | 'solved';
   activeMove?: MoveDescriptor | null;
@@ -301,8 +318,11 @@ interface CubeSceneProps {
 
 function CubeScene({
   cubies,
+  frameRef,
+  snapshots,
+  activeMoves,
   mode,
-  activeMove = null,
+  activeMove: legacyActiveMove = null,
   animateMoveTrigger = 0,
   animationDuration = 0.72,
   onMoveAnimationComplete,
@@ -318,6 +338,23 @@ function CubeScene({
   const pivotRef = React.useRef<THREE.Group>(null);
   const controlsRef = React.useRef<OrbitControlsImpl | null>(null);
   const { camera } = useThree();
+
+  const controlled = frameRef !== undefined;
+  const snaps = snapshots ?? EMPTY_SNAPSHOTS;
+  const moves = activeMoves ?? EMPTY_MOVES;
+
+  // Controlled mode: what the layer partition is built from. Updated from useFrame only when the
+  // selection changes, so React re-renders per move boundary, not per frame.
+  // One-frame behaviour: the pivot angle is applied imperatively from the SAME frameRef read, but
+  // membership (which cubies sit in the pivot) comes from this state and lags by at most one frame.
+  // While the committed selection differs from the frame's, the angle is not applied (the pivot
+  // keeps its last value, which at a move's end already equals the next snapshot visually); on
+  // commit the pivot is reset to identity in a layout effect, before paint.
+  const [shown, setShown] = React.useState(() => {
+    const sel = frameRef ? selectShown(frameRef.current, snaps, moves) : null;
+    return { snapshotIndex: sel?.snapshotIndex ?? 0, moveIndex: sel?.activeMove ? frameRef!.current.activeIndex : -1 };
+  });
+  const committedShown = React.useRef(shown);
 
   const animState = React.useRef<{
     active: boolean;
@@ -336,8 +373,10 @@ function CubeScene({
   const camDampTarget = React.useRef<[number, number, number] | null>(null);
   const userDraggingRef = React.useRef(false);
 
+  // TEMPORARY legacy path — removed in T1.12
   React.useEffect(() => {
     if (
+      !controlled &&
       animateMoveTrigger > 0 &&
       activeMove &&
       animState.current.completedTrigger !== animateMoveTrigger
@@ -353,13 +392,22 @@ function CubeScene({
         pivotRef.current.rotation.set(0, 0, 0);
       }
     }
-  }, [animateMoveTrigger, activeMove, animationDuration]);
+  }, [controlled, animateMoveTrigger, legacyActiveMove, animationDuration]);
 
+  // TEMPORARY legacy path — removed in T1.12
   React.useEffect(() => {
-    if (pivotRef.current && !animState.current.active) {
+    if (!controlled && pivotRef.current && !animState.current.active) {
       pivotRef.current.rotation.set(0, 0, 0);
     }
-  }, [cubies]);
+  }, [controlled, cubies]);
+
+  React.useLayoutEffect(() => {
+    committedShown.current = shown;
+    if (controlled) pivotRef.current?.rotation.set(0, 0, 0);
+  }, [controlled, shown]);
+
+  const shownMove = controlled && shown.moveIndex >= 0 ? (moves[shown.moveIndex] ?? null) : null;
+  const activeMove = controlled ? shownMove : legacyActiveMove;
 
   React.useEffect(() => {
     if (autoRepositionCamera && activeMove) {
@@ -420,13 +468,27 @@ function CubeScene({
       }
     }
 
-    if (animState.current.active && animState.current.move && pivotRef.current) {
+    if (frameRef) {
+      // Controlled: one read per frame drives both the shown snapshot and the pivot angle.
+      const frame = frameRef.current;
+      const sel = selectShown(frame, snaps, moves);
+      const moveIndex = sel.activeMove ? frame.activeIndex : -1;
+      const c = committedShown.current;
+      if (sel.snapshotIndex !== c.snapshotIndex || moveIndex !== c.moveIndex) {
+        setShown((prev) =>
+          prev.snapshotIndex === sel.snapshotIndex && prev.moveIndex === moveIndex
+            ? prev
+            : { snapshotIndex: sel.snapshotIndex, moveIndex },
+        );
+      } else if (pivotRef.current) {
+        const r = sel.activeMove ? pivotRotation(sel.activeMove, sel.progress) : { x: 0, y: 0, z: 0 };
+        pivotRef.current.rotation.set(r.x, r.y, r.z);
+      }
+    } else if (animState.current.active && animState.current.move && pivotRef.current) {
+      // TEMPORARY legacy path — removed in T1.12
       animState.current.elapsed += delta;
       const progress = Math.min(1, animState.current.elapsed / animState.current.duration);
-      const eased =
-        progress < 0.5
-          ? 4 * progress * progress * progress
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      const eased = easeInOutCubic(progress);
 
       const currentAngle = animState.current.move.angle * eased;
       pivotRef.current.rotation.set(0, 0, 0);
@@ -459,13 +521,17 @@ function CubeScene({
     }
   });
 
+  const shownCubies: readonly CubieState[] = controlled
+    ? (snaps[shown.snapshotIndex] ?? EMPTY_CUBIES)
+    : cubies;
+
   const { activeCubies, staticCubies } = React.useMemo(() => {
     if (!activeMove) {
-      return { activeCubies: [] as CubieState[], staticCubies: cubies };
+      return { activeCubies: [] as CubieState[], staticCubies: shownCubies };
     }
     const active: CubieState[] = [];
     const rest: CubieState[] = [];
-    for (const c of cubies) {
+    for (const c of shownCubies) {
       if (c[activeMove.axis] === activeMove.layer) {
         active.push(c);
       } else {
@@ -473,7 +539,7 @@ function CubeScene({
       }
     }
     return { activeCubies: active, staticCubies: rest };
-  }, [cubies, activeMove]);
+  }, [shownCubies, activeMove]);
 
   return (
     <>
@@ -527,7 +593,7 @@ function CubeScene({
   );
 }
 
-export interface RubiksCube3DProps {
+export interface RubiksCube3DProps extends ControlledProps {
   cubies: CubieState[];
   mode?: 'hero' | 'interactive' | 'reference' | 'solving' | 'solved';
   activeMove?: MoveDescriptor | null;
@@ -547,6 +613,9 @@ export interface RubiksCube3DProps {
 
 export function RubiksCube3D({
   cubies,
+  frameRef,
+  snapshots,
+  activeMoves,
   mode = 'interactive',
   activeMove = null,
   animateMoveTrigger = 0,
@@ -621,6 +690,9 @@ export function RubiksCube3D({
       >
         <CubeScene
           cubies={cubies}
+          frameRef={frameRef}
+          snapshots={snapshots}
+          activeMoves={activeMoves}
           mode={mode}
           activeMove={activeMove}
           animateMoveTrigger={animateMoveTrigger}
