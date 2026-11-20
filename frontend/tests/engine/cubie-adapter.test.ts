@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import golden_ from '../golden/to-cubies.json';
 import { toCubies } from '@/engine/cubie-adapter';
 import { CubeStateError, SOLVED, facesFromState } from '@/engine/cube-state';
 import { applyMove, parseMoveToken } from '@/engine/move-engine';
@@ -82,5 +83,42 @@ describe('toCubies', () => {
     expect(ids(a)).toEqual(ids(b));
     expect(ids(a)['-1,-1,-1']).toBe(0);
     expect(ids(a)['-1,-1,0']).toBe(1);
+  });
+});
+
+describe('toCubies invariants (legacy-independent)', () => {
+  const AXIS_OF: Record<string, (c: { x: number; y: number; z: number }) => number> = {
+    R: (c) => c.x, L: (c) => -c.x, U: (c) => c.y, D: (c) => -c.y, F: (c) => c.z, B: (c) => -c.z,
+  };
+
+  it.each([['SOLVED', SOLVED], ['scramble', S]] as const)('%s: sticker counts and face/position agreement', (_n, st) => {
+    const cubies = toCubies(st, DEMO);
+    const counts = cubies.map((c) => Object.keys(c.stickers).length);
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(54);
+    expect(counts.filter((n) => n === 1)).toHaveLength(6);
+    expect(counts.filter((n) => n === 2)).toHaveLength(12);
+    expect(counts.filter((n) => n === 3)).toHaveLength(8);
+    for (const c of cubies) {
+      for (const key of Object.keys(c.stickers)) expect(AXIS_OF[key](c)).toBe(1);
+    }
+  });
+});
+
+describe('toCubies frozen golden', () => {
+  const golden = golden_ as unknown as {
+    _meta: { note: string };
+    solved: unknown;
+    scramble: unknown;
+    moves: Record<string, unknown>;
+  };
+  it('has provenance meta', () => {
+    expect(golden._meta.note).toMatch(/frozen after legacy-differential verification/);
+  });
+  it('SOLVED and scramble match', () => {
+    expect(toCubies(SOLVED, DEMO)).toEqual(golden.solved);
+    expect(toCubies(S, DEMO)).toEqual(golden.scramble);
+  });
+  it.each(TOKENS)('single move %s on solved matches', (t) => {
+    expect(toCubies(applyMove(SOLVED, t), DEMO)).toEqual(golden.moves[t]);
   });
 });
