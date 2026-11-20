@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "DUPLICATE_CENTER",
+    "message": "Two faces have the same center color. Check that each face was scanned once.",
+    "retryable": true
+  }
+}

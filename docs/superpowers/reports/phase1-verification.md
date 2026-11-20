@@ -34,6 +34,11 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.5 | `npm run test` (GREEN) | 0 | 10 test files passed, 275 tests passed, 0 failed (adapter: solved parity, 18-token differential vs legacy applyMove, round-trip, custom centres, throws, ids; scan-guide: legacy text parity, no colour words for unknown centres). |
 | T1.5 | `npm run lint` (`tsc --noEmit`) | 0 | no errors (after typing test fold as `reduce<FaceletState>`). |
 | T1.5 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
+| T1.6 | `npx vitest run tests/services` (RED, before impl) | 1 | all 5 suites failed to load (`@/services/*`, `@/lib/request-guard` absent, expected); 0 tests ran. |
+| T1.6 | `npx vitest run tests/services` (GREEN) | 0 | 5 files passed, 44 tests passed (parsers incl. extra-key/type/centre/token/moveCount rejection, error-typing exhaustive switches, fixtures + bindSolveResponse + reference replay, guard stale success/error and reset, solver-client, health-client + deriveLiveReadiness, scan transport). |
+| T1.6 | `npm run test` | 0 | 15 files passed, 379 tests passed, 0 failed (architecture guard green with services/). |
+| T1.6 | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
+| T1.6 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
 
 ## Notes
 

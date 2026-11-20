@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "faces": {
+    "U": [
+      "yellow",
+      "yellow",
+      "green",
+      "green",
+      "white",
+      "white",
+      "white",
+      "orange",
+      "blue"
+    ],
+    "R": [
+      "orange",
+      "green",
+      "yellow",
+      "yellow",
+      "red",
+      "orange",
+      "orange",
+      "red",
+      "blue"
+    ],
+    "F": [
+      "red",
+      "white",
+      "yellow",
+      "red",
+      "green",
+      "orange",
+      "red",
+      "blue",
+      "green"
+    ],
+    "D": [
+      "blue",
+      "white",
+      "white",
+      "blue",
+      "yellow",
+      "white",
+      "blue",
+      "blue",
+      "orange"
+    ],
+    "L": [
+      "orange",
+      "red",
+      "green",
+      "red",
+      "orange",
+      "yellow",
+      "white",
+      "yellow",
+      "yellow"
+    ],
+    "B": [
+      "red",
+      "green",
+      "green",
+      "green",
+      "blue",
+      "blue",
+      "white",
+      "orange",
+      "red"
+    ]
+  }
+}

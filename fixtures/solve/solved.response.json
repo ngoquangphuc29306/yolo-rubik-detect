@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "centerColors": {
+    "U": "white",
+    "R": "red",
+    "F": "green",
+    "D": "yellow",
+    "L": "orange",
+    "B": "blue"
+  },
+  "initialState": "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
+  "moves": [],
+  "moveCount": 0
+}

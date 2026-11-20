@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "centerColors": {
+    "U": "white",
+    "R": "red",
+    "F": "green",
+    "D": "yellow",
+    "L": "orange",
+    "B": "blue"
+  },
+  "initialState": "DDFFUUULBLFDDRLLRBRUDRFLRBFBUUBDUBBLLRFRLDUDDRFFFBBULR",
+  "moves": [
+    "D",
+    "F",
+    "R2",
+    "U2",
+    "B2",
+    "L",
+    "D'",
+    "F2",
+    "U",
+    "R",
+    "U'",
+    "R'"
+  ],
+  "moveCount": 12
+}
