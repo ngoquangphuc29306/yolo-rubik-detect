@@ -629,31 +629,41 @@ describe('invariants (seeded random event sequences)', () => {
     return { type: 'START', generation: g };
   }
 
-  function checkInvariants(s: PlaybackState) {
-    expect(s.index).toBeGreaterThanOrEqual(0);
-    expect(s.index).toBeLessThanOrEqual(Math.max(s.total - 1, 0));
-    expect(s.animMs.length).toBe(s.total);
-    const d = displayedSnapshotIndex(s);
-    expect(Number.isInteger(d)).toBe(true);
-    expect(d).toBeGreaterThanOrEqual(0);
-    expect(d).toBeLessThanOrEqual(s.total);
-    expect(s.animElapsedMs).toBeGreaterThanOrEqual(0);
-    if (s.total > 0) expect(s.animElapsedMs).toBeLessThanOrEqual(s.animMs[s.index]!);
-    expect(s.waitElapsedMs).toBeGreaterThanOrEqual(0);
-    expect(s.waitElapsedMs).toBeLessThanOrEqual(s.waitTotalMs);
-    const p = animationProgress(s);
-    expect(p).toBeGreaterThanOrEqual(0);
-    expect(p).toBeLessThanOrEqual(1);
-    expect(s.delayMs).toBeGreaterThanOrEqual(MIN_DELAY_MS);
-    expect(s.delayMs).toBeLessThanOrEqual(MAX_DELAY_MS);
-    expect(Number.isFinite(s.playbackMs)).toBe(true);
-    if (s.status === 'paused') expect(s.pausedFrom).not.toBeNull();
-    else expect(s.pausedFrom).toBeNull();
+  // Plain checks (not expect): ~560k assertions per run made expect() the dominant cost.
+  function check(ok: boolean, what: string, s: PlaybackState): void {
+    if (!ok) throw new Error(`invariant violated: ${what} in ${JSON.stringify(s)}`);
   }
 
-  it('holds for random generation-valid sequences over total in {0,1,2,5,18}', () => {
+  function checkInvariants(s: PlaybackState): void {
+    check(s.index >= 0 && s.index <= Math.max(s.total - 1, 0), 'index range', s);
+    check(s.animMs.length === s.total, 'animMs length', s);
+    const d = displayedSnapshotIndex(s);
+    check(Number.isInteger(d) && d >= 0 && d <= s.total, 'displayed index', s);
+    check(s.animElapsedMs >= 0, 'animElapsed >= 0', s);
+    if (s.total > 0) check(s.animElapsedMs <= s.animMs[s.index]!, 'animElapsed <= animMs', s);
+    check(s.waitElapsedMs >= 0 && s.waitElapsedMs <= s.waitTotalMs, 'wait range', s);
+    const p = animationProgress(s);
+    check(p >= 0 && p <= 1, 'progress range', s);
+    check(s.delayMs >= MIN_DELAY_MS && s.delayMs <= MAX_DELAY_MS, 'delay range', s);
+    check(Number.isFinite(s.playbackMs), 'playbackMs finite', s);
+    check((s.status === 'paused') === (s.pausedFrom !== null), 'pausedFrom iff paused', s);
+  }
+
+  it('holds for random generation-valid sequences over total in {0,1,2,5,18} and visits every edge case', () => {
     const rnd = mulberry32(20261120);
-    let steps = 0;
+    const visits = {
+      pauseWhileAnimating: 0,
+      pauseWhileWaiting: 0,
+      replayWhileWaiting: 0,
+      replayWhilePaused: 0,
+      resetMidRun: 0,
+      hiddenPause: 0,
+      userPause: 0,
+      completion: 0,
+      setDelayMidWait: 0,
+      staleIgnored: 0,
+      pausedTickIgnored: 0,
+    };
     for (const total of [0, 1, 2, 5, 18]) {
       for (let run = 0; run < 25; run++) {
         const moves = randomMoves(rnd, total);
@@ -664,32 +674,63 @@ describe('invariants (seeded random event sequences)', () => {
           const prev = s;
           if (rnd() < 0.02) {
             gen += 1; // restart with a higher playback-run generation
+            if (prev.status === 'animating' || prev.status === 'waiting' || prev.status === 'paused') {
+              visits.resetMidRun++;
+            }
             s = playbackReducer(s, { type: 'RESET', generation: gen, moves, delayMs: 3000 });
-            expect(s.playbackMs).toBe(0);
-            expect(s.generation).toBe(gen);
-          } else {
-            const e = randomEvent(rnd, gen);
-            s = playbackReducer(s, e);
-            if (e.type === 'TICK' && prev.status === 'paused') expect(s).toBe(prev);
-            if (e.generation !== gen) expect(s).toBe(prev);
-            expect(s.playbackMs).toBeGreaterThanOrEqual(prev.playbackMs);
+            check(s.playbackMs === 0 && s.generation === gen, 'RESET re-initialises', s);
+            checkInvariants(s);
+            continue;
           }
+          const e = randomEvent(rnd, gen);
+          s = playbackReducer(s, e);
+          check(s.playbackMs >= prev.playbackMs, 'playbackMs non-decreasing', s);
+          check(s.index >= prev.index, 'index monotonic within a run (REPLAY keeps it)', s);
+          if (e.type === 'REPLAY') check(s.index === prev.index, 'REPLAY keeps index', s);
+          if (e.generation !== gen) {
+            check(s === prev, 'stale event is a no-op', s);
+            visits.staleIgnored++;
+          }
+          if (e.type === 'TICK' && prev.status === 'paused') {
+            check(s === prev, 'paused TICK is a no-op', s);
+            visits.pausedTickIgnored++;
+          }
+          if (e.generation === gen) {
+            if (e.type === 'PAUSE' && s.status === 'paused' && s !== prev) {
+              if (prev.status === 'animating') visits.pauseWhileAnimating++;
+              if (prev.status === 'waiting') visits.pauseWhileWaiting++;
+              if (s.pauseReason === 'hidden') visits.hiddenPause++;
+              if (s.pauseReason === 'user') visits.userPause++;
+            }
+            if (e.type === 'REPLAY' && s !== prev) {
+              if (prev.status === 'waiting') visits.replayWhileWaiting++;
+              if (prev.status === 'paused') visits.replayWhilePaused++;
+            }
+            if (e.type === 'SET_DELAY' && prev.status === 'waiting' && s.delayMs !== prev.delayMs) {
+              check(s.waitTotalMs === prev.waitTotalMs, 'in-flight wait unchanged by SET_DELAY', s);
+              visits.setDelayMidWait++;
+            }
+          }
+          if (prev.status !== 'complete' && s.status === 'complete' && s.total > 0) visits.completion++;
           checkInvariants(s);
-          steps++;
         }
       }
     }
-    expect(steps).toBe(5 * 25 * 300);
-  });
+    for (const [name, n] of Object.entries(visits)) {
+      expect(n, `visit counter ${name}`).toBeGreaterThan(0);
+    }
+  }, 30_000);
 });
 
 // ---------- R21 hardening ----------
 describe('M1 exact phase boundaries under fractional dt', () => {
   function checkExact(s: PlaybackState) {
-    if (s.total > 0) expect(s.animElapsedMs).toBeLessThanOrEqual(s.animMs[s.index]!);
-    expect(s.animElapsedMs).toBeGreaterThanOrEqual(0);
-    expect(s.waitElapsedMs).toBeLessThanOrEqual(s.waitTotalMs);
-    expect(s.waitElapsedMs).toBeGreaterThanOrEqual(0);
+    const ok =
+      (s.total === 0 || s.animElapsedMs <= s.animMs[s.index]!) &&
+      s.animElapsedMs >= 0 &&
+      s.waitElapsedMs <= s.waitTotalMs &&
+      s.waitElapsedMs >= 0;
+    if (!ok) throw new Error(`phase bound violated: ${JSON.stringify(s)}`);
   }
 
   it('repeated 16.6667 ms frames keep invariants exact and finish at the exact total', () => {
