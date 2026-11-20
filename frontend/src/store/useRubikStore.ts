@@ -1,13 +1,20 @@
+// TEMPORARY BRIDGE -- removed in T1.17.
+// Session, scan and cube data now live in stores/{session,scan,cube}-store. The fields of this legacy store that
+// mirror them are DERIVED one-way by `syncMirror` (subscribed at the bottom) and are never written by the actions
+// here; the session actions DELEGATE to the new stores. UI-local fields stay legacy-owned until their screen migrates.
 import { create } from 'zustand';
-import {
-  CubieState,
-  FACE_ORDER,
-  FaceKey,
-  MoveNotation,
-  StickerColor,
-  extractAllFaces,
-  generateScrambleSession,
-} from '@/lib/cubeEngine';
+import type { CubieState, FaceKey, MoveNotation, StickerColor } from '@/lib/cubeEngine';
+import { colorNameToCode } from '@/lib/colors';
+import { DEMO_CENTER_COLORS, DEMO_SCRAMBLES, demoFaces, demoInitialState } from '@/demo/demo-fixtures';
+import { demoSolve } from '@/demo/demo-solver';
+import { toCubies } from '@/engine/cubie-adapter';
+import { runSolve } from '@/hooks/useSolveSession';
+import { solve as solveBackend } from '@/services/solver-client';
+import { useCubeStore } from '@/stores/cube-store';
+import { buildSolveRequest, useScanStore } from '@/stores/scan-store';
+import { useSessionStore } from '@/stores/session-store';
+import { solveRequestGuard } from '@/stores/solve-guard';
+import { SCAN_FACE_ORDER, type FaceGrid } from '@/types/cube';
 
 export type AppScreen =
   | 'landing'
@@ -30,20 +37,20 @@ export type ScanCondition =
   | 'captured_flash';
 
 interface RubikStoreState {
-  screen: AppScreen;
-  sessionSeed: number;
-  initialCube: CubieState[];
-  solution: MoveNotation[];
-  targetFaces: Record<FaceKey, StickerColor[]>;
+  screen: AppScreen; // mirror: session-store
+  sessionSeed: number; // legacy-owned: picks the demo cube
+  initialCube: CubieState[]; // mirror: cube-store solution (or the demo cube of sessionSeed before a solve)
+  solution: MoveNotation[]; // mirror: cube-store solution moves
+  targetFaces: Record<FaceKey, StickerColor[]>; // mirror: demo faces of sessionSeed (demo only)
 
   // Guided Scanning state
-  activeFaceIndex: number;
-  faceStatuses: Record<FaceKey, FaceCaptureStatus>;
-  capturedFaces: Partial<Record<FaceKey, StickerColor[]>>;
-  scanCondition: ScanCondition;
-  stabilityProgress: number; // 0..100
+  activeFaceIndex: number; // mirror: scan-store
+  faceStatuses: Record<FaceKey, FaceCaptureStatus>; // mirror: scan-store
+  capturedFaces: Partial<Record<FaceKey, StickerColor[]>>; // mirror: scan-store
+  scanCondition: ScanCondition; // mirror: scan-store
+  stabilityProgress: number; // mirror: scan-store, 0..100
   useRealWebcam: boolean;
-  autoCaptureEnabled: boolean;
+  autoCaptureEnabled: boolean; // mirror: session-store settings
 
   // Reconstruction state
   forceInvalidCube: boolean;
@@ -51,10 +58,10 @@ interface RubikStoreState {
   invalidFaceKey: FaceKey | null;
 
   // Solving state
-  moveDelaySeconds: number; // 2..15
+  moveDelaySeconds: number; // mirror: session-store settings, 2..15
   currentStepIndex: number; // 0..solution.length
   isPlaying: boolean;
-  soundEnabled: boolean;
+  soundEnabled: boolean; // mirror: session-store settings
   solveElapsedSeconds: number;
   userConfirmedSolved: boolean;
   cameraResetToken: number;
@@ -81,191 +88,158 @@ interface RubikStoreState {
   triggerCameraReset: () => void;
 }
 
-function createInitialSession(seed: number) {
-  const { initialCube, solution } = generateScrambleSession(seed);
-  const targetFaces = extractAllFaces(initialCube);
-  return { initialCube, solution, targetFaces };
+const FACE_ORDER: readonly FaceKey[] = SCAN_FACE_ORDER;
+const EMPTY_SOLUTION: MoveNotation[] = [];
+
+const demoIndex = (seed: number) => Math.abs(seed) % DEMO_SCRAMBLES.length;
+
+const gridToCodes = (grid: FaceGrid): StickerColor[] => grid.map(colorNameToCode);
+
+function demoTargetFaces(seed: number): Record<FaceKey, StickerColor[]> {
+  const faces = demoFaces(demoIndex(seed));
+  return Object.fromEntries(FACE_ORDER.map((f) => [f, gridToCodes(faces[f])])) as Record<FaceKey, StickerColor[]>;
 }
 
-function defaultFaceStatuses(): Record<FaceKey, FaceCaptureStatus> {
+// Memoised so unchanged inputs keep referentially stable mirrors.
+let targetKey: number | null = null;
+let targetCache: Record<FaceKey, StickerColor[]>;
+let cubeKey: { seed: number; solution: unknown } | null = null;
+let cubeCache: CubieState[];
+let capturedKey: unknown = null;
+let capturedCache: Partial<Record<FaceKey, StickerColor[]>> = {};
+
+type MirroredKeys =
+  | 'screen' | 'initialCube' | 'solution' | 'targetFaces' | 'activeFaceIndex' | 'faceStatuses' | 'capturedFaces'
+  | 'scanCondition' | 'stabilityProgress' | 'autoCaptureEnabled' | 'moveDelaySeconds' | 'soundEnabled';
+
+function mirrorFields(seed: number): Pick<RubikStoreState, MirroredKeys> {
+  const session = useSessionStore.getState();
+  const scan = useScanStore.getState();
+  const cube = useCubeStore.getState();
+
+  if (targetKey !== seed) {
+    targetKey = seed;
+    targetCache = demoTargetFaces(seed);
+  }
+  if (capturedKey !== scan.captured) {
+    capturedKey = scan.captured;
+    capturedCache = {};
+    for (const f of FACE_ORDER) {
+      const c = scan.captured[f];
+      if (c) capturedCache[f] = gridToCodes(c.grid);
+    }
+  }
+  if (!cubeKey || cubeKey.seed !== seed || cubeKey.solution !== cube.solution) {
+    cubeKey = { seed, solution: cube.solution };
+    cubeCache = (
+      cube.solution
+        ? toCubies(cube.solution.state, cube.solution.centers)
+        : toCubies(demoInitialState(demoIndex(seed)), DEMO_CENTER_COLORS)
+    ) as CubieState[];
+  }
+
   return {
-    F: 'scanning',
-    R: 'pending',
-    B: 'pending',
-    L: 'pending',
-    U: 'pending',
-    D: 'pending',
+    screen: session.screen,
+    moveDelaySeconds: session.settings.delayMs / 1000,
+    soundEnabled: session.settings.soundEnabled,
+    autoCaptureEnabled: session.settings.autoCaptureEnabled,
+    activeFaceIndex: scan.stageIndex,
+    faceStatuses: scan.faceStatuses,
+    capturedFaces: capturedCache,
+    scanCondition: scan.condition,
+    stabilityProgress: scan.stability,
+    targetFaces: targetCache,
+    initialCube: cubeCache,
+    solution: cube.solution ? ([...cube.solution.moves] as MoveNotation[]) : EMPTY_SOLUTION,
   };
 }
 
-const bootSession = createInitialSession(0);
+/** Starts a solve for the captured grids once all six exist. Singleton guard + session id come from the stores. */
+function solveWhenComplete() {
+  const request = buildSolveRequest(useScanStore.getState().captured);
+  if (!request) return;
+  const c = useCubeStore.getState();
+  void runSolve(request, {
+    mode: useSessionStore.getState().mode,
+    getSessionId: () => useSessionStore.getState().sessionId,
+    guard: solveRequestGuard,
+    solveBackend: (r, o) => solveBackend(r, o),
+    solveDemo: demoSolve,
+    actions: { beginSolve: c.beginSolve, setReady: c.setReady, setError: c.setError },
+  });
+}
+
+const UI_LOCAL_RESET = {
+  forceInvalidCube: false,
+  invalidReason: null,
+  invalidFaceKey: null,
+  currentStepIndex: 0,
+  solveElapsedSeconds: 0,
+  userConfirmedSolved: false,
+} as const;
 
 export const useRubikStore = create<RubikStoreState>((set, get) => ({
-  screen: 'landing',
+  ...mirrorFields(0),
   sessionSeed: 0,
-  initialCube: bootSession.initialCube,
-  solution: bootSession.solution,
-  targetFaces: bootSession.targetFaces,
 
-  activeFaceIndex: 0,
-  faceStatuses: defaultFaceStatuses(),
-  capturedFaces: {},
-  scanCondition: 'ready',
-  stabilityProgress: 0,
   useRealWebcam: false,
-  autoCaptureEnabled: true,
 
   forceInvalidCube: false,
   invalidReason: null,
   invalidFaceKey: null,
 
-  moveDelaySeconds: 5,
   currentStepIndex: 0,
   isPlaying: true,
-  soundEnabled: true,
   solveElapsedSeconds: 0,
   userConfirmedSolved: false,
   cameraResetToken: 0,
 
-  setScreen: (screen) => set({ screen }),
+  setScreen: (screen) => useSessionStore.getState().setScreen(screen),
 
   startFreshScan: (newSeed = false) => {
     const nextSeed = newSeed ? get().sessionSeed + 1 : get().sessionSeed;
-    const session = createInitialSession(nextSeed);
-    set({
-      screen: 'scanning',
-      sessionSeed: nextSeed,
-      initialCube: session.initialCube,
-      solution: session.solution,
-      targetFaces: session.targetFaces,
-      activeFaceIndex: 0,
-      faceStatuses: defaultFaceStatuses(),
-      capturedFaces: {},
-      scanCondition: 'loading_model',
-      stabilityProgress: 0,
-      forceInvalidCube: false,
-      invalidReason: null,
-      invalidFaceKey: null,
-      currentStepIndex: 0,
-      solveElapsedSeconds: 0,
-      userConfirmedSolved: false,
-    });
+    // Seed first (legacy-owned); the session reset then republishes every mirror against it.
+    set({ sessionSeed: nextSeed, ...UI_LOCAL_RESET });
+    useSessionStore.getState().startSession('demo', 'scanning');
+    useScanStore.getState().setCondition('loading_model');
+    syncMirror();
   },
 
   startInteractiveDemo: () => {
-    const session = createInitialSession(get().sessionSeed);
-    const allStatuses: Record<FaceKey, FaceCaptureStatus> = {
-      F: 'captured',
-      R: 'captured',
-      B: 'captured',
-      L: 'captured',
-      U: 'captured',
-      D: 'captured',
-    };
-    set({
-      screen: 'reconstructing',
-      initialCube: session.initialCube,
-      solution: session.solution,
-      targetFaces: session.targetFaces,
-      faceStatuses: allStatuses,
-      capturedFaces: { ...session.targetFaces },
-      activeFaceIndex: 5,
-      forceInvalidCube: false,
-      invalidReason: null,
-      invalidFaceKey: null,
-      currentStepIndex: 0,
-      solveElapsedSeconds: 0,
-      userConfirmedSolved: false,
-      isPlaying: true,
-    });
+    set({ ...UI_LOCAL_RESET, isPlaying: true });
+    useSessionStore.getState().startSession('demo', 'reconstructing');
+    const faces = demoFaces(demoIndex(get().sessionSeed));
+    for (const f of FACE_ORDER) useScanStore.getState().captureFace(f, faces[f], 'demo');
+    solveWhenComplete();
   },
 
-  setScanCondition: (scanCondition) =>
-    set((state) => ({
-      scanCondition,
-      stabilityProgress: scanCondition === 'ready' ? state.stabilityProgress : 0,
-    })),
+  setScanCondition: (condition) => useScanStore.getState().setCondition(condition),
 
-  setStabilityProgress: (stabilityProgress) => set({ stabilityProgress }),
+  setStabilityProgress: (value) => useScanStore.getState().setStability(value),
 
   captureCurrentFace: () => {
-    const state = get();
-    const faceKey = FACE_ORDER[state.activeFaceIndex];
-    if (!faceKey) return;
-
-    const updatedCaptured: Partial<Record<FaceKey, StickerColor[]>> = {
-      ...state.capturedFaces,
-      [faceKey]: [...state.targetFaces[faceKey]],
-    };
-
-    const updatedStatuses: Record<FaceKey, FaceCaptureStatus> = {
-      ...state.faceStatuses,
-      [faceKey]: 'captured',
-    };
-
-    // Find next uncaptured face (rescan or pending)
-    const nextIdx = FACE_ORDER.findIndex(
-      (k) => updatedStatuses[k] === 'rescan' || updatedStatuses[k] === 'pending'
-    );
-
-    if (nextIdx === -1) {
-      set({
-        capturedFaces: updatedCaptured,
-        faceStatuses: updatedStatuses,
-        stabilityProgress: 100,
-        scanCondition: 'captured_flash',
-      });
-    } else {
-      const nextFaceKey = FACE_ORDER[nextIdx];
-      updatedStatuses[nextFaceKey] = 'scanning';
-      set({
-        capturedFaces: updatedCaptured,
-        faceStatuses: updatedStatuses,
-        activeFaceIndex: nextIdx,
-        stabilityProgress: 0,
-        scanCondition: 'captured_flash',
-      });
-    }
+    // Fixture capture is legitimate only inside a demo session.
+    if (useSessionStore.getState().mode !== 'demo') return;
+    const face = SCAN_FACE_ORDER[useScanStore.getState().stageIndex];
+    if (!face) return;
+    const grid = demoFaces(demoIndex(get().sessionSeed))[face];
+    if (useScanStore.getState().captureFace(face, grid, 'demo')) solveWhenComplete();
   },
 
   selectFaceForRescan: (face) => {
-    const idx = FACE_ORDER.indexOf(face);
-    if (idx === -1) return;
-    set((state) => {
-      const updatedStatuses = { ...state.faceStatuses };
-      // Revert any previously scanning face that wasn't captured back to pending
-      for (const k of FACE_ORDER) {
-        if (updatedStatuses[k] === 'scanning') {
-          updatedStatuses[k] = state.capturedFaces[k] ? 'captured' : 'pending';
-        }
-      }
-      updatedStatuses[face] = 'scanning';
-      const updatedCaptured = { ...state.capturedFaces };
-      delete updatedCaptured[face];
-      return {
-        screen: 'scanning',
-        activeFaceIndex: idx,
-        faceStatuses: updatedStatuses,
-        capturedFaces: updatedCaptured,
-        stabilityProgress: 0,
-        scanCondition: 'ready',
-        forceInvalidCube: false,
-      };
-    });
+    // The captured grids change, so any solution or in-flight solve for the old grids is void.
+    solveRequestGuard.reset();
+    useCubeStore.getState().reset();
+    useScanStore.getState().selectFaceForRescan(face);
+    useSessionStore.getState().setScreen('scanning');
+    set({ forceInvalidCube: false });
   },
 
-  markFaceNeedsRescan: (face) => {
-    set((state) => ({
-      faceStatuses: {
-        ...state.faceStatuses,
-        [face]: 'rescan',
-      },
-    }));
-  },
+  markFaceNeedsRescan: (face) => useScanStore.getState().markFaceNeedsRescan(face),
 
   setUseRealWebcam: (useRealWebcam) => set({ useRealWebcam }),
 
-  setAutoCaptureEnabled: (autoCaptureEnabled) => set({ autoCaptureEnabled }),
+  setAutoCaptureEnabled: (enabled) => useSessionStore.getState().setAutoCapture(enabled),
 
   setForceInvalidCube: (forceInvalidCube) =>
     set({
@@ -276,28 +250,32 @@ export const useRubikStore = create<RubikStoreState>((set, get) => ({
       invalidFaceKey: forceInvalidCube ? 'B' : null,
     }),
 
-  setMoveDelaySeconds: (seconds) =>
-    set({ moveDelaySeconds: Math.max(2, Math.min(15, Math.round(seconds))) }),
+  setMoveDelaySeconds: (seconds) => useSessionStore.getState().setDelayMs(seconds * 1000),
 
   setCurrentStepIndex: (currentStepIndex) => set({ currentStepIndex }),
 
   setIsPlaying: (isPlaying) => set({ isPlaying }),
 
-  toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
+  toggleSound: () => useSessionStore.getState().toggleSound(),
 
   incrementSolveElapsed: () =>
     set((s) => ({ solveElapsedSeconds: s.solveElapsedSeconds + 1 })),
 
-  resetSolveSession: () =>
-    set({
-      currentStepIndex: 0,
-      isPlaying: true,
-      solveElapsedSeconds: 0,
-      userConfirmedSolved: false,
-      screen: 'solving',
-    }),
+  resetSolveSession: () => {
+    set({ currentStepIndex: 0, isPlaying: true, solveElapsedSeconds: 0, userConfirmedSolved: false });
+    useSessionStore.getState().setScreen('solving');
+  },
 
   confirmCubeSolved: () => set({ userConfirmedSolved: true }),
 
   triggerCameraReset: () => set((s) => ({ cameraResetToken: s.cameraResetToken + 1 })),
 }));
+
+/** One-way: new stores -> legacy mirrors. The only writer of mirrored fields after boot. */
+function syncMirror() {
+  useRubikStore.setState(mirrorFields(useRubikStore.getState().sessionSeed));
+}
+
+useSessionStore.subscribe(syncMirror);
+useScanStore.subscribe(syncMirror);
+useCubeStore.subscribe(syncMirror);

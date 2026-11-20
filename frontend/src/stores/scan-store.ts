@@ -35,6 +35,8 @@ interface ScanStoreState {
   /** Returns false (state untouched) when the face or grid is invalid. */
   captureFace: (face: FaceId, grid: FaceGrid, source: CaptureSource) => boolean;
   selectFaceForRescan: (face: FaceId) => void;
+  /** Flags a face as needing a rescan without discarding its grid (status only). */
+  markFaceNeedsRescan: (face: FaceId) => void;
   setCondition: (condition: ScanCondition) => void;
   setStability: (value: number) => void;
   reset: () => void;
@@ -81,6 +83,11 @@ export const useScanStore = create<ScanStoreState>((set, get) => ({
       delete captured[face];
       return { faceStatuses: statuses, captured, stageIndex: idx, stability: 0, condition: 'ready' as ScanCondition };
     });
+  },
+
+  markFaceNeedsRescan: (face) => {
+    if (!SCAN_FACE_ORDER.includes(face)) return;
+    set((s) => ({ faceStatuses: { ...s.faceStatuses, [face]: 'rescan' as FaceCaptureStatus } }));
   },
 
   setCondition: (condition) => set((s) => ({ condition, stability: condition === 'ready' ? s.stability : 0 })),
