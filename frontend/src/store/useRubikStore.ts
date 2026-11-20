@@ -105,6 +105,8 @@ let targetKey: number | null = null;
 let targetCache: Record<FaceKey, StickerColor[]>;
 let cubeKey: { seed: number; solution: unknown } | null = null;
 let cubeCache: CubieState[];
+let solutionKey: unknown = null;
+let solutionCache: MoveNotation[] = EMPTY_SOLUTION;
 let capturedKey: unknown = null;
 let capturedCache: Partial<Record<FaceKey, StickerColor[]>> = {};
 
@@ -138,6 +140,11 @@ function mirrorFields(seed: number): Pick<RubikStoreState, MirroredKeys> {
     ) as CubieState[];
   }
 
+  if (solutionKey !== cube.solution) {
+    solutionKey = cube.solution;
+    solutionCache = cube.solution ? ([...cube.solution.moves] as MoveNotation[]) : EMPTY_SOLUTION;
+  }
+
   return {
     screen: session.screen,
     moveDelaySeconds: session.settings.delayMs / 1000,
@@ -150,12 +157,14 @@ function mirrorFields(seed: number): Pick<RubikStoreState, MirroredKeys> {
     stabilityProgress: scan.stability,
     targetFaces: targetCache,
     initialCube: cubeCache,
-    solution: cube.solution ? ([...cube.solution.moves] as MoveNotation[]) : EMPTY_SOLUTION,
+    solution: solutionCache,
   };
 }
 
 /** Starts a solve for the captured grids once all six exist. Singleton guard + session id come from the stores. */
 function solveWhenComplete() {
+  // One solve per completion: never restart while solving, or blank an already-ready solution.
+  if (useCubeStore.getState().status !== 'idle') return;
   const request = buildSolveRequest(useScanStore.getState().captured);
   if (!request) return;
   const c = useCubeStore.getState();
@@ -223,7 +232,10 @@ export const useRubikStore = create<RubikStoreState>((set, get) => ({
     const face = SCAN_FACE_ORDER[useScanStore.getState().stageIndex];
     if (!face) return;
     const grid = demoFaces(demoIndex(get().sessionSeed))[face];
-    if (useScanStore.getState().captureFace(face, grid, 'demo')) solveWhenComplete();
+    const count = () => Object.keys(useScanStore.getState().captured).length;
+    const before = count();
+    // Solve only when THIS capture completed the set of six.
+    if (useScanStore.getState().captureFace(face, grid, 'demo') && before < 6 && count() === 6) solveWhenComplete();
   },
 
   selectFaceForRescan: (face) => {
@@ -273,7 +285,10 @@ export const useRubikStore = create<RubikStoreState>((set, get) => ({
 
 /** One-way: new stores -> legacy mirrors. The only writer of mirrored fields after boot. */
 function syncMirror() {
-  useRubikStore.setState(mirrorFields(useRubikStore.getState().sessionSeed));
+  const current = useRubikStore.getState();
+  const next = mirrorFields(current.sessionSeed);
+  const changed = (Object.keys(next) as MirroredKeys[]).some((k) => !Object.is(next[k], current[k]));
+  if (changed) useRubikStore.setState(next);
 }
 
 useSessionStore.subscribe(syncMirror);

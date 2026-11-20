@@ -125,4 +125,42 @@ describe('legacy bridge', () => {
     expect(l.initialCube).toEqual(toCubies(demoInitialState(0), DEMO_CENTER_COLORS));
     expect(l.solution).toEqual([]);
   });
+
+  it('legacy solution keeps its reference across unrelated upstream updates', async () => {
+    useRubikStore.getState().startInteractiveDemo();
+    await ready();
+    const sol = useRubikStore.getState().solution;
+    const cubie = useRubikStore.getState().initialCube;
+    useScanStore.getState().setStability(10);
+    useSessionStore.getState().toggleSound();
+    expect(useRubikStore.getState().solution).toBe(sol);
+    expect(useRubikStore.getState().initialCube).toBe(cubie);
+  });
+
+  it('legacy listeners are not notified when nothing mirrored changed', async () => {
+    useRubikStore.getState().startInteractiveDemo();
+    await ready();
+    const listener = vi.fn();
+    const unsub = useRubikStore.subscribe(listener);
+    useSessionStore.setState({ mode: 'demo' }); // unmirrored field
+    useSessionStore.setState({ sessionId: useSessionStore.getState().sessionId }); // no-op
+    expect(listener).not.toHaveBeenCalled();
+    useScanStore.getState().setStability(33); // mirrored
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsub();
+  });
+
+  it('a 7th captureCurrentFace after completion does not restart the solve', async () => {
+    useRubikStore.getState().startFreshScan();
+    const begin = vi.spyOn(useCubeStore.getState(), 'beginSolve');
+    for (let i = 0; i < 6; i++) useRubikStore.getState().captureCurrentFace();
+    await ready();
+    expect(begin).toHaveBeenCalledTimes(1);
+    const sol = useCubeStore.getState().solution;
+    useRubikStore.getState().captureCurrentFace();
+    expect(useCubeStore.getState().status).toBe('ready');
+    expect(useCubeStore.getState().solution).toBe(sol);
+    expect(begin).toHaveBeenCalledTimes(1);
+    begin.mockRestore();
+  });
 });

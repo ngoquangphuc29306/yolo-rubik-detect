@@ -8,7 +8,6 @@ import {
   applyMove as legacyApplyMove,
   createSolvedCube,
   extractAllFaces,
-  type CubieState,
   type MoveNotation,
 } from '@/lib/cubeEngine';
 import type { CenterColors, FaceletState, MoveToken } from '@/types/cube';
@@ -29,11 +28,10 @@ const byPosition = (cubies: readonly Pos[]) =>
   [...cubies]
     .sort((a, b) => a.x - b.x || a.y - b.y || a.z - b.z)
     .map((c) => ({ x: c.x, y: c.y, z: c.z, stickers: c.stickers }));
-const legacyOf = (cubies: readonly CubieState[]) => cubies.filter((c) => c.x || c.y || c.z);
 
 describe('toCubies', () => {
   it('SOLVED + demo centres equals legacy createSolvedCube per position', () => {
-    expect(byPosition(toCubies(SOLVED, DEMO))).toEqual(byPosition(legacyOf(createSolvedCube())));
+    expect(byPosition(toCubies(SOLVED, DEMO))).toEqual(byPosition(createSolvedCube()));
   });
 
   it('scrambled state is not the solved layout (guards vacuous comparisons)', () => {
@@ -73,12 +71,13 @@ describe('toCubies', () => {
     expect(() => toCubies(SOLVED.slice(1) as FaceletState, DEMO)).toThrow(CubeStateError);
   });
 
-  it('returns 26 cubies with unique, deterministic position-based ids', () => {
+  it('returns 27 cubies (core included) with unique, deterministic position-based ids', () => {
     const a = toCubies(S, DEMO);
     const b = toCubies(SOLVED, DEMO);
-    expect(a).toHaveLength(26);
-    expect(new Set(a.map((c) => c.id)).size).toBe(26);
-    expect(a.some((c) => c.x === 0 && c.y === 0 && c.z === 0)).toBe(false);
+    expect(a).toHaveLength(27);
+    expect(new Set(a.map((c) => c.id)).size).toBe(27);
+    const core = a.find((c) => c.x === 0 && c.y === 0 && c.z === 0)!;
+    expect(core).toEqual({ id: 13, x: 0, y: 0, z: 0, stickers: {} });
     const ids = (cs: typeof a) => Object.fromEntries(cs.map((c) => [`${c.x},${c.y},${c.z}`, c.id]));
     expect(ids(a)).toEqual(ids(b));
     expect(ids(a)['-1,-1,-1']).toBe(0);
@@ -95,6 +94,8 @@ describe('toCubies invariants (legacy-independent)', () => {
     const cubies = toCubies(st, DEMO);
     const counts = cubies.map((c) => Object.keys(c.stickers).length);
     expect(counts.reduce((a, b) => a + b, 0)).toBe(54);
+    expect(counts).toHaveLength(27);
+    expect(counts.filter((n) => n === 0)).toHaveLength(1);
     expect(counts.filter((n) => n === 1)).toHaveLength(6);
     expect(counts.filter((n) => n === 2)).toHaveLength(12);
     expect(counts.filter((n) => n === 3)).toHaveLength(8);
@@ -112,7 +113,7 @@ describe('toCubies frozen golden', () => {
     moves: Record<string, unknown>;
   };
   it('has provenance meta', () => {
-    expect(golden._meta.note).toMatch(/frozen after legacy-differential verification/);
+    expect(golden._meta.note).toMatch(/core cubie added per R20; still verified against legacy differential/);
   });
   it('SOLVED and scramble match', () => {
     expect(toCubies(SOLVED, DEMO)).toEqual(golden.solved);
