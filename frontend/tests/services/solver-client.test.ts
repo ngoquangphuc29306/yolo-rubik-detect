@@ -58,6 +58,14 @@ describe('solver-client', () => {
     expect(r).toMatchObject({ ok: false, error: { kind: 'client', code: 'BACKEND_UNAVAILABLE', retryable: true } });
   });
 
+  it('HTTP 404 and 502 without an envelope (dead dev proxy) are BACKEND_UNAVAILABLE', async () => {
+    for (const status of [404, 502]) {
+      expect(await run(async () => res('<html>Bad gateway</html>', status))).toMatchObject({
+        ok: false, error: { kind: 'client', code: 'BACKEND_UNAVAILABLE', retryable: true },
+      });
+    }
+  });
+
   it('malformed JSON, invalid schema and extra keys are BAD_RESPONSE', async () => {
     expect(await run(async () => res('{not json'))).toMatchObject({ ok: false, error: { code: 'BAD_RESPONSE' } });
     expect(await run(async () => res('{}'))).toMatchObject({ ok: false, error: { code: 'BAD_RESPONSE' } });

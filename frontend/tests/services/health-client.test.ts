@@ -12,12 +12,14 @@ const health = (f: string) => loadFixture<HealthResponse>(`health/${f}.json`);
 describe('getHealth', () => {
   it('returns the parsed health on 200 and requests the health path', async () => {
     let url = '';
+    let init: RequestInit | undefined;
     const h = await getHealth({
       signal: sig(),
-      fetchImpl: async (u) => { url = String(u); return res(fixtureText('health/ok.json')); },
+      fetchImpl: async (u, i) => { url = String(u); init = i; return res(fixtureText('health/ok.json')); },
     });
     expect(h).toEqual(health('ok'));
     expect(url).toBe(HEALTH_PATH);
+    expect(init?.cache).toBe('no-store');
   });
 
   it('returns null when unreachable, non-200, malformed, invalid or aborted; never throws', async () => {
@@ -50,6 +52,13 @@ describe('deriveLiveReadiness', () => {
     expect(deriveLiveReadiness({ ...health('ok'), solverReady: false })).toEqual({
       kind: 'blocked', reason: 'BACKEND_UNAVAILABLE', solverReady: false,
     });
+  });
+  it('any status other than ok is never ready, even with everything else true', () => {
+    for (const status of ['degraded', 'error'] as const) {
+      expect(deriveLiveReadiness({ ...health('ok'), status })).toEqual({
+        kind: 'blocked', reason: 'BACKEND_UNAVAILABLE', solverReady: true,
+      });
+    }
   });
   it('null (unreachable) is blocked BACKEND_UNAVAILABLE', () => {
     expect(deriveLiveReadiness(null)).toEqual({ kind: 'blocked', reason: 'BACKEND_UNAVAILABLE', solverReady: false });

@@ -58,7 +58,8 @@ export async function solve(request: SolveRequest, opts: SolveOptions): Promise<
         ? unavailable()
         : badResponse('The solver rejected the request without a valid error body.');
     }
-    return response.status >= 500 ? unavailable() : badResponse(`Unexpected solver response (HTTP ${response.status}).`);
+    // 404/502 without an envelope: a dead dev proxy / missing backend, not a solver verdict.
+    return response.status === 404 || response.status >= 500 ? unavailable() : badResponse(`Unexpected solver response (HTTP ${response.status}).`);
   } catch {
     return signal.aborted ? cancelled() : badResponse('The solver response could not be processed.');
   }

@@ -44,6 +44,10 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.7 | `npm run test` | 0 | 16 files passed, 391 tests passed, 0 failed (architecture guard green with demo/). |
 | T1.7 | `npm run lint` (`tsc --noEmit`) | 0 | no errors (after typing test request helper). |
 | T1.7 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
+| T1.8a | `npx vitest run tests/stores tests/hooks tests/services` (RED, before impl) | 1 | stores/hooks suites failed to load (`@/stores/*`, `@/hooks/*` absent, expected); R15 tests failed (health `cache: 'no-store'`, `status !== 'ok'` readiness, solver 404/502 BACKEND_UNAVAILABLE). |
+| T1.8a | `npx vitest run` (GREEN) | 0 | 20 files passed, 423 tests passed, 0 failed (stores, runSolve incl. stale/session/mismatch/no-live-fallback, checkHealth, jsdom renderHook smoke, R15 service tests, architecture guard). |
+| T1.8a | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
+| T1.8a | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
 
 ## Notes
 

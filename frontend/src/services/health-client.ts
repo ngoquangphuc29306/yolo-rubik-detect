@@ -14,7 +14,7 @@ export async function getHealth(opts: HealthOptions): Promise<HealthResponse | n
   if (signal.aborted) return null;
   const doFetch: typeof fetch = opts.fetchImpl ?? ((input, init) => fetch(input, init));
   try {
-    const response = await doFetch(`${opts.baseUrl ?? ''}${HEALTH_PATH}`, { method: 'GET', signal });
+    const response = await doFetch(`${opts.baseUrl ?? ''}${HEALTH_PATH}`, { method: 'GET', signal, cache: 'no-store' });
     if (response.status !== 200) return null;
     const text = await response.text();
     if (signal.aborted) return null;
