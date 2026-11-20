@@ -45,6 +45,16 @@ describe('session-store', () => {
   });
 });
 
+describe('session-store guidance', () => {
+  it('records the guidance playback time and startSession resets it', () => {
+    expect(useSessionStore.getState().guidance).toBeNull();
+    useSessionStore.getState().setGuidance(12345);
+    expect(useSessionStore.getState().guidance).toEqual({ playbackMs: 12345 });
+    useSessionStore.getState().startSession('demo', 'scanning');
+    expect(useSessionStore.getState().guidance).toBeNull();
+  });
+});
+
 describe('scan-store', () => {
   it('initial state', () => {
     const s = useScanStore.getState();

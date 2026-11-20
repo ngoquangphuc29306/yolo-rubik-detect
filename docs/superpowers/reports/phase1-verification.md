@@ -67,6 +67,10 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.11 | `npm run lint` / `npm run build` | 0 / 0 | tsc clean; built, existing chunk-size warning unchanged. |
 | T1.11 | `npm run test` | 1 | 552 passed / 1 failed: `playback-fsm` seeded-invariant property test hit the 5000 ms timeout (10-13 s on this loaded machine; identical failure with my changes stashed; passes in isolation, 67/67). Not caused by T1.11. |
 | T1.11 | Browser (Chrome, vite 127.0.0.1:3000, 1440x900), legacy path | n/a | Landing, Reconstruction and Alignment cubes render and respond to drag; Solving via demo animates (arrow, mid-turn R2 layer captured, Step 1 to 4 advanced). Console: only favicon.ico 404 and THREE.Clock deprecation warnings. Controlled mode NOT RUN in browser (no consumer until T1.12). |
+| T1.12 | `npx vitest run tests/components` (RED, before impl) | 1 | animation.test: 19 failed (`reconcile` absent, highlight fields missing); SolvingScreen.test: 15 failed on the legacy screen (Prev/Next present, no frameRef/testids/cue/guidance). |
+| T1.12 | `npm run test` (GREEN) | 0 | 25 files, 588 tests passed, 0 failed (animation 35, SolvingScreen 20, stores +1). |
+| T1.12 | `npm run lint` / `npm run build` | 0 / 0 | tsc clean; built, existing chunk-size warning unchanged. |
+| T1.12 | Browser (Chrome via playwright-cli, vite 127.0.0.1:3000, 1440x900, Playwright fake clock paused + runFor) | n/a | PASS: demo flow to Solving; pause mid-D' freezes layer (cube-region diff only in arrow pulse area), resume continues; countdown frozen 5 s while paused; replay re-shows D' with Step 1 of 18; pace 2 s vs 15 s; cue visible after orbit to back and bottom; no Prev/Next; all 18 moves played and Completion reached; D (front-bottom row F to R) and U' (front-top row F to R) directions correct from pre/mid/post captures; console only favicon 404 + THREE.Clock deprecation. |
 
 ## Notes
 

@@ -12,7 +12,7 @@ import {
 import type { MoveDescriptor as EngineMoveDescriptor } from '@/engine/move-presentation';
 import type { PlaybackFrame } from '@/hooks/usePlayback';
 import type { RenderCubie } from '@/types/cube';
-import { easeInOutCubic, pivotRotation, selectShown } from './animation';
+import { reconcile, selectShown } from './animation';
 
 const isSoftwareGl: boolean = (() => {
   if (typeof document === 'undefined') return false;
@@ -301,12 +301,8 @@ interface ControlledProps {
 }
 
 interface CubeSceneProps extends ControlledProps {
-  cubies: CubieState[];
+  cubies: readonly CubieState[];
   mode: 'hero' | 'interactive' | 'reference' | 'solving' | 'solved';
-  activeMove?: MoveDescriptor | null;
-  animateMoveTrigger?: number;
-  animationDuration?: number;
-  onMoveAnimationComplete?: () => void;
   heroTwinWireframe?: boolean;
   referenceRotation?: [number, number, number];
   cameraResetToken?: number;
@@ -322,10 +318,6 @@ function CubeScene({
   snapshots,
   activeMoves,
   mode,
-  activeMove: legacyActiveMove = null,
-  animateMoveTrigger = 0,
-  animationDuration = 0.72,
-  onMoveAnimationComplete,
   heroTwinWireframe = false,
   referenceRotation,
   cameraResetToken = 0,
@@ -347,67 +339,25 @@ function CubeScene({
   // selection changes, so React re-renders per move boundary, not per frame.
   // One-frame behaviour: the pivot angle is applied imperatively from the SAME frameRef read, but
   // membership (which cubies sit in the pivot) comes from this state and lags by at most one frame.
-  // While the committed selection differs from the frame's, the angle is not applied (the pivot
-  // keeps its last value, which at a move's end already equals the next snapshot visually); on
-  // commit the pivot is reset to identity in a layout effect, before paint.
+  // `reconcile` (pure, unit-tested) decides the commit and the pivot angle; on commit the pivot is
+  // reset to identity in a layout effect, before paint. The highlight (tint + arrow) persists through
+  // the wait and pauses; the pivot only turns mid-move.
   const [shown, setShown] = React.useState(() => {
     const sel = frameRef ? selectShown(frameRef.current, snaps, moves) : null;
-    return { snapshotIndex: sel?.snapshotIndex ?? 0, moveIndex: sel?.activeMove ? frameRef!.current.activeIndex : -1 };
+    return { snapshotIndex: sel?.snapshotIndex ?? 0, moveIndex: sel?.highlightIndex ?? -1 };
   });
   const committedShown = React.useRef(shown);
-
-  const animState = React.useRef<{
-    active: boolean;
-    elapsed: number;
-    duration: number;
-    move: MoveDescriptor | null;
-    completedTrigger: number;
-  }>({
-    active: false,
-    elapsed: 0,
-    duration: animationDuration,
-    move: null,
-    completedTrigger: 0,
-  });
 
   const camDampTarget = React.useRef<[number, number, number] | null>(null);
   const userDraggingRef = React.useRef(false);
 
-  // TEMPORARY legacy path — removed in T1.12
-  React.useEffect(() => {
-    if (
-      !controlled &&
-      animateMoveTrigger > 0 &&
-      activeMove &&
-      animState.current.completedTrigger !== animateMoveTrigger
-    ) {
-      animState.current = {
-        active: true,
-        elapsed: 0,
-        duration: activeMove.turns === 2 ? animationDuration * 1.25 : animationDuration,
-        move: activeMove,
-        completedTrigger: animateMoveTrigger,
-      };
-      if (pivotRef.current) {
-        pivotRef.current.rotation.set(0, 0, 0);
-      }
-    }
-  }, [controlled, animateMoveTrigger, legacyActiveMove, animationDuration]);
-
-  // TEMPORARY legacy path — removed in T1.12
-  React.useEffect(() => {
-    if (!controlled && pivotRef.current && !animState.current.active) {
-      pivotRef.current.rotation.set(0, 0, 0);
-    }
-  }, [controlled, cubies]);
-
   React.useLayoutEffect(() => {
     committedShown.current = shown;
-    if (controlled) pivotRef.current?.rotation.set(0, 0, 0);
-  }, [controlled, shown]);
+    pivotRef.current?.rotation.set(0, 0, 0);
+  }, [shown]);
 
   const shownMove = controlled && shown.moveIndex >= 0 ? (moves[shown.moveIndex] ?? null) : null;
-  const activeMove = controlled ? shownMove : legacyActiveMove;
+  const activeMove = shownMove;
 
   React.useEffect(() => {
     if (autoRepositionCamera && activeMove) {
@@ -420,9 +370,6 @@ function CubeScene({
       camDampTarget.current = defaultCameraPosition;
     }
   }, [cameraResetToken, lockCameraAngle, defaultCameraPosition]);
-
-  const onCompleteRef = React.useRef(onMoveAnimationComplete);
-  onCompleteRef.current = onMoveAnimationComplete;
 
   useFrame((state, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05);
@@ -470,34 +417,12 @@ function CubeScene({
 
     if (frameRef) {
       // Controlled: one read per frame drives both the shown snapshot and the pivot angle.
-      const frame = frameRef.current;
-      const sel = selectShown(frame, snaps, moves);
-      const moveIndex = sel.activeMove ? frame.activeIndex : -1;
-      const c = committedShown.current;
-      if (sel.snapshotIndex !== c.snapshotIndex || moveIndex !== c.moveIndex) {
+      const { commit, rotation } = reconcile(frameRef.current, committedShown.current, snaps, moves);
+      if (rotation && pivotRef.current) pivotRef.current.rotation.set(rotation.x, rotation.y, rotation.z);
+      if (commit) {
         setShown((prev) =>
-          prev.snapshotIndex === sel.snapshotIndex && prev.moveIndex === moveIndex
-            ? prev
-            : { snapshotIndex: sel.snapshotIndex, moveIndex },
+          prev.snapshotIndex === commit.snapshotIndex && prev.moveIndex === commit.moveIndex ? prev : commit,
         );
-      } else if (pivotRef.current) {
-        const r = sel.activeMove ? pivotRotation(sel.activeMove, sel.progress) : { x: 0, y: 0, z: 0 };
-        pivotRef.current.rotation.set(r.x, r.y, r.z);
-      }
-    } else if (animState.current.active && animState.current.move && pivotRef.current) {
-      // TEMPORARY legacy path — removed in T1.12
-      animState.current.elapsed += delta;
-      const progress = Math.min(1, animState.current.elapsed / animState.current.duration);
-      const eased = easeInOutCubic(progress);
-
-      const currentAngle = animState.current.move.angle * eased;
-      pivotRef.current.rotation.set(0, 0, 0);
-      pivotRef.current.rotation[animState.current.move.axis] = currentAngle;
-
-      if (progress >= 1) {
-        animState.current.active = false;
-        pivotRef.current.rotation.set(0, 0, 0);
-        onCompleteRef.current?.();
       }
     }
 
@@ -594,12 +519,8 @@ function CubeScene({
 }
 
 export interface RubiksCube3DProps extends ControlledProps {
-  cubies: CubieState[];
+  cubies: readonly CubieState[];
   mode?: 'hero' | 'interactive' | 'reference' | 'solving' | 'solved';
-  activeMove?: MoveDescriptor | null;
-  animateMoveTrigger?: number;
-  animationDuration?: number;
-  onMoveAnimationComplete?: () => void;
   heroTwinWireframe?: boolean;
   referenceRotation?: [number, number, number];
   cameraResetToken?: number;
@@ -617,10 +538,6 @@ export function RubiksCube3D({
   snapshots,
   activeMoves,
   mode = 'interactive',
-  activeMove = null,
-  animateMoveTrigger = 0,
-  animationDuration = 0.72,
-  onMoveAnimationComplete,
   heroTwinWireframe = false,
   referenceRotation,
   cameraResetToken = 0,
@@ -668,7 +585,10 @@ export function RubiksCube3D({
 
   return (
     <div className={className}>
+      {/* frameloop must stay 'always': the controlled renderer reads frameRef every frame and the
+          pivot, arrow pulse and camera damping all depend on a continuous loop ('demand' would freeze them). */}
       <Canvas
+        frameloop="always"
         dpr={isSoftwareGl ? 1 : [1, 2]}
         camera={{ position: defaultCam, fov, near: 0.1, far: 100 }}
         gl={{
@@ -694,10 +614,6 @@ export function RubiksCube3D({
           snapshots={snapshots}
           activeMoves={activeMoves}
           mode={mode}
-          activeMove={activeMove}
-          animateMoveTrigger={animateMoveTrigger}
-          animationDuration={animationDuration}
-          onMoveAnimationComplete={onMoveAnimationComplete}
           heroTwinWireframe={heroTwinWireframe}
           referenceRotation={referenceRotation}
           cameraResetToken={cameraResetToken}

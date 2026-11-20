@@ -16,13 +16,21 @@ export interface SessionSettings {
 export const MIN_DELAY_MS = 2000;
 export const MAX_DELAY_MS = 15000;
 
+/** Simulated playback clock of a finished guidance run (never wall-clock; shown as "Guidance time"). */
+export interface GuidanceResult {
+  playbackMs: number;
+}
+
 interface SessionStoreState {
   mode: SessionMode | null;
   screen: AppScreen;
   sessionId: number;
   settings: SessionSettings;
+  /** Set when a guidance run completes; reset by startSession. */
+  guidance: GuidanceResult | null;
   startSession: (mode: SessionMode, screen: AppScreen) => void;
   setScreen: (screen: AppScreen) => void;
+  setGuidance: (playbackMs: number) => void;
   setDelayMs: (ms: number) => void;
   toggleSound: () => void;
   setAutoCapture: (enabled: boolean) => void;
@@ -33,15 +41,17 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   screen: 'landing',
   sessionId: 0,
   settings: { delayMs: 5000, soundEnabled: true, autoCaptureEnabled: true },
+  guidance: null,
 
   startSession: (mode, screen) => {
     // Synchronously first: aborts any in-flight solve before the new session exists.
     solveRequestGuard.reset();
     useScanStore.getState().reset();
     useCubeStore.getState().reset();
-    set((s) => ({ mode, screen, sessionId: s.sessionId + 1 }));
+    set((s) => ({ mode, screen, sessionId: s.sessionId + 1, guidance: null }));
   },
   setScreen: (screen) => set({ screen }),
+  setGuidance: (playbackMs) => set({ guidance: { playbackMs } }),
   setDelayMs: (ms) =>
     set((s) => {
       if (!Number.isFinite(ms)) return s;
