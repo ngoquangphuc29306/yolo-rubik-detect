@@ -6,6 +6,7 @@ import {
   playbackReducer,
   type PlaybackEvent,
   type PlaybackState,
+  type PlaybackStatus,
 } from '@/engine/playback-fsm';
 import { playCountdownTick, playMoveSound, playSuccessChime } from '@/lib/audio';
 import type { MoveToken } from '@/types/cube';
@@ -28,16 +29,33 @@ export interface PlaybackControls {
   pause(): void;
   resume(): void;
   replay(): void;
-  setDelay(ms: number): void;
   /** New playback-run generation, same moves: back to idle at move 0. */
   restart(): void;
+}
+
+/** Renderer snapshot, written synchronously with every reducer transition (never throttled). */
+export interface PlaybackFrame {
+  displayedIndex: number;
+  activeIndex: number;
+  /** 0 unless animating / paused mid-animation. */
+  progress: number;
+  status: PlaybackStatus;
+}
+
+function toFrame(s: PlaybackState): PlaybackFrame {
+  return {
+    displayedIndex: displayedSnapshotIndex(s),
+    activeIndex: s.index,
+    progress: animationProgress(s),
+    status: s.status,
+  };
 }
 
 export interface UsePlayback {
   state: PlaybackState;
   displayedIndex: number;
-  /** Updated every frame for the renderer; 0 unless animating / paused mid-animation. */
-  progressRef: MutableRefObject<number>;
+  /** The renderer reads only this, per frame; it cannot tear against throttled React state. */
+  frameRef: MutableRefObject<PlaybackFrame>;
   controls: PlaybackControls;
 }
 
@@ -81,11 +99,12 @@ export function usePlayback({ moves, delayMs, soundEnabled, enabled }: UsePlayba
   const [state, setState] = useState<PlaybackState>(stateRef.current);
 
   const movesRef = useRef(moves);
-  const appliedMovesRef = useRef(moves);
+  const appliedKeyRef = useRef(moves.join(' '));
+  const movesKey = moves.join(' ');
   const delayRef = useRef(delayMs);
   const soundRef = useRef(soundEnabled);
   const enabledRef = useRef(enabled);
-  const progressRef = useRef(animationProgress(stateRef.current));
+  const frameRef = useRef<PlaybackFrame>(toFrame(stateRef.current));
   const publishedRef = useRef<PlaybackState>(stateRef.current);
   const lastPublishTs = useRef(0);
   const rafId = useRef<number | null>(null);
@@ -108,7 +127,7 @@ export function usePlayback({ moves, delayMs, soundEnabled, enabled }: UsePlayba
   }, []);
 
   const dispatchRef = useRef<(e: PlaybackEvent) => void>(() => {});
-  const frameRef = useRef<(token: number, gen: number, ts: number) => void>(() => {});
+  const onFrameRef = useRef<(token: number, gen: number, ts: number) => void>(() => {});
 
   const ensureLoop = useCallback(() => {
     const s = stateRef.current!;
@@ -120,7 +139,7 @@ export function usePlayback({ moves, delayMs, soundEnabled, enabled }: UsePlayba
     if (rafId.current !== null) return; // exactly one loop
     const token = ++loopToken.current;
     const gen = s.generation;
-    rafId.current = requestAnimationFrame((ts) => frameRef.current(token, gen, ts));
+    rafId.current = requestAnimationFrame((ts) => onFrameRef.current(token, gen, ts));
   }, [stopLoop]);
 
   const dispatch = useCallback(
@@ -129,7 +148,7 @@ export function usePlayback({ moves, delayMs, soundEnabled, enabled }: UsePlayba
       const next = playbackReducer(prev, e);
       if (next === prev) return;
       stateRef.current = next;
-      progressRef.current = animationProgress(next);
+      frameRef.current = toFrame(next);
       emitCues(prev, next, e, soundRef.current);
       publish(next, e.type !== 'TICK' || next.status !== prev.status || next.index !== prev.index);
       if (e.type === 'START' || e.type === 'RESUME' || e.type === 'REPLAY') {
@@ -141,7 +160,7 @@ export function usePlayback({ moves, delayMs, soundEnabled, enabled }: UsePlayba
   );
   dispatchRef.current = dispatch;
 
-  frameRef.current = (token, gen) => {
+  onFrameRef.current = (token, gen) => {
     // Late callbacks from a cancelled loop or an older run are no-ops.
     if (token !== loopToken.current || gen !== genRef.current || !mountedRef.current) return;
     rafId.current = null;
@@ -166,13 +185,36 @@ export function usePlayback({ moves, delayMs, soundEnabled, enabled }: UsePlayba
   useEffect(() => {
     soundRef.current = soundEnabled;
     delayRef.current = delayMs;
+    movesRef.current = moves;
   });
 
+  // Mount effect: must precede the others so mountedRef is true when they arm the loop.
   useEffect(() => {
-    if (appliedMovesRef.current === moves) return;
-    appliedMovesRef.current = moves;
-    reset(moves);
-  }, [moves, reset]);
+    mountedRef.current = true;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        dispatchRef.current({ type: 'PAUSE', generation: genRef.current, reason: 'hidden' });
+      } else {
+        lastTs.current = performance.now(); // no auto-resume; resume stays deliberate
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    // Effects can re-run without a remount (Fast Refresh, <Activity>): re-arm the clock.
+    lastTs.current = performance.now();
+    ensureLoop();
+    return () => {
+      mountedRef.current = false;
+      document.removeEventListener('visibilitychange', onVisibility);
+      stopLoop();
+    };
+  }, [stopLoop, ensureLoop]);
+
+  // Reset on moves CONTENT, so an inline/derived array with equal content never resets the run.
+  useEffect(() => {
+    if (appliedKeyRef.current === movesKey) return;
+    appliedKeyRef.current = movesKey;
+    reset(movesRef.current);
+  }, [movesKey, reset]);
 
   useEffect(() => {
     dispatchRef.current({ type: 'SET_DELAY', generation: genRef.current, delayMs });
@@ -184,23 +226,6 @@ export function usePlayback({ moves, delayMs, soundEnabled, enabled }: UsePlayba
     ensureLoop();
   }, [enabled, ensureLoop]);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        dispatchRef.current({ type: 'PAUSE', generation: genRef.current, reason: 'hidden' });
-      } else {
-        lastTs.current = performance.now(); // no auto-resume; resume stays deliberate
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      mountedRef.current = false;
-      document.removeEventListener('visibilitychange', onVisibility);
-      stopLoop();
-    };
-  }, [stopLoop]);
-
   const controls = useMemo<PlaybackControls>(() => {
     const send = (type: 'START' | 'RESUME' | 'REPLAY') => dispatch({ type, generation: genRef.current });
     return {
@@ -208,13 +233,9 @@ export function usePlayback({ moves, delayMs, soundEnabled, enabled }: UsePlayba
       pause: () => dispatch({ type: 'PAUSE', generation: genRef.current, reason: 'user' }),
       resume: () => send('RESUME'),
       replay: () => send('REPLAY'),
-      setDelay: (ms: number) => {
-        delayRef.current = ms;
-        dispatch({ type: 'SET_DELAY', generation: genRef.current, delayMs: ms });
-      },
       restart: () => reset(movesRef.current),
     };
   }, [dispatch, reset]);
 
-  return { state, displayedIndex: displayedSnapshotIndex(state), progressRef, controls };
+  return { state, displayedIndex: displayedSnapshotIndex(state), frameRef, controls };
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { StrictMode } from 'react';
+import { Activity, StrictMode, type ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MoveToken } from '@/types/cube';
@@ -63,9 +63,16 @@ afterEach(() => {
 const M2: readonly MoveToken[] = ['R', 'U2'];
 const SUM2 = 780 + 975 + 2 * 2000;
 
+interface Props {
+  moves: readonly MoveToken[];
+  delayMs: number;
+  soundEnabled: boolean;
+  enabled?: boolean;
+}
 function setup(moves: readonly MoveToken[] = M2, delayMs = 2000, soundEnabled = true) {
-  return renderHook((p: { moves: readonly MoveToken[]; delayMs: number; soundEnabled: boolean }) =>
-    usePlayback({ ...p, enabled: true }), { initialProps: { moves, delayMs, soundEnabled } });
+  return renderHook((p: Props) => usePlayback({ enabled: true, ...p }), {
+    initialProps: { moves, delayMs, soundEnabled } as Props,
+  });
 }
 
 describe('usePlayback clock', () => {
@@ -130,10 +137,10 @@ describe('usePlayback clock', () => {
     frame(200);
     act(() => result.current.controls.pause());
     expect(queue.size).toBe(0);
-    const p = result.current.progressRef.current;
+    const p = result.current.frameRef.current.progress;
     expect(p).toBeCloseTo(200 / 780, 5);
     now += 5000;
-    expect(result.current.progressRef.current).toBe(p);
+    expect(result.current.frameRef.current.progress).toBe(p);
   });
 
   it('unmount cancels the loop and removes the listener', () => {
@@ -163,7 +170,7 @@ describe('usePlayback clock', () => {
     expect(result.current.state.status).toBe('idle');
     expect(result.current.state.index).toBe(0);
     expect(result.current.displayedIndex).toBe(0);
-    expect(result.current.progressRef.current).toBe(0);
+    expect(result.current.frameRef.current.progress).toBe(0);
     expect(queue.size).toBe(0);
     const calls = rafCalls;
     now += 16;
@@ -195,18 +202,18 @@ describe('usePlayback clock', () => {
     expect(vis(add) - vis(remove)).toBe(1);
   });
 
-  it('progressRef and displayedIndex agree; progress is 0 while waiting', () => {
+  it('frameRef and displayedIndex agree; progress is 0 while waiting', () => {
     const { result } = setup(['R']);
     act(() => result.current.controls.start());
     frame(195);
     frame(195);
-    expect(result.current.progressRef.current).toBeCloseTo(0.5, 5);
+    expect(result.current.frameRef.current.progress).toBeCloseTo(0.5, 5);
     expect(result.current.displayedIndex).toBe(0);
     frame(195);
     frame(195); // 780 exactly -> animation landed
     frame(20);
     expect(result.current.state.status).toBe('waiting');
-    expect(result.current.progressRef.current).toBe(0);
+    expect(result.current.frameRef.current.progress).toBe(0);
     expect(result.current.displayedIndex).toBe(1);
   });
 
@@ -297,5 +304,95 @@ describe('usePlayback audio cues', () => {
     for (const m of [playMoveSound, playCountdownTick, playSuccessChime]) {
       for (const c of vi.mocked(m).mock.calls) expect(c[0]).toBe(false);
     }
+  });
+});
+
+describe('usePlayback fix round 1', () => {
+  it('equal-content moves with a new identity do not reset the run', () => {
+    const { result, rerender } = setup();
+    act(() => result.current.controls.start());
+    frame(100);
+    const gen = result.current.state.generation;
+    rerender({ moves: [...M2], delayMs: 2000, soundEnabled: true });
+    expect(result.current.state.generation).toBe(gen);
+    expect(result.current.state.status).toBe('animating');
+    expect(queue.size).toBe(1);
+    frame(40);
+    expect(result.current.state.playbackMs).toBe(140);
+  });
+
+  it('enabled false then true mid-animation keeps exactly one loop', () => {
+    const { result, rerender } = setup();
+    act(() => result.current.controls.start());
+    frame(100);
+    rerender({ moves: M2, delayMs: 2000, soundEnabled: true, enabled: false });
+    expect(queue.size).toBe(0);
+    rerender({ moves: M2, delayMs: 2000, soundEnabled: true, enabled: true });
+    expect(queue.size).toBe(1);
+    frame(40);
+    expect(result.current.state.playbackMs).toBe(140);
+  });
+
+  it('effect re-run without remount (Activity hide/show) re-arms exactly one loop', () => {
+    let mode: 'visible' | 'hidden' = 'visible';
+    const wrapper = ({ children }: { children: ReactNode }) => <Activity mode={mode}>{children}</Activity>;
+    const { result, rerender } = renderHook(
+      () => usePlayback({ moves: M2, delayMs: 2000, soundEnabled: false, enabled: true }),
+      { wrapper },
+    );
+    act(() => result.current.controls.start());
+    frame(100);
+    mode = 'hidden';
+    rerender();
+    expect(queue.size).toBe(0);
+    mode = 'visible';
+    rerender();
+    expect(result.current.state.status).toBe('animating');
+    expect(queue.size).toBe(1);
+    frame(40);
+    expect(result.current.state.playbackMs).toBe(140);
+    expect(queue.size).toBe(1);
+  });
+
+  it('frameRef is written with the transition: landing frame and replay sequence', () => {
+    const { result } = setup(['R']);
+    expect(result.current.frameRef.current).toEqual({
+      displayedIndex: 0, activeIndex: 0, progress: 0, status: 'idle',
+    });
+    act(() => result.current.controls.start());
+    frame(195); frame(195); frame(195);
+    expect(result.current.frameRef.current.status).toBe('animating');
+    expect(result.current.frameRef.current.progress).toBeCloseTo(0.75, 5);
+    expect(result.current.frameRef.current.displayedIndex).toBe(0);
+    frame(195); // lands exactly on 780
+    expect(result.current.frameRef.current).toEqual({
+      displayedIndex: 1, activeIndex: 0, progress: 0, status: 'waiting',
+    });
+    act(() => result.current.controls.replay());
+    expect(result.current.frameRef.current).toEqual({
+      displayedIndex: 0, activeIndex: 0, progress: 0, status: 'animating',
+    });
+    frame(78);
+    expect(result.current.frameRef.current.progress).toBeCloseTo(0.1, 5);
+    expect(result.current.frameRef.current.displayedIndex).toBe(0);
+  });
+
+  it('delay prop is the single source: mid-wait change keeps waitTotalMs, next wait and restart use it', () => {
+    const { result, rerender } = setup(M2, 2000);
+    expect('setDelay' in result.current.controls).toBe(false);
+    act(() => result.current.controls.start());
+    for (let i = 0; i < 100 && result.current.state.status !== 'waiting'; i++) frame(16);
+    expect(result.current.state.waitTotalMs).toBe(2000);
+    rerender({ moves: M2, delayMs: 5000, soundEnabled: true });
+    expect(result.current.state.delayMs).toBe(5000);
+    expect(result.current.state.waitTotalMs).toBe(2000);
+    for (let i = 0; i < 1000; i++) {
+      frame(16);
+      if (result.current.state.index === 1 && result.current.state.status === 'waiting') break;
+    }
+    expect(result.current.state.waitTotalMs).toBe(5000);
+    rerender({ moves: M2, delayMs: 7000, soundEnabled: true });
+    act(() => result.current.controls.restart());
+    expect(result.current.state.delayMs).toBe(7000);
   });
 });
