@@ -24,3 +24,15 @@ export type FaceGrid = readonly [
   ColorName, ColorName, ColorName,
 ];
 export type SixFaces = Readonly<Record<FaceId, FaceGrid>>;
+
+/** Single-letter renderer colour token (see lib/colors StickerCode). */
+export type RenderStickerCode = 'W' | 'Y' | 'R' | 'O' | 'B' | 'G';
+
+/** Renderer cubie derived from FaceletState; `id` identifies a position slot, not a physical cubie. */
+export interface RenderCubie {
+  id: number;
+  x: -1 | 0 | 1;
+  y: -1 | 0 | 1;
+  z: -1 | 0 | 1;
+  stickers: Partial<Record<FaceId, RenderStickerCode>>;
+}

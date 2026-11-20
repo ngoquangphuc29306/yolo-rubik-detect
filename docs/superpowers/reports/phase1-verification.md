@@ -30,6 +30,10 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.4c | `npm run test` (GREEN) | 0 | 8 test files passed, 227 tests passed, 0 failed (cases (a)-(g), invalid request, illegal tokens, non-demo centres, R11 hardening). |
 | T1.4c | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
 | T1.4c | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
+| T1.5 | `npx vitest run tests/engine/cubie-adapter tests/features` (RED, before impl) | 1 | both files failed to load: `@/engine/cubie-adapter` and `@/features/scanner/scan-guide` absent (expected); 0 tests ran. |
+| T1.5 | `npm run test` (GREEN) | 0 | 10 test files passed, 275 tests passed, 0 failed (adapter: solved parity, 18-token differential vs legacy applyMove, round-trip, custom centres, throws, ids; scan-guide: legacy text parity, no colour words for unknown centres). |
+| T1.5 | `npm run lint` (`tsc --noEmit`) | 0 | no errors (after typing test fold as `reduce<FaceletState>`). |
+| T1.5 | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
 
 ## Notes
 
