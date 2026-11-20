@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
+import { generateScrambleSession } from '@/lib/cubeEngine';
 import { SOLVED, facesFromState } from '@/engine/cube-state';
 import { applyMove } from '@/engine/move-engine';
 import { bindSolveResponse } from '@/engine/solve-binding';
@@ -12,22 +11,24 @@ import { demoSolve } from '@/demo/demo-solver';
 import { demoInvalidStateError } from '@/demo/demo-errors';
 import { DEMO_SCAN_CONDITIONS } from '@/demo/demo-scan-source';
 
-// PRESET_SCRAMBLES is not exported by the legacy module (which must stay untouched), so read its literal.
-function legacyPresets(): string[][] {
-  const src = fs.readFileSync(path.resolve(import.meta.dirname, '../../src/lib/cubeEngine.ts'), 'utf8');
-  const body = /const PRESET_SCRAMBLES[^=]*=\s*(\[[\s\S]*?\]\s*;)/.exec(src)![1];
-  return new Function(`return ${body}`)() as string[][];
-}
-
 const req = (faces: SixFaces): SolveRequest => ({ schemaVersion: 1, faces: faces as unknown as SolveRequest['faces'] });
+const solvedRequest = req(facesFromState(SOLVED, DEMO_CENTER_COLORS));
 const demoRequests: [string, SolveRequest][] = [
   ...DEMO_SCRAMBLES.map((_, i): [string, SolveRequest] => [`demo ${i}`, req(demoFaces(i))]),
-  ['solved', req(facesFromState(SOLVED, DEMO_CENTER_COLORS))],
+  ['solved', solvedRequest],
 ];
 
 describe('demo fixtures', () => {
   it('scrambles equal the legacy presets and are frozen', () => {
-    expect(DEMO_SCRAMBLES.map((s) => [...s])).toEqual(legacyPresets());
+    const legacy = [0, 1, 2].map((i) => generateScrambleSession(i));
+    expect(DEMO_SCRAMBLES.map((s) => [...s])).toEqual(legacy.map((l) => l.scramble));
+    // Pins the legacy preset count at 3 (index wraps modulo the preset count).
+    expect(generateScrambleSession(3).scramble).toEqual(legacy[0].scramble);
+    expect(DEMO_SCRAMBLES).toHaveLength(3);
+    legacy.forEach((l, i) => {
+      const inverse = [...DEMO_SCRAMBLES[i]].reverse().map((m) => (m.endsWith("'") ? m[0] : m.endsWith('2') ? m : `${m}'`));
+      expect(inverse).toEqual(l.solution);
+    });
     expect(Object.isFrozen(DEMO_SCRAMBLES)).toBe(true);
     DEMO_SCRAMBLES.forEach((s) => expect(Object.isFrozen(s)).toBe(true));
   });
@@ -53,7 +54,7 @@ describe('demoSolve', () => {
     expect(bindSolveResponse(request, r.outcome.response).ok).toBe(true);
   });
   it('solved cube has empty moves', async () => {
-    const r = await demoSolve(demoRequests[3][1]);
+    const r = await demoSolve(solvedRequest);
     expect(r.ok && r.outcome.response.moves).toEqual([]);
   });
   it('rejects a valid non-demo cube without fabricating a solution', async () => {
@@ -65,9 +66,24 @@ describe('demoSolve', () => {
       error: { kind: 'client', code: 'REQUEST_INVALID', message: 'Demo mode only solves its built-in demo cubes', retryable: false },
     });
   });
-  it('rejects malformed requests', async () => {
-    const r = await demoSolve({ schemaVersion: 1, faces: {} } as unknown as SolveRequest);
+  it('rejects a demo cube shown with a different (consistent) centre colour mapping', async () => {
+    const otherCenters = { U: 'yellow', D: 'white', R: 'orange', L: 'red', F: 'blue', B: 'green' } as const;
+    const r = await demoSolve(req(facesFromState(demoInitialState(0), otherCenters)));
     expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ kind: 'client', code: 'REQUEST_INVALID' });
+  });
+  it.each<[string, () => unknown]>([
+    ['empty faces', () => ({ schemaVersion: 1, faces: {} })],
+    ['null request', () => null],
+    ['8-entry face', () => {
+      const r = JSON.parse(JSON.stringify(demoRequests[0][1])) as SolveRequest;
+      r.faces.U = r.faces.U.slice(0, 8);
+      return r;
+    }],
+  ])('rejects malformed request: %s', async (_n, make) => {
+    const r = await demoSolve(make() as SolveRequest);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ kind: 'client', code: 'REQUEST_INVALID' });
   });
 });
 
