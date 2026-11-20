@@ -2,7 +2,7 @@
 // Each basic clockwise face turn is a 54-index permutation derived at module load from FACELETS plus an
 // integer rotation (ARCHITECTURE §7.2). `next[dest] = state[src]`.
 import type { FaceId, FaceletState, MoveToken } from '@/types/cube';
-import { SOLVED, CubeStateError } from './cube-state';
+import { SOLVED, CubeStateError, validateFaceletString } from './cube-state';
 import { FACELETS, faceletIndexAt, type Vec3 } from './facelet-geometry';
 
 /** Thrown by parseMoveToken for anything outside the 18 legal tokens (a CubeStateError, code INVALID_SYMBOL). */
@@ -69,7 +69,8 @@ function buildTokenPermutations(): Readonly<Record<MoveToken, readonly number[]>
 const PERMUTATIONS = buildTokenPermutations();
 
 export function applyMove(state: FaceletState, move: MoveToken): FaceletState {
-  const perm = PERMUTATIONS[move];
+  // Own-property lookup: runtime tokens like "toString" or "__proto__" must not reach the prototype chain.
+  const perm = Object.hasOwn(PERMUTATIONS, move) ? PERMUTATIONS[move] : undefined;
   if (!perm) throw new CubeStateError('INVALID_SYMBOL', `Illegal move token ${JSON.stringify(move)}`);
   let next = '';
   for (let d = 0; d < 54; d++) next += state[perm[d]];
@@ -86,6 +87,13 @@ export function verifySolution(
   initial: FaceletState,
   moves: readonly MoveToken[],
 ): { ok: true; snapshots: readonly FaceletState[] } | { ok: false; reason: string } {
+  const stateProblem = validateFaceletString(initial);
+  if (stateProblem) return { ok: false, reason: `Invalid initial state: ${stateProblem}` };
+  for (const m of moves) {
+    if (typeof m !== 'string' || !Object.hasOwn(PERMUTATIONS, m)) {
+      return { ok: false, reason: `Illegal move token ${JSON.stringify(m)}` };
+    }
+  }
   const snapshots = buildSnapshots(initial, moves);
   if (snapshots[snapshots.length - 1] !== SOLVED) {
     return { ok: false, reason: 'Replaying the moves does not end in the solved state' };

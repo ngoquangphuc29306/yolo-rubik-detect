@@ -247,3 +247,33 @@ describe('move-presentation parseMove', () => {
     }
   });
 });
+
+describe('R11 hardening: runtime-invalid tokens and states', () => {
+  it('applyMove throws CubeStateError for prototype-key and unknown tokens', () => {
+    for (const t of ['toString', '__proto__', 'constructor', 'hasOwnProperty', 'x', '']) {
+      expect(() => applyMove(SOLVED, t as MoveToken), t).toThrow(CubeStateError);
+    }
+  });
+
+  it('verifySolution returns ok:false (no throw) for an invalid token', () => {
+    for (const t of ['x', 'toString', '__proto__']) {
+      const v = verifySolution(SOLVED, [t as MoveToken]);
+      expect(v.ok, t).toBe(false);
+    }
+  });
+
+  it('verifySolution returns ok:false (no throw) for an invalid initial state', () => {
+    const bad = [
+      '',
+      SOLVED.slice(0, 53),
+      SOLVED + 'U',
+      SOLVED.replace('U', 'X'),
+      'R' + SOLVED.slice(1), // wrong counts
+      SOLVED.slice(0, 4) + 'R' + SOLVED.slice(5, 13) + 'U' + SOLVED.slice(14), // centres swapped
+    ];
+    for (const s of bad) {
+      const v = verifySolution(s as FaceletState, []);
+      expect(v.ok, s).toBe(false);
+    }
+  });
+});

@@ -53,25 +53,36 @@ function assertDistinctCenters(centers: CenterColors): void {
   }
 }
 
-export function parseFaceletState(state: string, centers: CenterColors): FaceletState {
+/** Structural check of a facelet string; returns null when valid, else the reason. Never throws. */
+export function validateFaceletString(state: unknown): string | null {
+  const failure = faceletStringFailure(state);
+  return failure ? failure.message : null;
+}
+
+function faceletStringFailure(state: unknown): CubeStateError | null {
+  if (typeof state !== 'string') return new CubeStateError('INVALID_LENGTH', 'State must be a string');
   if (state.length !== 54) {
-    throw new CubeStateError('INVALID_LENGTH', `State must be 54 characters, got ${state.length}`);
+    return new CubeStateError('INVALID_LENGTH', `State must be 54 characters, got ${state.length}`);
   }
   const counts: Record<string, number> = { U: 0, R: 0, F: 0, D: 0, L: 0, B: 0 };
   for (const ch of state) {
-    if (!(ch in counts)) throw new CubeStateError('INVALID_SYMBOL', `Invalid symbol '${ch}'`);
+    if (!Object.hasOwn(counts, ch)) return new CubeStateError('INVALID_SYMBOL', `Invalid symbol '${ch}'`);
     counts[ch]++;
   }
   for (const f of SOLVER_FACE_ORDER) {
-    if (counts[f] !== 9) {
-      throw new CubeStateError('COUNT_MISMATCH', `Expected 9 of '${f}', got ${counts[f]}`);
-    }
+    if (counts[f] !== 9) return new CubeStateError('COUNT_MISMATCH', `Expected 9 of '${f}', got ${counts[f]}`);
   }
   for (const f of SOLVER_FACE_ORDER) {
     if (state[CENTER_INDEX[f]] !== f) {
-      throw new CubeStateError('CENTER_MISMATCH', `Centre of face ${f} (index ${CENTER_INDEX[f]}) is not '${f}'`);
+      return new CubeStateError('CENTER_MISMATCH', `Centre of face ${f} (index ${CENTER_INDEX[f]}) is not '${f}'`);
     }
   }
+  return null;
+}
+
+export function parseFaceletState(state: string, centers: CenterColors): FaceletState {
+  const failure = faceletStringFailure(state);
+  if (failure) throw failure;
   assertDistinctCenters(centers);
   return state as FaceletState;
 }

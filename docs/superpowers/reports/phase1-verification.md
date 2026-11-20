@@ -26,6 +26,10 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.4b | `npm run test` | 0 | 7 test files passed, 211 tests passed, 0 failed. |
 | T1.4b | `npm run lint` (`tsc --noEmit`) | 0 | no errors (after typing the test helper `run` as `FaceletState`). |
 | T1.4b | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
+| T1.4c | `npx vitest run tests/engine/solve-binding tests/engine/move-engine` (RED, before impl) | 1 | solve-binding suite failed to load (`@/engine/solve-binding` absent, expected); move-engine: 2 new R11 tests failed (`applyMove`/`verifySolution` accepted `toString`/`__proto__`), 45 passed. |
+| T1.4c | `npm run test` (GREEN) | 0 | 8 test files passed, 227 tests passed, 0 failed (cases (a)-(g), invalid request, illegal tokens, non-demo centres, R11 hardening). |
+| T1.4c | `npm run lint` (`tsc --noEmit`) | 0 | no errors. |
+| T1.4c | `npm run build` | 0 | built; existing chunk-size warning unchanged. |
 
 ## Notes
 
