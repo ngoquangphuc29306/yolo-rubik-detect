@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { runSolve, type SolveDeps } from '@/hooks/useSolveSession';
 import { createLatestGuard } from '@/lib/request-guard';
 import { useCubeStore } from '@/stores/cube-store';
+import { solveRequestGuard } from '@/stores/solve-guard';
 import { useSessionStore } from '@/stores/session-store';
 import { demoSolve } from '@/demo/demo-solver';
 import { DEMO_CENTER_COLORS, demoFaces } from '@/demo/demo-fixtures';
@@ -102,13 +103,36 @@ describe('runSolve', () => {
     await runSolve(scrambled, deps({ mode: null }));
     expect(state()).toMatchObject({ status: 'error', error: { code: 'REQUEST_INVALID' } });
   });
-  it('a cancelled result leaves the state untouched', async () => {
-    await runSolve(scrambled, deps({
-      mode: 'live',
-      solveBackend: async () => ({ ok: false, error: { kind: 'client', code: 'REQUEST_CANCELLED', message: 'c', retryable: false } }),
-    }));
-    expect(state().status).toBe('solving');
-    expect(state().error).toBeNull();
+  it('a throwing solveBackend, solveDemo or bind becomes a BAD_RESPONSE error, never stuck solving, no rejection', async () => {
+    await expect(runSolve(scrambled, deps({ mode: 'live', solveBackend: async () => { throw new Error('boom'); } }))).resolves.toBeUndefined();
+    expect(state()).toMatchObject({ status: 'error', error: { kind: 'client', code: 'BAD_RESPONSE', message: 'boom' } });
+    state().reset();
+    await runSolve(scrambled, deps({ solveDemo: async () => { throw new Error('demo boom'); } }));
+    expect(state()).toMatchObject({ status: 'error', error: { code: 'BAD_RESPONSE' } });
+    state().reset();
+    const throwingBind = { ...solvedResponse() } as SolveResponse;
+    Object.defineProperty(throwingBind, 'initialState', { get() { throw new Error('bind boom'); } });
+    await runSolve(solvedReq, deps({ mode: 'live', solveBackend: async () => okBackend(throwingBind) }));
+    expect(state().status).toBe('error');
+    expect(state().error).not.toBeNull();
+  });
+  it('a throw after the run became stale is dropped (status stays idle after startSession)', async () => {
+    const pending = deferred<SolveResult>();
+    const p = runSolve(scrambled, deps({ mode: 'live', solveBackend: () => pending.promise.then(() => { throw new Error('late'); }) }));
+    useSessionStore.getState().startSession('live', 'scanning');
+    pending.resolve(okBackend(solvedResponse()));
+    await p;
+    expect(state().status).toBe('idle');
+  });
+  it('the superseded run signal is aborted', async () => {
+    const guard = createLatestGuard();
+    const signals: AbortSignal[] = [];
+    const never = () => new Promise<SolveResult>(() => undefined);
+    const d = deps({ mode: 'live', guard, solveBackend: (_r, o) => { signals.push(o.signal); return never(); } });
+    void runSolve(scrambled, d);
+    void runSolve(scrambled, d);
+    expect(signals[0].aborted).toBe(true);
+    expect(signals[1].aborted).toBe(false);
   });
 
   describe('stale results', () => {
@@ -156,6 +180,17 @@ describe('runSolve', () => {
       await p;
       expect(state().status).toBe('idle');
       expect(state().solution).toBeNull();
+    });
+    it('startSession mid-flight (singleton guard) aborts the signal, leaves idle, ignores the late result', async () => {
+      const pending = deferred<SolveResult>();
+      let signal!: AbortSignal;
+      const p = runSolve(scrambled, deps({ mode: 'live', guard: solveRequestGuard, solveBackend: (_r, o) => { signal = o.signal; return pending.promise; } }));
+      useSessionStore.getState().startSession('live', 'scanning');
+      expect(signal.aborted).toBe(true);
+      expect(state().status).toBe('idle');
+      pending.resolve(okBackend(await goodResp()));
+      await p;
+      expect(state().status).toBe('idle');
     });
     it('an error arriving after startSession is ignored too', async () => {
       const pending = deferred<SolveResult>();

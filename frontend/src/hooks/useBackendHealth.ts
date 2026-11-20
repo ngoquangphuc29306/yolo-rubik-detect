@@ -26,12 +26,18 @@ export function useBackendHealth(enabled = true) {
   const guard = guardRef.current;
 
   const refresh = useCallback(
-    () => checkHealth({ guard, getHealth: (o) => getHealthDefault(o), onResult: setReadiness }),
+    () => {
+      setReadiness(null); // never show a stale 'ready' while re-checking
+      return checkHealth({ guard, getHealth: (o) => getHealthDefault(o), onResult: setReadiness });
+    },
     [guard],
   );
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setReadiness(null);
+      return;
+    }
     void refresh();
     return () => guard.reset();
   }, [enabled, refresh, guard]);

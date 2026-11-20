@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { useCubeStore } from './cube-store';
 import { useScanStore } from './scan-store';
+import { solveRequestGuard } from './solve-guard';
 
 export type AppScreen = 'landing' | 'scanning' | 'reconstructing' | 'alignment' | 'solving' | 'completion';
 export type SessionMode = 'demo' | 'live';
@@ -34,6 +35,8 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   settings: { delayMs: 5000, soundEnabled: true, autoCaptureEnabled: true },
 
   startSession: (mode, screen) => {
+    // Synchronously first: aborts any in-flight solve before the new session exists.
+    solveRequestGuard.reset();
     useScanStore.getState().reset();
     useCubeStore.getState().reset();
     set((s) => ({ mode, screen, sessionId: s.sessionId + 1 }));

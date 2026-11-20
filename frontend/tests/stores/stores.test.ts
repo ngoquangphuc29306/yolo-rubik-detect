@@ -81,6 +81,26 @@ describe('scan-store', () => {
     expect(after.faceStatuses).toBe(before.faceStatuses);
     expect(after.stageIndex).toBe(0);
   });
+  it('rejects sparse, holey and undefined-entry grids without changing state', () => {
+    const holey = [...grid('F')] as unknown[];
+    delete holey[3];
+    const undef = [...grid('F')] as unknown[];
+    undef[3] = undefined;
+    for (const bad of [new Array(9), holey, undef]) {
+      const before = useScanStore.getState();
+      expect(before.captureFace('F', bad as unknown as FaceGrid, 'demo')).toBe(false);
+      const after = useScanStore.getState();
+      expect(after.captured).toBe(before.captured);
+      expect(after.faceStatuses).toBe(before.faceStatuses);
+      expect(after.stageIndex).toBe(0);
+    }
+  });
+  it('stores a copy: mutating the caller array afterwards changes nothing', () => {
+    const mine = [...grid('F')];
+    useScanStore.getState().captureFace('F', mine as unknown as FaceGrid, 'demo');
+    mine[0] = 'red'; mine[4] = 'red';
+    expect(useScanStore.getState().captured.F?.grid).toEqual(grid('F'));
+  });
   it('rescan discards that face and re-targets it, then returns to the next pending face', () => {
     for (const f of ['F', 'R', 'B'] as FaceId[]) useScanStore.getState().captureFace(f, grid(f), 'demo');
     useScanStore.getState().selectFaceForRescan('R');

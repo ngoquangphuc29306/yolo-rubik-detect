@@ -16,7 +16,14 @@ const initialStatuses = (): Record<FaceId, FaceCaptureStatus> => ({
 });
 
 function isValidGrid(grid: unknown): grid is FaceGrid {
-  return Array.isArray(grid) && grid.length === 9 && grid.every((c) => typeof c === 'string' && COLORS.includes(c));
+  if (!Array.isArray(grid) || grid.length !== 9) return false;
+  for (let i = 0; i < 9; i++) {
+    // Own property check rejects sparse arrays (holes) that `every` would skip.
+    if (!Object.prototype.hasOwnProperty.call(grid, i)) return false;
+    const c: unknown = grid[i];
+    if (typeof c !== 'string' || !COLORS.includes(c)) return false;
+  }
+  return true;
 }
 
 interface ScanStoreState {
