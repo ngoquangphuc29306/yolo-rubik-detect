@@ -52,9 +52,7 @@ const stageStates = () =>
   ['faces', 'colors', 'centers', 'validated', 'solution-match', 'replay'].map(stage);
 const summary = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
 const netValidated = () => SCAN_FACE_ORDER.map((f) => screen.getByTestId(`net-face-${f}`).getAttribute('data-validated'));
-// The demo ModeBanner is also role=status; exclude it.
-const statusText = () =>
-  screen.getAllByRole('status').find((el) => el.dataset.testid !== 'mode-banner')!.textContent;
+const statusText = () => screen.getByRole('status').textContent;
 const prepare = () => screen.getByRole('button', { name: /Prepare to Solve/ }) as HTMLButtonElement;
 
 function deferred<T>() {

@@ -280,10 +280,10 @@ export function LandingScreen() {
 
                   {/* Interactive Mode Switcher at Bottom of 3D Stage */}
                   <div className="absolute bottom-3.5 inset-x-4 z-30 flex items-center justify-between gap-3">
-                    <span className="text-xs text-zinc-400 font-mono tabular-nums hidden sm:inline">
+                    <span className="text-xs text-zinc-400 font-mono tabular-nums hidden sm:inline truncate min-w-0">
                       {heroView === 'vision'
                         ? 'Illustration — simulated detection'
-                        : 'Reconstructed 3D Digital Twin · 54/54 valid'}
+                        : 'Illustration — simulated digital twin'}
                     </span>
 
                     <div

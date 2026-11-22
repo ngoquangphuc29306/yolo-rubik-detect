@@ -81,7 +81,7 @@ function AlignmentSession({ solution }: { solution: SolutionData }) {
         }
       />
 
-      <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10 flex flex-col gap-8">
+      <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-6 flex flex-col gap-8 lg:gap-6">
         {/* Heading Strip */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="space-y-1.5">

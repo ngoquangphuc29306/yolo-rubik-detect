@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/three/RubiksCube3D', async () => {
@@ -9,7 +9,25 @@ vi.mock('@/components/three/RubiksCube3D', async () => {
 
 import { LandingScreen } from '@/features/landing/LandingScreen';
 import { useCubeStore } from '@/stores/cube-store';
+import { useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
+import { solveRequestGuard } from '@/stores/solve-guard';
+import { demoFaces } from '@/demo/demo-fixtures';
+
+/** Stale state from a previous session that every entry CTA must discard. */
+function seedStale() {
+  useScanStore.getState().captureFace('F', demoFaces(0).F, 'demo');
+  useCubeStore.setState({ status: 'ready' });
+  useSessionStore.setState({ mode: 'demo', screen: 'landing' });
+  useSessionStore.getState().setGuidance(1234);
+  return solveRequestGuard.begin();
+}
+function expectCleared(handle: { isCurrent(): boolean }) {
+  expect(Object.keys(useScanStore.getState().captured)).toEqual([]);
+  expect(useCubeStore.getState().status).not.toBe('ready');
+  expect(useSessionStore.getState().guidance).toBeNull();
+  expect(handle.isCurrent()).toBe(false);
+}
 
 beforeEach(() => {
   useSessionStore.setState({ mode: null, screen: 'landing' });
@@ -23,10 +41,11 @@ describe('LandingScreen entry points', () => {
     const buttons = screen.getAllByRole('button', { name: /scan my cube|start solving/i });
     expect(buttons.length).toBeGreaterThanOrEqual(3);
     for (const b of buttons) {
-      useSessionStore.setState({ mode: null, screen: 'landing' });
+      const handle = seedStale();
       fireEvent.click(b);
       expect(useSessionStore.getState().mode).toBe('live');
       expect(useSessionStore.getState().screen).toBe('scanning');
+      expectCleared(handle);
     }
   });
 
@@ -35,19 +54,24 @@ describe('LandingScreen entry points', () => {
     const buttons = screen.getAllByRole('button', { name: /try interactive demo/i });
     expect(buttons.length).toBe(2);
     for (const b of buttons) {
-      useSessionStore.setState({ mode: null, screen: 'landing' });
+      const handle = seedStale();
+      expect(useCubeStore.getState().status).toBe('ready');
       fireEvent.click(b);
       expect(useSessionStore.getState().mode).toBe('demo');
       expect(useSessionStore.getState().screen).toBe('reconstructing');
+      expect(useSessionStore.getState().guidance).toBeNull();
+      expect(handle.isCurrent()).toBe(false);
       await waitFor(() => expect(useCubeStore.getState().status).toBe('ready'));
     }
   });
 
   it('"Walk through the simulated scan" starts a demo session at Scanning', () => {
     render(<LandingScreen />);
+    const handle = seedStale();
     fireEvent.click(screen.getByRole('button', { name: /walk through the simulated scan/i }));
     expect(useSessionStore.getState().mode).toBe('demo');
     expect(useSessionStore.getState().screen).toBe('scanning');
+    expectCleared(handle);
   });
 
   it('shows no fabricated confidences and labels the hero as a simulation', () => {
@@ -57,5 +81,40 @@ describe('LandingScreen entry points', () => {
     expect(text).not.toContain('98.4');
     expect(text).toMatch(/Illustration — simulated detection/);
     expect(text).toMatch(/pre-computed/);
+  });
+
+  describe('hero illustration labelling', () => {
+    const FABRICATED = /54\s*\/\s*54|\bvalid\b/i;
+    const stage = () => screen.getByRole('tablist', { name: /hero visualization mode/i }).parentElement!.parentElement!;
+
+    it.each(['Scanned Cube', 'Digital Twin'])('"%s" view is labelled an illustration with no validation claim', (tab) => {
+      render(<LandingScreen />);
+      fireEvent.click(screen.getByRole('tab', { name: tab }));
+      const text = stage().textContent ?? '';
+      expect(text).toMatch(/Illustration/);
+      expect(text).not.toMatch(FABRICATED);
+    });
+
+    it('the auto-cycle into the twin view is also labelled', () => {
+      vi.useFakeTimers();
+      try {
+        render(<LandingScreen />);
+        act(() => {
+          vi.advanceTimersByTime(6500);
+        });
+        expect(screen.getByRole('tab', { name: 'Digital Twin' }).getAttribute('aria-selected')).toBe('true');
+        const text = stage().textContent ?? '';
+        expect(text).toMatch(/Illustration — simulated digital twin/);
+        expect(text).not.toMatch(FABRICATED);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('caption is truncated so it cannot run under the tab switcher', () => {
+      render(<LandingScreen />);
+      const cap = screen.getByText(/^Illustration — simulated/);
+      expect(cap.className).toMatch(/truncate/);
+    });
   });
 });

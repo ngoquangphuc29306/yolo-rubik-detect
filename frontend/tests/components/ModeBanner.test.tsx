@@ -13,10 +13,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ModeBanner', () => {
-  it('shows the exact demo notice with role=status in demo mode', () => {
+  it('shows the exact demo notice with role=note in demo mode', () => {
     useSessionStore.setState({ mode: 'demo' });
     render(<ModeBanner />);
-    const el = screen.getByRole('status');
+    const el = screen.getByRole('note');
     expect(el.textContent).toBe(TEXT);
   });
 
@@ -49,5 +49,15 @@ describe('WorkspaceHeader banner', () => {
     useSessionStore.setState({ mode: 'live' });
     render(<WorkspaceHeader activeStage="scan" />);
     expect(screen.queryByText(TEXT)).toBeNull();
+  });
+});
+
+describe('ModeBanner layout', () => {
+  it('grows instead of clipping when text wraps (min-h, not fixed h)', () => {
+    useSessionStore.setState({ mode: 'demo' });
+    render(<ModeBanner />);
+    const cls = screen.getByRole('note').className;
+    expect(cls).toMatch(/\bmin-h-7\b/);
+    expect(cls).not.toMatch(/(^|\s)h-7\b/);
   });
 });
