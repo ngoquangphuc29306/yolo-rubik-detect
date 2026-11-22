@@ -2,11 +2,26 @@
 
 | Field | Value |
 | --- | --- |
-| Version | 1.0 — architecture baseline for review |
-| Date | 2026-11-19 |
+| Version | 1.1 — model-last amendments and Phase 1 decisions |
+| Date | 2026-11-22 (v1.0: 2026-11-19) |
 | Product | AI-powered interactive 3×3 Rubik's Cube coach |
 | Target | Local-first browser application; approximately one-week MVP for a Computer Vision sharing session |
-| Status | Product direction and technology stack accepted; detailed contracts and tuning defaults below are proposed implementation decisions, not validated code |
+| Status | Phase 0 (baseline) and Phase 1 (frontend, deterministic engine, timed coach, explicit demo, typed clients) are implemented on branch `refactor/phase-1-frontend`, pending the user's approval. The backend, the WebSocket transport, the trained YOLO model and the Python `kociemba` cross-check do **not** exist yet. Contracts for those parts below remain proposed. Nothing has been verified against a physical cube. |
+
+### Changelog
+
+**v1.1 (2026-11-22)** — model-last amendments from the Phase 0/1 plan (section 11) and decisions made while executing Phase 1:
+
+- Section 13 replaced by the model-last roadmap with *software-ready* and *model-ready* gates; the release criteria in section 12 are split the same way.
+- Detector modes `RUBIK_DETECTOR_MODE=fixture|yolo`, additive `/health` fields, `MODEL_UNAVAILABLE` behaviour; fixture readiness never enables unlabelled live capture (sections 5.1, 8.1, 11).
+- Scan rules: known centres come from the scan; nine boxes cannot prove face roll; the UI never names the colour of an unobserved centre (section 6).
+- ROI, contain-fit overlay, one frame in flight, camera lifecycle rules (section 8.2).
+- `FaceletState` is authoritative and `RenderCubie[]` is a derived adapter; strict runtime parsing; solve response bound to the request; client-only error codes; `runSolve` precondition (sections 7.1, 8.3).
+- Playback reducer, single clock, `frameRef` renderer contract, no skip/previous controls, "Guidance time", orientation cue, confirmation before completion (section 7.3).
+- New sections: Demo vs Live (9.1), Independent engine verification (12.1), Phase 1 scope decisions (12.2).
+- Section 10 now shows the actual repository tree; section 14 gains the known limitations found in Phase 1.
+
+**v1.0 (2026-11-19)** — architecture baseline.
 
 ## 1. Executive overview
 
@@ -141,11 +156,11 @@ Detect one bounding box per visible colored **facelet** (one sticker or colored 
 | 4 | `blue` |
 | 5 | `green` |
 
-These IDs are an implementation contract for the curated dataset; actual downloaded IDs must be inspected and remapped, or normalized explicitly from model class names. Never assume a third-party dataset uses this order. Backend startup verifies the trained model's six class names and the ID mapping; unknown or missing classes fail readiness.
+These IDs are an implementation contract for the curated dataset; actual downloaded IDs must be inspected and remapped, or normalized explicitly from model class names. Never assume a third-party dataset uses this order. Backend startup verifies the trained model's six class names and the ID mapping; unknown or missing classes fail readiness. Normalise detections by class **name**, never by assumed ID; verify all six names and the detection task; reject extra, missing or unknown labels. Weights are not committed (`*.pt` is git-ignored); a trusted local `backend/weights/best.pt` is loaded once at startup, and replacing it requires a restart. A missing or invalid file never falls back to generic COCO weights.
 
 ### 5.2 Dataset candidates and audit gate
 
-Primary search candidates (not selected, downloaded, or audited yet):
+Primary search candidates (not selected, downloaded, or audited yet; ColorRubik2 is a priority audit candidate and the Pavitras dataset a backup, both unaudited). Collect a small independent real-image test set early and train late:
 
 | Candidate | Source |
 | --- | --- |
@@ -176,7 +191,7 @@ Each label line is `class_id x_center y_center width height` with normalized coo
 ### 5.3 Training baseline
 
 - Initialize from `yolo26n.pt` (detection, COCO-pretrained); fine-tune for all six classes.
-- Proposed starting configuration: `imgsz=640`, 50 epochs, seed recorded, early stopping and batch size chosen for actual GPU memory. Tune only after a measured baseline. These are experiment defaults, not guaranteed optimums.
+- Proposed starting configuration: `imgsz=640`, 50 epochs (50 versus 60 is a tunable baseline, not a decision), seed recorded, early stopping and batch size chosen for actual GPU memory. Tune only after a measured baseline. These are experiment defaults, not guaranteed optimums.
 - Avoid hue-changing augmentations that would invalidate color labels; use moderate brightness/contrast, scale, translation, rotation and perspective as appropriate. Inspect resulting examples. Never augment validation/test.
 - Save best checkpoint, training configuration, Ultralytics/PyTorch versions, class names, dataset manifest and evaluation report. Record the weight SHA-256/hash or version in the runtime manifest. Do not silently use a generic COCO checkpoint when custom weights are missing.
 
@@ -216,7 +231,7 @@ This is a correctness-critical contract between scanning, solver and 3D. The sol
 
 Use a right-handed coordinate system: `+X = R`, `+Y = U`, `+Z = F`. Opposites are `L=-X`, `D=-Y`, `B=-Z`. View each face directly from outside the cube; its top-left-to-bottom-right row order is normative. All directions refer to the **cube frame**, not whichever way the camera happens to look.
 
-Initially instruct the user to present the green center to the webcam with the white center on top (six-color conventional cube). U/F are perpendicular; the remaining centers are identified from the guided whole-cube rotations, rather than assuming right is always red. Example for a conventional scheme: U white, F green, R red, B blue, L orange, D yellow. If a cube does not support this starting pair, MVP may reject it clearly; general U/F selection is an extension. The true center mapping is reconstructed from captured faces and must contain each of the six colors exactly once.
+Initially instruct the user to present the green center to the webcam with the white center on top (six-color conventional cube). This green-front/white-up pair is the documented **start convention** only; every other centre colour is taken from the faces actually scanned, and the full six-centre mapping is never hard-coded. U/F are perpendicular; the remaining centers are identified from the guided whole-cube rotations, rather than assuming right is always red. Example for a conventional scheme: U white, F green, R red, B blue, L orange, D yellow. If a cube does not support this starting pair, MVP may reject it clearly; general U/F selection is an extension. The true center mapping is reconstructed from captured faces and must contain each of the six colors exactly once.
 
 **Camera versus human viewpoint:** during scanning, F initially faces the webcam. During solving, F must face the user, with U above and R on the user's right as in the 3D reference view. Reorient the entire physical cube after scanning to achieve this. Do not simply tell the user to keep the exact last scan pose. Keep image-coordinate reconstruction unmirrored even if a selfie-style preview is offered; any display mirroring must be mapped consistently or disabled (MVP default: disabled).
 
@@ -234,6 +249,8 @@ Scan order is `F → R → B → L → U → D`. This is not the solver serializ
 | 6 | D | F | R | From U-facing pose, rotate entire cube 180° around the same horizontal axis, so D faces camera and F is at image top. |
 
 Use clear animated 2D arrows plus a small reference-cube orientation diagram; at stage 5 explicitly distinguish the return-to-F transition from the tilt-to-U transition. Do not capture while rotating. An intermediate alignment instruction can verify the already captured F pattern (when available) before accepting U. Avoid ambiguous text such as “rotate left” alone; name the face that must come toward the camera and display the expected orientation. If the next center was not captured before, it cannot be verified against a known arbitrary mapping; require an uncaptured center, appropriate instructed pose and any known center constraints. In particular, U must be white under the starting convention. Optional expected opposite-center checks should only assume a supported known scheme or observed information.
+
+The scan UI (`frontend/src/features/scanner/scan-guide.ts`) names a centre colour only when that centre has already been observed (for example F is green and U is white under the start convention); for an unobserved centre it names the face direction instead. Stage 5 tells the user to return to F before tilting the top toward the camera, and stage 6 to tilt the bottom toward the camera.
 
 **Limitation:** a single facelet image with nine boxes and a center color cannot prove the rotations around the face normal or the identity of hidden adjacent faces. Guided gestures, diagrams, validation, review and rescan reduce risk but do not provide pose verification. A physically legal but wrong reconstruction is possible and must be acknowledged. No claim of true AR or automatic orientation recognition.
 
@@ -292,9 +309,9 @@ Pass normalized facelet string to `kociemba.solve`; handle an already-solved cub
 
 ### 7.1 State and rendering invariant
 
-The frontend receives `{centerColors, initialState, moves}`. A pure TypeScript engine can apply any legal turn to a facelet string; it contains no browser, Three.js or timer dependencies. Compute immutable snapshots `S[0..N]`, where `S[0]` is the scanned state and `S[i+1] = applyMove(S[i], moves[i])`. Verify final snapshot equals solved state before playback. Reject invalid responses or internal inconsistency; never animate a known-wrong sequence.
+The frontend receives `{centerColors, initialState, moves}`. A pure TypeScript engine can apply any legal turn to a facelet string; it contains no browser, Three.js or timer dependencies. Compute immutable snapshots `S[0..N]`, where `S[0]` is the scanned state and `S[i+1] = applyMove(S[i], moves[i])`. Verify final snapshot equals solved state before playback. Reject invalid responses or internal inconsistency; never animate a known-wrong sequence. An empty move list is valid only for an already-solved state and skips playback.
 
-Create 26 visible cubies (8 corners, 12 edges, 6 centers) and 54 sticker surfaces; the internal core can be omitted or rendered separately. Colors come from `centerColors[state[index]]`. Use the canonical coordinate table, not a random scramble generated by the renderer. Every renderable sticker has a cubie position and outward normal. Cube state is authoritative; scene transforms are transient presentation only.
+`FaceletState` (`frontend/src/types/cube.ts`) is the single immutable source of truth. The renderer model `RenderCubie[]` is a **derived adapter** (`engine/cubie-adapter.ts`, `toCubies`) and is never edited independently. It contains 27 cubies: the 26 visible ones (8 corners, 12 edges, 6 centers) carrying 54 sticker surfaces, plus the stickerless core at (0,0,0), which stays visible through the gaps during layer turns. Cubie ids identify position slots, not physical cubies. Facelet strings and solve payloads go through strict runtime parsing (`engine/cube-state.ts`, `services/parsers.ts`): a malformed or unknown value is an error, never a defaulted colour. The frontend checks structure only (54 symbols, nine of each letter, fixed centres, six distinct known colours); physical legality remains the backend's job. Colors come from `centerColors[state[index]]`. Use the canonical coordinate table, not a random scramble generated by the renderer. Every renderable sticker has a cubie position and outward normal. Cube state is authoritative; scene transforms are transient presentation only.
 
 ### 7.2 Move semantics
 
@@ -335,9 +352,22 @@ stateDiagram-v2
     RECOVERY --> [*]: discard old session and restart scan
 ```
 
+**Implemented in Phase 1** (frontend only; checked by unit tests and a desktop browser pass, not against a physical cube):
+
+- `engine/playback-fsm.ts` is a pure reducer (no timers, DOM or React) with statuses `idle | animating | waiting | paused | complete`. Animation lasts 780 ms per quarter turn and 975 ms (780 × 1.25) per half turn; the wait is the adjustable delay, measured **after** the animation.
+- `RESET` is generation-privileged: it is accepted only when its generation is an integer greater than the state's, and it rebuilds every field. Every other event whose generation differs is a no-op. This **playback-run generation** is separate from the session id in `stores/session-store.ts`; restarting playback of the same solution bumps only the former.
+- `TICK` carries overshoot across phase boundaries and lands exactly on each boundary, so many small ticks equal one large tick. Time left after the final wait is discarded.
+- `hooks/usePlayback.ts` owns the single `requestAnimationFrame` clock. One frame contributes at most 250 ms (`MAX_FRAME_DT_MS`), so a long stall is truncated rather than skipping steps. A hidden tab dispatches `PAUSE` with reason `hidden`; a user pause outranks it; there is no auto-resume. React state is published at most about 30 Hz.
+- Renderer contract: the hook writes `frameRef = {displayedIndex, activeIndex, progress, status}` synchronously with every reducer transition, and the controlled `RubiksCube3D` reads only that ref each frame (the R3F Canvas keeps `frameloop="always"`). While animating it shows `S[index]` interpolating toward `S[index+1]`, then snaps to the exact snapshot.
+- A delay change is stored immediately and applies from the **next** wait phase. Pause freezes both animation and countdown; replay resets the current move and never applies it twice; the final wait is not skippable.
+- There are **no Previous, Next or skip-wait controls**: physical progress cannot be inferred while the camera is off, so the UI does not pretend to track it.
+- The metric shown is **"Guidance time"** (`playbackMs`, the sum of dt applied while animating or waiting). It is a simulated playback clock, not wall-clock time and not a physical solve time.
+- A persistent Top/Front/Right orientation cue (`features/solver/OrientationCue.tsx`) is shown while solving.
+- After the last move the app shows that guidance finished. Confetti and any "solved" wording appear only after the user presses the confirmation button.
+
 Define `i` as the index of the currently demonstrated move. During animation display interpolation `S[i] → S[i+1]`; during waiting display `S[i+1]`. The virtual cube may be ahead of the user's physical cube until the user follows. When the delay expires, increment `i` once. Replay restores `S[i]` visually and demonstrates the same transition, resets that move's waiting period and never commits its permutation twice. UI shows move label, target center color, directed arrow, current/total count, next move preview and a countdown.
 
-Proposed defaults: 1 second animation (180° can use the same duration or a tuned longer one), 5 seconds delay **after** the animation, adjustable delay 2–15 seconds and optional sound. Delay is not a prediction of human completion. Speed changes during an active countdown take effect at the next step (simpler deterministic default); pause preserves remaining time/animation progress, resume continues from it. At the start there is one deliberate Start action. No per-move Done click is required. Provide Space pause/resume and replay shortcuts as optional convenience, with accessible click controls. Never autoplay when entering alignment screen or recovering without user consent.
+Defaults as implemented: 0.78 s quarter-turn animation (0.975 s for half turns), 5 seconds delay **after** the animation, adjustable delay 2–15 seconds (`MIN_DELAY_MS`/`MAX_DELAY_MS`) and optional sound. Delay is not a prediction of human completion. Speed changes during an active countdown take effect at the next wait phase (simpler deterministic default); pause preserves remaining time/animation progress, resume continues from it. At the start there is one deliberate Start action. No per-move Done click is required. Space pause/resume and replay shortcuts are an optional convenience (not implemented in Phase 1), alongside accessible click controls. Never autoplay when entering alignment screen or recovering without user consent.
 
 Use monotonic time, a single active animation/countdown, cancellation and a session generation token. Stop (and suspend rather than fast-forward) on hidden tab, component unmount, rescan or stale callback. Avoid overlapping animation loops and React Strict Mode duplicate effects. Completion follows final waiting interval; display `Guidance complete — check your physical cube`, not verified success. If the initial state is already solved, skip playback and show the same appropriate status. Rescan always creates a fresh state and solution and invalidates previous snapshots/results; it does not try to guess which physical move was missed.
 
@@ -347,15 +377,25 @@ Use monotonic time, a single active animation/countdown, cancellation and a sess
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
-| `/health` | GET | Process alive; readiness flag, safe model version and device info. |
+| `/health` | GET | Process alive; readiness flags, detector mode, safe model version and device info. |
 | `/ws/scan` | WebSocket | Binary JPEG frame in, JSON detections and per-frame grid analysis out. |
 | `/api/solve` | POST | Validate six captured color grids, return canonical state, center mapping and solution. |
 
-All payload examples are proposed v1 contracts, not existing endpoints. Use Pydantic validation, stable error codes and a schema version; frontend TypeScript types mirror the contracts and are tested with fixtures. Frontend owns scan ordering, auto-capture, and capture review; backend owns single-frame geometry and canonical state/solver validation. Avoid a stateful backend scan session unless subsequently needed.
+**Status:** none of these endpoints exists yet. The frontend has typed, runtime-validated clients for `/health` and `/api/solve` (`frontend/src/services/health-client.ts`, `solver-client.ts`) tested against shared JSON in `fixtures/`; `/ws/scan` has no client (see 8.2). All payload examples are proposed v1 contracts.
+
+Detector mode and health (additive fields; WebSocket and REST stay schema v1): the backend reads `RUBIK_DETECTOR_MODE=fixture|yolo` (default `yolo`) and starts without weights. `/health` returns `schemaVersion`, `status` (`ok|degraded|error`), `detectorMode`, `visionReady`, `solverReady`, optional `modelVersion` and `device`, and an optional safe `error`. It reports process and solver readiness independently of vision. In `yolo` mode with missing or invalid weights vision answers `MODEL_UNAVAILABLE`: scanning is blocked while the solver stays usable. `fixture` mode is opt-in, visible in `/health` and in the UI, never treats arbitrary webcam pixels as detections and is never a fallback from `yolo`; fixture readiness is distinct from real readiness and never enables unlabelled live capture.
+
+The frontend derives readiness with `deriveLiveReadiness` (`services/readiness.ts`): `ready` only for `detectorMode: yolo` with `status: ok`, `visionReady` and `solverReady`; `fixture-only` for fixture mode; `blocked` (`MODEL_UNAVAILABLE` or `BACKEND_UNAVAILABLE`) in every other case, including an unreachable backend. This is exercised against fixtures only. Use Pydantic validation, stable error codes and a schema version; frontend TypeScript types mirror the contracts and are tested with fixtures. Frontend owns scan ordering, auto-capture, and capture review; backend owns single-frame geometry and canonical state/solver validation. Avoid a stateful backend scan session unless subsequently needed.
 
 ### 8.2 WebSocket scanning protocol
 
 One accepted frame in flight per client; send only latest frame at configured cadence when previous response returns. Raw JPEG in binary (no base64); one JSON result per frame. On connection send an initial JSON hello carrying `schemaVersion` and `scanId`, receive ack, then stream binary frames. Server sequences responses from 1 for each connection; frontend tracks the capture-request stage locally and discards response from a stale connection/stage. On reconnect generate a new `scanId`, reset in-flight tracking and the stability buffer. Use actual decoded frame dimensions; reject oversized/malformed frames. Proposed bounds: 1280 px longest edge and 1 MiB payload; measure before tuning.
+
+**ROI contract.** The hello message carries a normalised `roi` (fractions of the unmirrored frame). The server applies it to the decoded, unmirrored frame and reports boxes in full-frame pixel coordinates. Overlays use one shared contain-fit transform (`frontend/src/lib/contain-transform.ts`: `computeContain`, `frameToView`, `viewToFrame`, `boxToView`; invalid sizes yield `null`). Changing the ROI resets the scan and the handshake. Frames are never mirrored. At most one frame is in flight per connection; it is drained on stage change or rescan, and results from a stale connection or stage are discarded. Phase 1 implements the contain transform only; the ROI fields and the other protocol rules in this paragraph are not implemented.
+
+**Transport status.** There is no WebSocket transport. `frontend/src/services/scan-transport.ts` defines the `ScanTransport` interface and an `UnavailableScanTransport` whose `connect()` always fails with `BACKEND_UNAVAILABLE`. Live scanning is therefore blocked in Phase 1.
+
+**Camera lifecycle (implemented, `frontend/src/hooks/useCamera.ts`).** The camera starts only from an explicit user action (the "Enable camera" button); entering a screen never opens it. `start()` first stops and detaches any active stream, so at most one device is open. A `getUserMedia` result that arrives late (after `stop()`, after a newer `start()` or after disposal) has its tracks stopped and is not attached. Every exit path (stop, dispose, error, supersede) stops all tracks, so a failed request cannot leave the camera on. The controller is created per mount and is safe under React StrictMode remounts. Behaviour was exercised with unit tests and Chrome's fake media device, not a real webcam.
 
 Example response (excerpt: one detection shown; `grid:null` because only one detection is represented):
 
@@ -408,7 +448,11 @@ Successful response for that exact request:
 }
 ```
 
-For a scrambled cube, `moves` contains legal tokens and `moveCount` equals array length. Frontend precomputes and verifies all snapshots before proceeding. Treat timeout as retryable, never fabricate a solution. Use 422 for invalid input/state, 503 for unavailable service, and an appropriate timeout/internal response for solver faults. Suggested normalized error envelope:
+For a scrambled cube, `moves` contains legal tokens and `moveCount` equals array length. **Binding.** The frontend does not trust a well-formed response. `bindSolveResponse` (`engine/solve-binding.ts`) rebuilds the state and centre colours from the **submitted** request and requires the response's `initialState` and `centerColors` to equal them, `moveCount === moves.length`, every token to be one of the 18 legal tokens, and a replay of the moves from the submitted state to reach solved. A valid-looking solution for a different cube (for example the solved cube) is rejected. It returns typed failures (`REQUEST_INVALID`, `RESPONSE_MISMATCH`, `SOLUTION_REPLAY_MISMATCH`) and never throws. `runSolve` (`hooks/useSolveSession.ts`) also validates the request structurally **before** any solver or network call, so a malformed scan is never sent. Stale or superseded results are dropped through one session-owned guard (`stores/solve-guard.ts`) that `startSession` resets.
+
+**Error codes.** Wire codes (`ApiErrorCode`, listed below) are separate from client-only codes (`ClientErrorCode`: `NETWORK`, `BACKEND_UNAVAILABLE`, `BAD_RESPONSE`, `RESPONSE_MISMATCH`, `SOLUTION_REPLAY_MISMATCH`, `REQUEST_CANCELLED`, `REQUEST_INVALID`), which never appear in a payload. Demo provenance (`demo-fixture` versus `backend`) travels in a wrapper `SolveOutcome {response, source}` outside the strict wire object.
+
+Frontend precomputes and verifies all snapshots before proceeding. Treat timeout as retryable, never fabricate a solution. Use 422 for invalid input/state, 503 for unavailable service, and an appropriate timeout/internal response for solver faults. Suggested normalized error envelope:
 
 ```json
 {"error":{"code":"INVALID_CUBE_STATE","message":"The captured cube could not be validated. Check face orientation or scan again.","retryable":true}}
@@ -458,59 +502,64 @@ sequenceDiagram
 | Solving coach | Digital twin, move notation, direction, face center, countdown, play/pause/replay, speed, Scan Again. |
 | Completion | Guidance-complete message, optional verification/rescan; no claim of physical success unless verified. |
 
-Zustand stores three related but separately resettable slices: `scan` (captured faces, stage, camera/connection status, stability), `cube` (center map, initial state, validated moves and immutable snapshots), and `playback` (session ID, phase, current move, delay/animation settings, remaining time). Keep high-frequency frame bytes and mutable Three.js object refs outside the global reactive store; update UI using bounded results. Canvas overlays and renderer read state, they do not mutate source-of-truth facelets. Settings can optionally persist via `localStorage`; no captured images/state saved persistently by default. Include accessible keyboard controls and text labels in addition to color cues; sound is optional.
+As built, Zustand holds three stores under `frontend/src/stores/`: `session-store` (mode `demo|live`, screen, `sessionId`, settings, guidance result; `startSession` is the only place `sessionId` increments and it resets the other stores), `scan-store` (stage, per-face status and captured grids, condition, stability) and `cube-store` (solve status, bound solution with snapshots, error). Playback state is **not** global: it lives in the pure reducer driven by `usePlayback` for the Solving screen, with the playback-run generation described in 7.3. Keep high-frequency frame bytes and mutable Three.js object refs outside the global reactive store; update UI using bounded results. Canvas overlays and renderer read state, they do not mutate source-of-truth facelets. Settings can optionally persist via `localStorage`; no captured images/state saved persistently by default. Include accessible keyboard controls and text labels in addition to color cues; sound is optional.
 
-## 10. Suggested repository organization
+### 9.1 Demo vs Live
+
+Demo and Live are disjoint session modes (`session-store.mode`).
+
+- Fabricated data (a scripted scan, detections, a precomputed solution) may appear only under a persistent Demo label. Demo workflow screens show the banner text "DEMO — simulated scan data. Not a camera reading." (`components/ModeBanner.tsx`). The Landing hero is a separate, labelled illustration ("Illustration — simulated detection" / "Illustration — simulated digital twin"), not a banner.
+- Demo fixtures (`frontend/src/demo/`) never appear over a live webcam as inferred boxes, confidences or captured grids. The demo scanner shows colour codes only, with no numeric confidence, and marks its feed as simulated. The demo solver recognises only the built-in demo cubes and never invents a solution.
+- Live needs a ready backend and model (`deriveLiveReadiness`). With none, live is blocked and says so; it does not fall back to demo or to fixtures. `restartScan` (`stores/demo-session.ts`) preserves the current mode: a live restart stays live.
+- Guidance completion in demo means the instructions ended, not that a cube was solved.
+
+## 10. Repository organization
 
 ```text
-rubikvision/
-├── ARCHITECTURE.md
+rubik-solver-yolo/
 ├── README.md
+├── CLAUDE.md
 ├── .gitignore
-├── backend/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   ├── api/{health.py,scan.py,solve.py}
-│   │   ├── schemas/{vision.py,cube.py,errors.py}
-│   │   ├── vision/{detector.py,facelet_sorter.py,grid_validator.py}
-│   │   └── cube/{reconstruction.py,validator.py,solver.py}
-│   ├── weights/              # best.pt supplied externally; not tracked by default
-│   ├── tests/
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── RUBIKVISION_CLAUDE_HANDOFF.md      # historical source review
+│   ├── FRONTEND_PLAN_REVIEW.md
+│   ├── legacy/                            # archived AI Studio metadata
+│   └── superpowers/{plans,reports}/
+├── fixtures/                              # shared JSON for API contracts
+│   ├── health/
+│   └── solve/
+├── frontend/                              # React 19, Vite, Vitest, npm
 │   ├── src/
-│   │   ├── components/
-│   │   ├── features/{scanner,review,align,cube,solver}/
-│   │   ├── engine/{cube-state.ts,move-engine.ts,playback-fsm.ts}
-│   │   ├── stores/{scan-store.ts,cube-store.ts,playback-store.ts}
-│   │   ├── hooks/
-│   │   ├── services/{scan-client.ts,solver-client.ts}
-│   │   └── types/
-│   ├── tests/
-│   ├── package.json
-│   └── .env.example
-├── training/
-│   ├── configs/
-│   ├── notebooks/
-│   ├── train.py
-│   ├── evaluate.py
-│   └── dataset-manifest.md
-├── datasets/                 # local, gitignored
-├── fixtures/                 # small, permitted synthetic / recorded test cases
-└── docs/                     # decisions and evaluation reports
+│   │   ├── types/                         # cube and wire types
+│   │   ├── engine/                        # pure: cube-state, facelet-geometry, move-engine,
+│   │   │                                  #   cubie-adapter, solve-binding, move-presentation, playback-fsm
+│   │   ├── demo/                          # explicit deterministic demo fixtures
+│   │   ├── services/                      # health/solver clients, parsers, readiness, scan-transport (interface only)
+│   │   ├── stores/                        # session, scan, cube, demo-session, solve-guard
+│   │   ├── hooks/                         # usePlayback, useCamera, useSolveSession, useBackendHealth
+│   │   ├── features/{landing,scanner,review,align,solver}/
+│   │   ├── components/{ui,three}/         # shared UI and the Three.js renderer
+│   │   └── lib/                           # contain-transform, request-guard, colors, audio, utils
+│   ├── tests/{architecture,components,config,demo,engine,features,golden,hooks,lib,reference,services,stores}/
+│   ├── package.json, package-lock.json, vite.config.ts, vitest.config.ts, .env.example
+├── backend/                               # PLANNED, not created (Phase 2+)
+│   ├── app/{api,schemas,vision,cube}/     #   vision/ holds fixture_detector.py and yolo_detector.py
+│   ├── weights/                           #   best.pt supplied externally; git-ignored
+│   └── tests/
+├── training/                              # PLANNED, not created (Phase 5)
+└── datasets/                              # local, git-ignored
 ```
 
-Module names are a suggested responsibility-based layout; builder may simplify files while preserving boundaries. Do not commit credentials, large datasets, raw personal videos or unapproved model weights. Keep training separate from runtime; the API must not train on startup.
+The `frontend/` and `fixtures/` parts are the actual tree; `backend/` and `training/` are the planned layout and may be simplified while preserving boundaries. `features/cube/` is intentionally absent: the cube state lives in `engine/` and the renderer in `components/three/`. The `engine/`, `demo/`, `types/` and `services/` layers must not import React, three, zustand, stores, hooks, features, components or DOM globals; `frontend/tests/architecture/boundaries.test.ts` enforces this. Do not commit credentials, large datasets, raw personal videos or unapproved model weights. Keep training separate from runtime; the API must not train on startup.
 
 ## 11. Local operation, robustness and privacy
 
-- Proposed dev addresses: frontend `http://localhost:5173`, backend `http://127.0.0.1:8000`. Use Vite proxy for `/api`, `/ws` and `/health` or an explicitly configured allowed local origin; configure WebSocket upgrade and validate origin separately from REST CORS. For a production-like local build, use one origin or approved proxy. Do not expose a development GPU server on the public network by default.
+- Dev addresses: the Vite dev server listens only on loopback, `http://127.0.0.1:5173` (`strictPort`), and proxies `/api`, `/health` and `/ws` (WebSocket) to the planned backend at `127.0.0.1:8000` (`frontend/vite.config.ts`; the backend does not exist yet, so proxied requests fail). Use the proxy or an explicitly configured allowed local origin; configure WebSocket upgrade and validate origin separately from REST CORS. For a production-like local build, use one origin or approved proxy. Do not expose a development GPU server on the public network by default.
 - Browser webcam requires a secure context (localhost is generally supported; remote clients need HTTPS); use `wss` with HTTPS. Respect camera permissions and offer retry. Release camera media tracks on solve, navigation, errors and unmount. No background scanning during solving.
-- Environment examples: `RUBIK_MODEL_PATH`, `RUBIK_DEVICE=auto`, `RUBIK_CONFIDENCE`, `RUBIK_MAX_FRAME_BYTES`, `RUBIK_ALLOWED_ORIGINS`. Never require API credentials for normal local runtime. Keep server config distinct from browser public env variables.
+- Environment examples: `RUBIK_DETECTOR_MODE`, `RUBIK_MODEL_PATH`, `RUBIK_DEVICE=auto`, `RUBIK_CONFIDENCE`, `RUBIK_MAX_FRAME_BYTES`, `RUBIK_ALLOWED_ORIGINS`. Never require API credentials for normal local runtime. Keep server config distinct from browser public env variables.
 - Bounded frame queues (drop stale frames), request/camera timeout, serialized inference, and solver timeout; avoid freezing the async loop or browser. If a server task cannot be interrupted immediately, ignore stale results and cap concurrency. Frontend stops playback on unexpected data/state inconsistency.
-- Log metadata (frame count, quality reason, latency, model ID, solve outcome) rather than image content. Do not transmit frames to third-party cloud services in runtime. Capture test footage only with permission. Keep sessions ephemeral.
+- Log metadata (frame count, quality reason, latency, model ID, solve outcome) rather than image content. Do not transmit frames to third-party cloud services in runtime. Capture test footage only with permission. Keep sessions ephemeral. No webcam frame is stored or transmitted by the Phase 1 frontend. The page loads fonts from Google Fonts, a third-party request made by the browser at runtime; self-hosting the fonts is a tracked follow-up.
 - Check dataset license and dependency/model licenses before public distribution. Ultralytics YOLO26 is offered under AGPL-3.0 and Enterprise licensing; review applicable obligations. Verify Kociemba and all other dependency licenses; preserve dataset attribution and model provenance.
 
 ## 12. Verification strategy and acceptance criteria
@@ -530,19 +579,39 @@ A successful mAP score alone cannot demonstrate that the full cube solver works.
 | API contract | Successful and failed solve; invalid JSON/JPEG/oversize; frame sequence; single in-flight flow; reconnect and stale results; missing model; browser permission failure. |
 | End-to-end | Scan a solved cube; scan a known scramble, verify recovered state against independent ground truth, follow physical solution; deliberately miss a move then rescan; demonstrate camera off during solving. |
 
-P0 release criteria: custom trained weights are loaded; user can scan all six faces with guided arrows and auto-capture; correct state can be validated and reconstructed; digital replay of every accepted solution reaches solved; 3D displays correct turns in order; timed autoplay/pause/resume/replay and full rescan recovery work; measured exact-state and end-to-end results are recorded. See §5.5 for proposed quantitative gates. If physical test fails, report failure and narrow the demo rather than substituting hardcoded state or a prerecorded success as live inference.
+Release criteria are split into two gates.
 
-## 13. Implementation dependency order (not an implementation plan)
+**Software-ready** (Phase 4 exit, no trained weights): frontend and backend tests pass; the solver, reconstruction and validation work from shared fixtures; the Python `kociemba` cross-check agrees with the TypeScript engine; the WebSocket protocol and `FixtureDetector` work end to end with the fixture mode visibly labelled; the `YoloDetector` adapter passes tests with a test double; with no weights the backend starts, `/health` reports `MODEL_UNAVAILABLE` for vision, scanning is blocked and the solver still works. Fixtures and the demo never establish detector accuracy.
 
-| Stage | Deliverable / exit condition |
-| --- | --- |
-| A. Dataset & model | Audited six-color labeled dataset, fine-tuned `best.pt`, real webcam validation images and baseline metrics. |
-| B. Deterministic cube contract | Canonical fixtures, validator and solver, pure move engine checked against reference and known moves. Can be developed independently of model training using fixtures. |
-| C. Scan pipeline | Webcam → WebSocket → YOLO → ordered grid, guided sequence and stable capture, six-face review. |
-| D. 3D coach | Canonical digital twin, layer animation, adjustable timed playback, pause/replay and orientation guide. |
-| E. Integration & demo | Full scan → solve → playback, rescan recovery, fault handling, end-to-end physical testing. |
+**Model-ready** (Phase 6 exit): `backend/weights/best.pt` is loaded with `RUBIK_DETECTOR_MODE=yolo`, the six class names are verified, and the real-webcam and physical end-to-end checks below are recorded.
 
-Prioritize B alongside model work so a late training issue does not prevent testing solver correctness. A task-level implementation plan and TDD sequencing are separate artifacts to write after this architecture is reviewed. No source code, dependencies or tests have been implemented by this document.
+P0 (model-ready) criteria: custom trained weights are loaded; user can scan all six faces with guided arrows and auto-capture; correct state can be validated and reconstructed; digital replay of every accepted solution reaches solved; 3D displays correct turns in order; timed autoplay/pause/resume/replay and full rescan recovery work; measured exact-state and end-to-end results are recorded. See §5.5 for proposed quantitative gates. If physical test fails, report failure and narrow the demo rather than substituting hardcoded state or a prerecorded success as live inference.
+
+### 12.1 Independent engine verification
+
+The move engine must not be checked only against itself. `frontend/tests/reference/` holds a cubie-level reference transcribed from upstream `ldez/cubejs` (MIT) at the pinned commit `6b3da493894d9aed54f4c8aafccadbe676e745b5`, with `PROVENANCE.md` recording source URLs, hashes, licence and what was transcribed. Only the numeric move tables were vendored; no upstream code is executed. The engine is checked against it by a seeded 500-sequence differential test (all 18 tokens, compared after every move), by hand-derived physical goldens (including D, U' and D' on asymmetric states), and by renderer-adapter invariants. Both reference and engine use the published Kociemba facelet convention, so a shared conceptual error is still possible. The Python `kociemba` cross-check is a **Phase 2 gate and has not been done**; the direction table on the running 3D cube is checked by eye in a desktop browser, and `docs/superpowers/reports/phase1-verification.md` records which moves were checked and which were not run.
+
+### 12.2 Phase 1 scope decisions
+
+- **Desktop-first.** RubikVision is a desktop/laptop computer-vision app. Mobile optimisation, responsive redesign and touch work are out of scope. Known mobile layout defects (Solving and Completion at 390 px) are deferred; desktop 1440×900, WebGL correctness and animation correctness are what Phase 1 verified.
+- Unmeasured performance claims (inference latency, frame consensus, average move count, fps) were removed from the Landing page while no model exists.
+- Three.js was not upgraded to silence its deprecation warning (see section 14).
+
+## 13. Implementation roadmap (model-last)
+
+The software is built first against deterministic fixtures; the trained model comes last.
+
+| Phase | Deliverable / exit condition | Status |
+| --- | --- | --- |
+| 0 | Baseline, reproducible setup, actual build/typecheck and browser observations | Complete |
+| 1 | Frontend migration/refactor, deterministic engine and timed coach, explicit demo, typed clients | Implemented on `refactor/phase-1-frontend`; awaiting user approval |
+| 2 | FastAPI health and solve, Pydantic, canonical reconstruction and validation, real Kociemba, shared fixtures, Python `kociemba` cross-check of the engine | Not started (needs its own design and plan) |
+| 3 | Detector interface, `FixtureDetector`, geometry, WebSocket protocol v1 | Not started |
+| 4 | Full-stack fixture integration and `YoloDetector` adapter with a test double: the **software-ready** gate | Not started |
+| 5 | Dataset audit, six-colour label mapping, training and evaluation | Deferred |
+| 6 | Drop in `backend/weights/best.pt`, set `RUBIK_DETECTOR_MODE=yolo`, restart, benchmark a real webcam and recover from a physical cube end to end: the **model-ready** gate | Deferred |
+
+Current state: Phases 0 and 1 are done in the frontend only. There is no backend, no WebSocket transport, no trained model and no physical-cube verification. A task-level plan is written and approved per phase; a plan is not approval to implement it.
 
 ## 14. Risks, assumptions and open validation
 
@@ -556,8 +625,13 @@ Prioritize B alongside model work so a late training issue does not prevent test
 | Browser/CPU/GPU latency | Frame backpressure, bounded inference, local CPU fallback; profile first; consider ONNX only if needed. |
 | Dataset access or licensing | Audit available candidate and license before choosing; do not promise immediate training or public deployment. |
 | Scope creep | P0 focuses on one cube and local browser; continuous AR, tracking, mobile deployment, voice and backend scaling are deferred. |
+| `THREE.Clock` deprecation warning in the browser console | Known and accepted; Three.js was not upgraded for it, by decision. |
+| Production bundle is one JS chunk of about 1.3 MB (Vite prints a chunk-size warning) | Accepted for now; no code splitting in Phase 1. |
+| Vitest on Windows can fail with a drive-letter error (`reading 'config'`) | Run from a path whose drive-letter case matches the working directory (see README). |
+| `fixture-only` readiness handling was specified before the backend exists | Pure function tested against fixtures; the UI only labels and blocks. Revisit in Phase 3. |
+| Reference and engine share the published facelet convention | Hand-derived goldens now; Python `kociemba` cross-check is a Phase 2 gate. |
 
-Accepted product decisions come from the design discussion: YOLO Object Detection, guided scan, hybrid camera-off solving, timed automatic guidance, recovery by rescan and selected local web stack. Architecture-author choices that remain to be verified: exact API schema, coordinate implementation, fixed initial white/green pair, scan gate thresholds, frame cap, default durations, timeout policies, metric targets, test setup and library versions. These are explicit proposed defaults; builder may tune them without changing the core product behavior. Dataset remains unselected and model untrained. No implementation or runtime benchmark has been performed.
+Accepted product decisions come from the design discussion: YOLO Object Detection, guided scan, hybrid camera-off solving, timed automatic guidance, recovery by rescan and selected local web stack. Architecture-author choices that remain to be verified: exact API schema, coordinate implementation, fixed initial white/green pair, scan gate thresholds, frame cap, default durations, timeout policies, metric targets, test setup and library versions. These are explicit proposed defaults; builder may tune them without changing the core product behavior. Dataset remains unselected and model untrained. The Phase 1 frontend is implemented and unit-tested, but no backend exists, no runtime benchmark has been performed and nothing has been verified against a physical cube.
 
 ## 15. References
 
@@ -574,4 +648,4 @@ Accepted product decisions come from the design discussion: YOLO Object Detectio
 
 ---
 
-**Design review gate:** accept or amend this architecture before creating a task-level implementation plan or scaffolding the project. In particular, validate the canonical facelet mapping and an asymmetric known-scramble fixture early. The document describes intended behavior; it does not establish that the system already works.
+**Design review gate:** each phase after Phase 1 needs its own approved design and plan. Validate the canonical facelet mapping against the Python `kociemba` package early in Phase 2. Except where a section says "implemented" or "as built", this document describes intended behavior; it does not establish that the system already works.
