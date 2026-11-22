@@ -30,7 +30,7 @@ interface SessionStoreState {
   guidance: GuidanceResult | null;
   startSession: (mode: SessionMode, screen: AppScreen) => void;
   setScreen: (screen: AppScreen) => void;
-  setGuidance: (playbackMs: number) => void;
+  setGuidance: (playbackMs: number | null) => void;
   setDelayMs: (ms: number) => void;
   toggleSound: () => void;
   setAutoCapture: (enabled: boolean) => void;
@@ -51,7 +51,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
     set((s) => ({ mode, screen, sessionId: s.sessionId + 1, guidance: null }));
   },
   setScreen: (screen) => set({ screen }),
-  setGuidance: (playbackMs) => set({ guidance: { playbackMs } }),
+  setGuidance: (playbackMs) => set({ guidance: playbackMs === null ? null : { playbackMs } }),
   setDelayMs: (ms) =>
     set((s) => {
       if (!Number.isFinite(ms)) return s;

@@ -10,18 +10,21 @@ import {
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import { RubiksCube3D } from '@/components/three/RubiksCube3D';
 import { Button } from '@/components/ui/button';
-import { createSolvedCube } from '@/lib/cubeEngine';
+import { toCubies } from '@/engine/cubie-adapter';
+import { playSuccessChime } from '@/lib/audio';
+// TEMPORARY bridge — removed in T1.14/T1.17 (only Scan Again / Solve Another Cube use it).
 import { useRubikStore } from '@/store/useRubikStore';
-import { formatDuration, playSuccessChime } from '@/lib/utils';
+import { useCubeStore, type SolutionData } from '@/stores/cube-store';
+import { useSessionStore } from '@/stores/session-store';
+import { formatDuration } from '@/lib/utils';
 
-const SOLVED_CUBE = createSolvedCube();
-
-function fireRefinedConfetti(intense = false) {
+/** Returns the follow-up timer id (if any) so the caller can cancel it on unmount. */
+function fireRefinedConfetti(intense = false): number | null {
   if (
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   ) {
-    return;
+    return null;
   }
 
   const colors = ['#34D399', '#F4F4F6', '#FACC15', '#2563EB', '#DC2626', '#F97316'];
@@ -37,7 +40,7 @@ function fireRefinedConfetti(intense = false) {
   });
 
   if (intense) {
-    window.setTimeout(() => {
+    return window.setTimeout(() => {
       confetti({
         particleCount: 55,
         angle: 60,
@@ -56,32 +59,55 @@ function fireRefinedConfetti(intense = false) {
       });
     }, 220);
   }
+  return null;
 }
 
 export function CompletionScreen() {
-  const {
-    solution,
-    solveElapsedSeconds,
-    userConfirmedSolved,
-    soundEnabled,
-    confirmCubeSolved,
-    startFreshScan,
-    resetSolveSession,
-  } = useRubikStore();
+  const solution = useCubeStore((s) => s.solution);
+  const setScreen = useSessionStore((s) => s.setScreen);
+  if (!solution) {
+    return (
+      <div className="min-h-screen bg-[#09090B] text-zinc-100 flex flex-col items-center justify-center gap-4">
+        <p className="text-sm text-zinc-300">No solution available for this session.</p>
+        <Button size="sm" onClick={() => setScreen('landing')}>
+          Back to start
+        </Button>
+      </div>
+    );
+  }
+  return <CompletionSession solution={solution} />;
+}
 
-  // Gentle arrival confetti
-  React.useEffect(() => {
-    const t = window.setTimeout(() => fireRefinedConfetti(false), 300);
-    return () => window.clearTimeout(t);
-  }, []);
+function CompletionSession({ solution }: { solution: SolutionData }) {
+  const mode = useSessionStore((s) => s.mode);
+  const guidance = useSessionStore((s) => s.guidance);
+  const soundEnabled = useSessionStore((s) => s.settings.soundEnabled);
+  const setScreen = useSessionStore((s) => s.setScreen);
+  const startFreshScan = useRubikStore((s) => s.startFreshScan);
+  const [userConfirmedSolved, setUserConfirmedSolved] = React.useState(false);
+  const confettiTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (confettiTimer.current !== null) window.clearTimeout(confettiTimer.current);
+    },
+    [],
+  );
+
+  const finalCubies = React.useMemo(
+    () => toCubies(solution.snapshots[solution.snapshots.length - 1], solution.centers),
+    [solution],
+  );
+  const total = solution.moves.length;
+  const isDemo = mode === 'demo';
 
   const handleConfirmSolved = () => {
-    confirmCubeSolved();
+    if (userConfirmedSolved) return;
+    setUserConfirmedSolved(true);
     playSuccessChime(soundEnabled);
-    fireRefinedConfetti(true);
+    confettiTimer.current = fireRefinedConfetti(true);
   };
 
-  const displayTime = formatDuration(Math.max(solveElapsedSeconds, solution.length * 4));
+  const displayTime = guidance ? formatDuration(Math.round(guidance.playbackMs / 1000)) : '—';
 
   return (
     <div className="min-h-screen bg-[#09090B] text-zinc-100 flex flex-col">
@@ -109,14 +135,14 @@ export function CompletionScreen() {
                 }}
               />
               <RubiksCube3D
-                cubies={SOLVED_CUBE}
+                cubies={finalCubies}
                 mode="solved"
-                cameraPosition={[4.3, 3.2, 4.7]}
+                cameraPosition={[5.8, 4.3, 6.3]}
                 className="relative z-10 w-full h-full"
               />
               <div className="absolute bottom-4 inset-x-4 z-20 flex items-center justify-between text-xs font-mono text-zinc-400">
-                <span>6/6 faces aligned</span>
-                <span className="text-emerald-400">Solved State</span>
+                <span>Digital twin</span>
+                <span className="text-emerald-400">Digital twin: solved</span>
               </div>
             </div>
           </section>
@@ -125,18 +151,27 @@ export function CompletionScreen() {
           <section className="lg:col-span-6 space-y-7">
             <div className="space-y-3">
               <p className="font-mono text-xs text-emerald-400 uppercase tracking-wider">
-                {userConfirmedSolved ? 'Verified Solve' : 'Guidance Complete'}
+                {userConfirmedSolved
+                  ? 'Solve Confirmed'
+                  : isDemo
+                    ? 'Demo guidance complete'
+                    : 'Guidance Complete'}
               </p>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-50">
                 {userConfirmedSolved
-                  ? 'Congratulations — your cube is solved!'
+                  ? 'You confirmed your cube is solved'
                   : 'You’ve completed the guidance!'}
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
                 {userConfirmedSolved
                   ? 'Every face is back to a single solid color. Ready to challenge yourself with another scramble?'
-                  : 'Take a quick look at all six sides of your physical Rubik’s Cube to verify that every face is completely solved.'}
+                  : 'Take a quick look at all six sides of your physical Rubik’s Cube to check that every face is completely solved.'}
               </p>
+              {isDemo && (
+                <p className="text-sm text-zinc-500 leading-relaxed">
+                  This was a demo cube with a pre-computed solution.
+                </p>
+              )}
             </div>
 
             {/* Tabular Completion Metrics */}
@@ -144,11 +179,16 @@ export function CompletionScreen() {
               <div>
                 <span className="text-xs text-zinc-500 block">Total Moves</span>
                 <span className="mt-1 block font-mono text-2xl font-semibold text-zinc-100 tabular-nums">
-                  {solution.length}
+                  {total}
                 </span>
               </div>
               <div>
-                <span className="text-xs text-zinc-500 block">Time Spent</span>
+                <span
+                  className="text-xs text-zinc-500 block"
+                  title="Time the on-screen guidance ran. It is not the time to solve a physical cube."
+                >
+                  Guidance Time
+                </span>
                 <span className="mt-1 block font-mono text-2xl font-semibold text-zinc-100 tabular-nums">
                   {displayTime}
                 </span>
@@ -186,7 +226,7 @@ export function CompletionScreen() {
                 <div className="flex flex-wrap items-center gap-4 pt-2">
                   <button
                     type="button"
-                    onClick={resetSolveSession}
+                    onClick={() => setScreen('alignment')}
                     className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
@@ -210,7 +250,7 @@ export function CompletionScreen() {
                 <div className="rounded-xl bg-emerald-400/10 border border-emerald-400/35 p-4 flex items-center gap-3 text-sm text-emerald-200">
                   <Sparkles className="h-5 w-5 text-emerald-400 shrink-0" />
                   <span>
-                    Solve confirmed across all 54 stickers in {solution.length} moves.
+                    You confirmed all 54 stickers are solved after {total} moves.
                   </span>
                 </div>
 
@@ -219,7 +259,7 @@ export function CompletionScreen() {
                     <Camera className="h-4 w-4" />
                     Solve Another Cube
                   </Button>
-                  <Button size="lg" variant="secondary" onClick={resetSolveSession}>
+                  <Button size="lg" variant="secondary" onClick={() => setScreen('alignment')}>
                     <RotateCcw className="h-4 w-4" />
                     Replay Solution
                   </Button>

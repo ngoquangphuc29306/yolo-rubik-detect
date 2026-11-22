@@ -4,12 +4,11 @@ import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import { RubiksCube3D } from '@/components/three/RubiksCube3D';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import {
-  STICKER_COLORS,
-  StickerColor,
-  getCenterColorForFace,
-} from '@/lib/cubeEngine';
-import { useRubikStore } from '@/store/useRubikStore';
+import { toCubies } from '@/engine/cubie-adapter';
+import { COLOR_META } from '@/lib/colors';
+import { useCubeStore, type SolutionData } from '@/stores/cube-store';
+import { useSessionStore } from '@/stores/session-store';
+import type { ColorName } from '@/types/cube';
 import { cn } from '@/lib/utils';
 
 const SPEED_PRESETS = [
@@ -20,22 +19,50 @@ const SPEED_PRESETS = [
 ];
 
 export function AlignmentScreen() {
-  const {
-    initialCube,
-    solution,
-    moveDelaySeconds,
-    setMoveDelaySeconds,
-    resetSolveSession,
-    setScreen,
-  } = useRubikStore();
+  const solution = useCubeStore((s) => s.solution);
+  const setScreen = useSessionStore((s) => s.setScreen);
+  if (!solution) {
+    // Direct navigation without a solution: never fabricate a cube.
+    return (
+      <div className="min-h-screen bg-[#09090B] text-zinc-100 flex flex-col items-center justify-center gap-4">
+        <p className="text-sm text-zinc-300">No solution yet. Reconstruct your cube first.</p>
+        <Button size="sm" onClick={() => setScreen('reconstructing')}>
+          Back to Summary
+        </Button>
+      </div>
+    );
+  }
+  return <AlignmentSession solution={solution} />;
+}
 
-  const topColor = getCenterColorForFace(initialCube, 'U');
-  const frontColor = getCenterColorForFace(initialCube, 'F');
-  const rightColor = getCenterColorForFace(initialCube, 'R');
+function AlignmentSession({ solution }: { solution: SolutionData }) {
+  const ready = useCubeStore((s) => s.status === 'ready');
+  const delayMs = useSessionStore((s) => s.settings.delayMs);
+  const setDelayMs = useSessionStore((s) => s.setDelayMs);
+  const setScreen = useSessionStore((s) => s.setScreen);
+  const setGuidance = useSessionStore((s) => s.setGuidance);
 
-  const topMeta = STICKER_COLORS[topColor];
-  const frontMeta = STICKER_COLORS[frontColor];
-  const rightMeta = STICKER_COLORS[rightColor];
+  const moveDelaySeconds = Math.round(delayMs / 1000);
+  const setMoveDelaySeconds = (seconds: number) => setDelayMs(seconds * 1000);
+  const moveCount = solution.moves.length;
+  const alreadySolved = moveCount === 0;
+  const cubies = React.useMemo(
+    () => toCubies(solution.state, solution.centers),
+    [solution],
+  );
+
+  const topColor = solution.centers.U;
+  const frontColor = solution.centers.F;
+  const rightColor = solution.centers.R;
+
+  const topMeta = COLOR_META[topColor];
+  const frontMeta = COLOR_META[frontColor];
+  const rightMeta = COLOR_META[rightColor];
+
+  const start = () => {
+    setGuidance(null);
+    setScreen('solving');
+  };
 
   return (
     <div className="min-h-screen bg-[#09090B] text-zinc-100 flex flex-col">
@@ -84,13 +111,13 @@ export function AlignmentScreen() {
                 Your Reconstructed Digital Twin
               </span>
               <span className="font-mono text-xs text-zinc-400 tabular-nums">
-                {solution.length} moves ready
+                {moveCount} moves ready
               </span>
             </div>
 
             <div className="relative flex-1 min-h-[320px] my-2">
               <RubiksCube3D
-                cubies={initialCube}
+                cubies={cubies}
                 mode="interactive"
                 cameraPosition={[4.3, 3.3, 4.9]}
                 className="w-full h-full"
@@ -188,6 +215,8 @@ export function AlignmentScreen() {
 
             {/* Solving Speed Configurator & Primary CTA */}
             <div className="rounded-2xl bg-[#111113] border border-zinc-800/80 p-5 space-y-4">
+              {!alreadySolved && (
+                <>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm font-medium text-zinc-200">
                   <Clock className="h-4 w-4 text-emerald-400" />
@@ -224,15 +253,28 @@ export function AlignmentScreen() {
                 ))}
               </div>
 
+                </>
+              )}
+
               <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 text-xs text-zinc-400">
                 <CameraOff className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
                 <span>Camera stays off while solving. Pause or adjust speed anytime.</span>
               </div>
 
-              <Button size="lg" className="w-full" onClick={resetSolveSession}>
-                Start AI Guidance
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              {alreadySolved ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-zinc-200">Your cube is already solved</p>
+                  <p className="text-xs text-zinc-400">There are no moves to perform.</p>
+                  <Button size="lg" className="w-full" onClick={() => setScreen('completion')}>
+                    Finish
+                  </Button>
+                </div>
+              ) : (
+                <Button size="lg" className="w-full" disabled={!ready} onClick={start}>
+                  Start AI Guidance
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </aside>
         </div>
@@ -250,20 +292,20 @@ function HandsCubeReferenceSVG({
   frontColor,
   rightColor,
 }: {
-  topColor: StickerColor;
-  frontColor: StickerColor;
-  rightColor: StickerColor;
+  topColor: ColorName;
+  frontColor: ColorName;
+  rightColor: ColorName;
 }) {
-  const topHex = STICKER_COLORS[topColor].hex;
-  const frontHex = STICKER_COLORS[frontColor].hex;
-  const rightHex = STICKER_COLORS[rightColor].hex;
+  const topHex = COLOR_META[topColor].hex;
+  const frontHex = COLOR_META[frontColor].hex;
+  const rightHex = COLOR_META[rightColor].hex;
 
   return (
     <svg
       viewBox="0 0 320 190"
       className="w-full max-w-[300px] h-auto"
       role="img"
-      aria-label={`Reference showing hands holding cube with ${STICKER_COLORS[topColor].name} on top, ${STICKER_COLORS[frontColor].name} facing front, and ${STICKER_COLORS[rightColor].name} on right`}
+      aria-label={`Reference showing hands holding cube with ${COLOR_META[topColor].name} on top, ${COLOR_META[frontColor].name} facing front, and ${COLOR_META[rightColor].name} on right`}
     >
       {/* Subtle desk glow */}
       <ellipse cx="160" cy="166" rx="92" ry="14" fill="rgba(52, 211, 153, 0.08)" />
@@ -381,7 +423,7 @@ function HandsCubeReferenceSVG({
         fontSize="10"
         fontFamily="JetBrains Mono, monospace"
       >
-        TOP · {STICKER_COLORS[topColor].name.toUpperCase()}
+        TOP · {COLOR_META[topColor].name.toUpperCase()}
       </text>
 
       <line x1="112" y1="114" x2="72" y2="94" stroke="#34D399" strokeWidth="1.2" />
