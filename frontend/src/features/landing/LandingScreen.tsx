@@ -12,16 +12,22 @@ import {
 import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/ui/button';
 import { RubiksCube3D } from '@/components/three/RubiksCube3D';
+import { toCubies } from '@/engine/cubie-adapter';
+import { DEMO_CENTER_COLORS, demoInitialState } from '@/demo/demo-fixtures';
+// TEMPORARY bridge — demo entry actions removed in T1.17.
 import { useRubikStore } from '@/store/useRubikStore';
+import { useSessionStore } from '@/stores/session-store';
 import { cn } from '@/lib/utils';
 
 const HERO_DETECTIONS = [
-  { id: 'd1', label: 'G', conf: '0.99', top: '26%', left: '28%', w: '14%', h: '14%', color: '#16A34A' },
-  { id: 'd2', label: 'W', conf: '0.98', top: '21%', left: '46%', w: '13%', h: '13%', color: '#F4F4F6' },
-  { id: 'd3', label: 'R', conf: '0.97', top: '42%', left: '58%', w: '14%', h: '14%', color: '#DC2626' },
-  { id: 'd4', label: 'Y', conf: '0.96', top: '53%', left: '34%', w: '13%', h: '13%', color: '#FACC15' },
-  { id: 'd5', label: 'B', conf: '0.98', top: '44%', left: '22%', w: '13%', h: '13%', color: '#2563EB' },
+  { id: 'd1', label: 'G', top: '26%', left: '28%', w: '14%', h: '14%', color: '#16A34A' },
+  { id: 'd2', label: 'W', top: '21%', left: '46%', w: '13%', h: '13%', color: '#F4F4F6' },
+  { id: 'd3', label: 'R', top: '42%', left: '58%', w: '14%', h: '14%', color: '#DC2626' },
+  { id: 'd4', label: 'Y', top: '53%', left: '34%', w: '13%', h: '13%', color: '#FACC15' },
+  { id: 'd5', label: 'B', top: '44%', left: '22%', w: '13%', h: '13%', color: '#2563EB' },
 ];
+
+const HERO_CUBIES = toCubies(demoInitialState(0), DEMO_CENTER_COLORS);
 
 const HOW_IT_WORKS_STEPS = [
   {
@@ -86,7 +92,7 @@ const TECH_STACK = [
 ];
 
 export function LandingScreen() {
-  const initialCube = useRubikStore((s) => s.initialCube);
+  const startSession = useSessionStore((s) => s.startSession);
   const startFreshScan = useRubikStore((s) => s.startFreshScan);
   const startInteractiveDemo = useRubikStore((s) => s.startInteractiveDemo);
 
@@ -134,7 +140,7 @@ export function LandingScreen() {
           </nav>
 
           <div className="flex items-center shrink-0">
-            <Button size="sm" onClick={() => startFreshScan(false)}>
+            <Button size="sm" onClick={() => startSession('live', 'scanning')}>
               Start Solving
             </Button>
           </div>
@@ -178,7 +184,7 @@ export function LandingScreen() {
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3.5 pt-2">
-                  <Button size="lg" onClick={() => startFreshScan(false)}>
+                  <Button size="lg" onClick={() => startSession('live', 'scanning')}>
                     <Camera className="h-4 w-4" />
                     Scan My Cube
                   </Button>
@@ -191,6 +197,17 @@ export function LandingScreen() {
                     Try Interactive Demo
                   </Button>
                 </div>
+
+                <p className="text-xs text-zinc-500">
+                  Demo uses a built-in cube and a pre-computed solution.{' '}
+                  <button
+                    type="button"
+                    onClick={() => startFreshScan(false)}
+                    className="text-zinc-400 hover:text-zinc-200 underline decoration-zinc-700 hover:decoration-zinc-400 underline-offset-4 transition-colors cursor-pointer"
+                  >
+                    Walk through the simulated scan
+                  </button>
+                </p>
 
                 <div className="pt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-500 font-mono tabular-nums">
                   <span>6 faces auto-captured</span>
@@ -217,7 +234,7 @@ export function LandingScreen() {
 
                   {/* Interactive 3D Scrambled Cube */}
                   <RubiksCube3D
-                    cubies={initialCube}
+                    cubies={HERO_CUBIES}
                     mode="hero"
                     heroTwinWireframe={heroView === 'twin'}
                     className="relative z-10 w-full h-full"
@@ -242,7 +259,7 @@ export function LandingScreen() {
                       <div className="w-full h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent animate-scan-sweep" />
                     </div>
 
-                    {/* Sticker detection boxes with JetBrains Mono class + confidence */}
+                    {/* Sticker detection boxes with JetBrains Mono class label (no confidences: illustration only) */}
                     {HERO_DETECTIONS.map((box) => (
                       <div
                         key={box.id}
@@ -255,7 +272,7 @@ export function LandingScreen() {
                         }}
                       >
                         <span className="absolute -top-4 left-0 font-mono text-[10px] leading-none text-emerald-300 bg-[#09090B]/90 px-1 py-0.5 rounded-[3px] tabular-nums whitespace-nowrap">
-                          {box.label} {box.conf}
+                          {box.label}
                         </span>
                       </div>
                     ))}
@@ -265,7 +282,7 @@ export function LandingScreen() {
                   <div className="absolute bottom-3.5 inset-x-4 z-30 flex items-center justify-between gap-3">
                     <span className="text-xs text-zinc-400 font-mono tabular-nums hidden sm:inline">
                       {heroView === 'vision'
-                        ? 'YOLO Sticker Detection · 98.4% avg'
+                        ? 'Illustration — simulated detection'
                         : 'Reconstructed 3D Digital Twin · 54/54 valid'}
                     </span>
 
@@ -410,12 +427,12 @@ export function LandingScreen() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Button onClick={() => startFreshScan(false)}>
+                <Button onClick={() => startSession('live', 'scanning')}>
                   Scan My Cube
                   <ArrowRight className="h-4 w-4" />
                 </Button>
                 <Button variant="outline" onClick={startInteractiveDemo}>
-                  Try Demo
+                  Try Interactive Demo
                 </Button>
               </div>
             </div>
@@ -440,7 +457,7 @@ export function LandingScreen() {
             </a>
             <button
               type="button"
-              onClick={() => startFreshScan(false)}
+              onClick={() => startSession('live', 'scanning')}
               className="hover:text-zinc-300 transition-colors cursor-pointer"
             >
               Start Scan

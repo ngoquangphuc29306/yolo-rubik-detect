@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { AlertCircle, Camera, CameraOff, RotateCcw } from 'lucide-react';
 import { BrandMark } from '@/components/BrandMark';
+import { ModeBanner } from '@/components/ModeBanner';
 import { RubiksCube3D } from '@/components/three/RubiksCube3D';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -196,6 +197,7 @@ function SolvingSession({ solution }: { solution: SolutionData }) {
           />
         </div>
       </header>
+      <ModeBanner />
 
       {/* Main Spacious 3D Stage */}
       <main className="relative flex-1 w-full overflow-hidden flex flex-col">

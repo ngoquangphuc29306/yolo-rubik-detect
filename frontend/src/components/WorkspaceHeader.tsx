@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { BrandMark } from '@/components/BrandMark';
-import { AppScreen, useRubikStore } from '@/store/useRubikStore';
+import { ModeBanner } from '@/components/ModeBanner';
+import { useSessionStore, type AppScreen } from '@/stores/session-store';
 import { cn } from '@/lib/utils';
 
 interface WorkspaceHeaderProps {
@@ -15,10 +16,11 @@ const STAGES: { key: 'scan' | 'reconstruct' | 'solve'; label: string; screen: Ap
 ];
 
 export function WorkspaceHeader({ activeStage, rightSlot }: WorkspaceHeaderProps) {
-  const setScreen = useRubikStore((s) => s.setScreen);
+  const setScreen = useSessionStore((s) => s.setScreen);
   const activeIdx = STAGES.findIndex((s) => s.key === activeStage);
 
   return (
+    <>
     <header className="w-full h-16 px-4 sm:px-6 lg:px-8 border-b border-zinc-800/80 bg-[#09090B] flex items-center justify-between gap-4 shrink-0">
       <BrandMark onClick={() => setScreen('landing')} />
 
@@ -60,5 +62,7 @@ export function WorkspaceHeader({ activeStage, rightSlot }: WorkspaceHeaderProps
 
       <div className="flex items-center gap-3 shrink-0">{rightSlot}</div>
     </header>
+    <ModeBanner />
+    </>
   );
 }

@@ -416,3 +416,18 @@ describe('SolvingScreen: completion', () => {
     expect(useSessionStore.getState().screen).toBe('solving');
   });
 });
+
+describe('SolvingScreen: mode banner', () => {
+  const TEXT = 'DEMO — simulated scan data. Not a camera reading.';
+  it('shows the demo banner in its header in demo mode', () => {
+    loadSolution(M2);
+    render(<SolvingScreen />);
+    expect(screen.queryByText(TEXT)).not.toBeNull();
+  });
+  it('shows no banner in live mode', () => {
+    loadSolution(M2);
+    act(() => useSessionStore.setState({ mode: 'live' }));
+    render(<SolvingScreen />);
+    expect(screen.queryByText(TEXT)).toBeNull();
+  });
+});
