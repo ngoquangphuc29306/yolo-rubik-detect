@@ -68,3 +68,13 @@ export function scanGuide(stage: FaceId, knownCenters: Partial<Record<FaceId, Co
       };
   }
 }
+
+/** Face names for the scan UI (wording matches legacy FACE_META label / fullName). */
+export const FACE_NAMES: Readonly<Record<FaceId, { label: string; fullName: string }>> = {
+  F: { label: 'F — Front', fullName: 'Front' },
+  R: { label: 'R — Right', fullName: 'Right' },
+  B: { label: 'B — Back', fullName: 'Back' },
+  L: { label: 'L — Left', fullName: 'Left' },
+  U: { label: 'U — Up', fullName: 'Top' },
+  D: { label: 'D — Down', fullName: 'Bottom' },
+};
