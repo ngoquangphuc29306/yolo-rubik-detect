@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { FaceGrid2D } from '@/components/FaceGrid2D';
 import { colorNameToCode, type StickerCode } from '@/lib/colors';
@@ -12,7 +13,7 @@ interface CapturedFacesPanelProps {
   onSelectFace: (face: FaceId) => void;
 }
 
-export function CapturedFacesPanel({ faceStatuses, captured, onSelectFace }: CapturedFacesPanelProps) {
+function CapturedFacesPanelImpl({ faceStatuses, captured, onSelectFace }: CapturedFacesPanelProps) {
   const capturedCount = SCAN_FACE_ORDER.filter((k) => faceStatuses[k] === 'captured').length;
 
   return (
@@ -40,6 +41,7 @@ export function CapturedFacesPanel({ faceStatuses, captured, onSelectFace }: Cap
           return (
             <button
               key={faceKey}
+              data-testid={`face-card-${faceKey}`}
               type="button"
               onClick={() => onSelectFace(faceKey)}
               className={cn(
@@ -81,3 +83,5 @@ export function CapturedFacesPanel({ faceStatuses, captured, onSelectFace }: Cap
     </div>
   );
 }
+
+export const CapturedFacesPanel = React.memo(CapturedFacesPanelImpl);

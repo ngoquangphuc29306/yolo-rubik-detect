@@ -1,19 +1,47 @@
 // @vitest-environment jsdom
+import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const renders = vi.hoisted(() => ({ cube: 0, faceGrid: 0 }));
 vi.mock('@/components/three/RubiksCube3D', async () => {
   const React = await import('react');
-  return { RubiksCube3D: () => React.createElement('div', { 'data-testid': 'cube-stub' }) };
+  return {
+    RubiksCube3D: () => {
+      renders.cube++; // rendered once per ScanGuidePanel render
+      return React.createElement('div', { 'data-testid': 'cube-stub' });
+    },
+  };
 });
+vi.mock('@/components/FaceGrid2D', async () => {
+  const React = await import('react');
+  return {
+    FaceGrid2D: () => {
+      renders.faceGrid++; // rendered 6x per CapturedFacesPanel render
+      return React.createElement('div', { 'data-testid': 'face-grid-stub' });
+    },
+  };
+});
+vi.mock('@/lib/audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/audio')>()),
+  playCaptureSound: vi.fn(),
+}));
 
+import { playCaptureSound } from '@/lib/audio';
 import { ScanningScreen } from '@/features/scanner/ScanningScreen';
+import { DEMO_START_MS, FLASH_MS, TICK_MS, TICK_STEP } from '@/features/scanner/useDemoScanScript';
 import { useCubeStore } from '@/stores/cube-store';
 import { useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 import { useRubikStore } from '@/store/useRubikStore';
 import type { FaceGrid } from '@/types/cube';
 import { loadFixture } from '../services/fixtures';
+
+// ---- timing derived from the script's own constants ------------------------------
+const TICKS_TO_CAPTURE = Math.ceil(100 / TICK_STEP) + 1; // fill the bar, then one tick to capture
+const FACE_MS = TICKS_TO_CAPTURE * TICK_MS + FLASH_MS; // one full face incl. flash
+const FIRST_CAPTURE_MS = DEMO_START_MS + TICKS_TO_CAPTURE * TICK_MS;
+const ALL_FACES_MS = DEMO_START_MS + 6 * FACE_MS + 500;
 
 // ---- fake camera: no real device is ever touched ---------------------------------
 interface FakeTrack { stopped: boolean; stop: () => void }
@@ -30,14 +58,28 @@ const settle = async () => { await act(async () => { await Promise.resolve(); aw
 const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 const flushReal = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 
+const originalCapture = useRubikStore.getState().captureCurrentFace;
+const spyCapture = () => {
+  const spy = vi.fn(() => originalCapture());
+  useRubikStore.setState({ captureCurrentFace: spy });
+  return spy;
+};
+
 beforeEach(() => {
   getUserMedia.mockReset();
   installMediaDevices();
+  vi.mocked(playCaptureSound).mockClear();
+  renders.cube = 0;
+  renders.faceGrid = 0;
 });
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  useRubikStore.setState({ captureCurrentFace: originalCapture });
+  useScanStore.getState().reset();
+  useCubeStore.getState().reset();
+  useSessionStore.setState({ mode: null, screen: 'landing' });
 });
 
 // ===================================================================================
@@ -53,11 +95,12 @@ describe('ScanningScreen - DEMO', () => {
     expect(screen.getByText(/Starting demo feed/)).toBeTruthy();
     expect(screen.queryByText(/Loading Vision Model/i)).toBeNull();
     expect(screen.queryByText(/YOLO/)).toBeNull();
+    expect(screen.getByRole('img').getAttribute('alt')).toMatch(/^Simulated/);
   });
 
   it('shows colour codes only: no numeric confidence anywhere', async () => {
     const { container } = render(<ScanningScreen />);
-    await advance(1500);
+    await advance(DEMO_START_MS + 1);
     const labels = screen.getAllByTestId('detection-label');
     expect(labels).toHaveLength(9);
     for (const l of labels) expect(l.textContent).toMatch(/^[WYGBRO]$/);
@@ -71,7 +114,7 @@ describe('ScanningScreen - DEMO', () => {
 
   it('has no real-webcam path: no toggle, no video, no camera request', async () => {
     const { container } = render(<ScanningScreen />);
-    await advance(1500);
+    await advance(DEMO_START_MS + 1);
     fireEvent.click(screen.getByRole('button', { name: /open scanner settings/i }));
     expect(screen.queryByText(/Live Browser Webcam/)).toBeNull();
     expect(screen.queryByText(/Switch to Real Webcam/)).toBeNull();
@@ -83,20 +126,20 @@ describe('ScanningScreen - DEMO', () => {
 
   it('the "Loading AI Model" picker option visibly shows the overlay, then recovers (N4)', async () => {
     render(<ScanningScreen />);
-    await advance(1500);
+    await advance(DEMO_START_MS + 1);
     expect(screen.queryByText(/Starting demo feed/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /open scanner settings/i }));
     fireEvent.click(screen.getByText('Simulated: Loading AI Model'));
     expect(screen.getByText(/Starting demo feed/)).toBeTruthy();
-    await advance(500);
+    await advance(DEMO_START_MS / 2);
     expect(screen.getByText(/Starting demo feed/)).toBeTruthy();
-    await advance(900);
+    await advance(DEMO_START_MS / 2 + 1);
     expect(screen.queryByText(/Starting demo feed/)).toBeNull();
   });
 
   it('every simulated condition renders without numbers; permission-denied offers no webcam retry', async () => {
     const { container } = render(<ScanningScreen />);
-    await advance(1500);
+    await advance(DEMO_START_MS + 1);
     for (const c of ['no_cube', 'missing_stickers', 'wrong_face', 'unstable', 'permission_denied'] as const) {
       act(() => useScanStore.getState().setCondition(c));
       expect(container.textContent).not.toMatch(/\b\d\.\d{2}\b/);
@@ -108,7 +151,7 @@ describe('ScanningScreen - DEMO', () => {
 
   it('scripted auto-capture reaches six faces, then Reconstruction with a ready solution', async () => {
     render(<ScanningScreen />);
-    await advance(40_000);
+    await advance(ALL_FACES_MS);
     expect(Object.keys(useScanStore.getState().captured)).toHaveLength(6);
     expect(useSessionStore.getState().screen).toBe('reconstructing');
     expect(useCubeStore.getState().status).toBe('ready');
@@ -117,26 +160,53 @@ describe('ScanningScreen - DEMO', () => {
 
   it('Restart Scan mid-script leaves no stale capture', async () => {
     render(<ScanningScreen />);
-    await advance(3300); // mid-face-1, stability ~96 (capture would land at ~3.6 s)
+    await advance(FIRST_CAPTURE_MS - 2 * TICK_MS); // bar nearly full, capture imminent
     expect(useScanStore.getState().stability).toBeGreaterThan(60);
     fireEvent.click(screen.getByRole('button', { name: /restart scan/i }));
     expect(useScanStore.getState().stability).toBe(0);
-    await advance(900); // still inside the fresh 1 s demo start-up
+    await advance(DEMO_START_MS - 100); // still inside the fresh demo start-up
     expect(Object.keys(useScanStore.getState().captured)).toHaveLength(0);
     expect(useScanStore.getState().stageIndex).toBe(0);
   });
 
   it('unmounting clears the script: no capture after unmount', async () => {
     const { unmount } = render(<ScanningScreen />);
-    await advance(3000);
+    await advance(FIRST_CAPTURE_MS - 2 * TICK_MS);
     unmount();
     await advance(60_000);
     expect(Object.keys(useScanStore.getState().captured)).toHaveLength(0);
   });
 
+  it('StrictMode double-mount runs exactly one capture sequence', async () => {
+    const spy = spyCapture();
+    render(<StrictMode><ScanningScreen /></StrictMode>);
+    await advance(ALL_FACES_MS);
+    expect(spy).toHaveBeenCalledTimes(6);
+    expect(Object.keys(useScanStore.getState().captured)).toHaveLength(6);
+  });
+
+  it('plays the capture sound once per capture, even if sound is toggled mid-flash', async () => {
+    render(<ScanningScreen />);
+    await advance(FIRST_CAPTURE_MS + 10);
+    expect(useScanStore.getState().condition).toBe('captured_flash');
+    expect(playCaptureSound).toHaveBeenCalledTimes(1);
+    act(() => useSessionStore.getState().toggleSound());
+    act(() => useSessionStore.getState().toggleSound());
+    await advance(FLASH_MS / 2);
+    expect(playCaptureSound).toHaveBeenCalledTimes(1);
+    await advance(FACE_MS); // next face captured
+    expect(playCaptureSound).toHaveBeenCalledTimes(2);
+  });
+
+  it('plays the capture sound once per capture under StrictMode', async () => {
+    render(<StrictMode><ScanningScreen /></StrictMode>);
+    await advance(FIRST_CAPTURE_MS + 10);
+    expect(playCaptureSound).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps Preview Scan States and Flag Right Face for Rescan (demo only)', async () => {
     render(<ScanningScreen />);
-    await advance(1500);
+    await advance(DEMO_START_MS + 1);
     fireEvent.click(screen.getByRole('button', { name: /preview scan states/i }));
     fireEvent.click(screen.getByRole('button', { name: /flag right face for rescan/i }));
     expect(useScanStore.getState().faceStatuses.R).toBe('rescan');
@@ -144,16 +214,67 @@ describe('ScanningScreen - DEMO', () => {
 
   it('selecting a captured card re-scans that face and shows the rescan note', async () => {
     render(<ScanningScreen />);
-    await advance(5000);
+    await advance(FACE_MS + DEMO_START_MS);
     expect(useScanStore.getState().captured.F).toBeTruthy();
     expect(screen.queryByText(/Hold the cube as for this face's stage/)).toBeNull();
-    await advance(1000); // flash over
-    fireEvent.click(screen.getByText('Front').closest('button')!);
+    fireEvent.click(screen.getByTestId('face-card-F'));
     expect(useScanStore.getState().captured.F).toBeUndefined();
     expect(useScanStore.getState().stageIndex).toBe(0);
     expect(
       screen.getByText("Hold the cube as for this face's stage — if unsure, use Restart Scan."),
     ).toBeTruthy();
+  });
+
+  describe('accessibility', () => {
+    it('stability bar is a labelled progressbar that tracks the value', async () => {
+      render(<ScanningScreen />);
+      await advance(DEMO_START_MS + 3 * TICK_MS + 10);
+      const bar = screen.getByRole('progressbar', { name: /stability/i });
+      expect(bar.getAttribute('aria-valuemin')).toBe('0');
+      expect(bar.getAttribute('aria-valuemax')).toBe('100');
+      expect(bar.getAttribute('aria-valuenow')).toBe(String(useScanStore.getState().stability));
+      expect(Number(bar.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+    });
+
+    it('demo toasts are live regions', async () => {
+      render(<ScanningScreen />);
+      await advance(DEMO_START_MS + 1);
+      for (const [c, text] of [
+        ['no_cube', /No cube detected/],
+        ['wrong_face', /Expected/],
+        ['captured_flash', /Face captured cleanly/],
+      ] as const) {
+        act(() => useScanStore.getState().setCondition(c));
+        expect(screen.getByText(text).closest('[role="status"]')).toBeTruthy();
+      }
+    });
+  });
+
+  describe('render isolation', () => {
+    it('a stability tick does not re-render the guide or captured-faces panels', async () => {
+      render(<ScanningScreen />);
+      await advance(DEMO_START_MS + 2 * TICK_MS + 10);
+      const before = useScanStore.getState().stability;
+      const cube = renders.cube;
+      const grids = renders.faceGrid;
+      expect(cube).toBeGreaterThan(0);
+      await advance(3 * TICK_MS);
+      expect(useScanStore.getState().stability).toBeGreaterThan(before);
+      expect(renders.cube).toBe(cube);
+      expect(renders.faceGrid).toBe(grids);
+    });
+  });
+});
+
+// ===================================================================================
+describe('ScanningScreen - no session', () => {
+  it('mode null shows a neutral state, never the live panel, and can start a demo', () => {
+    useSessionStore.setState({ mode: null, screen: 'scanning' });
+    render(<ScanningScreen />);
+    expect(screen.getByText('No scan session')).toBeTruthy();
+    expect(screen.queryByText(/Checking vision service/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /start demo scan/i }));
+    expect(useSessionStore.getState().mode).toBe('demo');
   });
 });
 
@@ -171,12 +292,12 @@ describe('ScanningScreen - LIVE', () => {
     useSessionStore.getState().startSession('live', 'scanning');
   });
 
-  it('no backend: unavailable panel, capture disabled, no overlay, no picker, no fake loading', async () => {
+  it('no backend: unavailable panel, capture present but disabled, no overlay, no picker, no fake loading', async () => {
     stubHealth(() => Promise.reject(new Error('down')));
     render(<ScanningScreen />);
     expect(await screen.findByText('Vision service is not running')).toBeTruthy();
-    const capture = screen.queryByRole('button', { name: /capture face/i });
-    if (capture) expect((capture as HTMLButtonElement).disabled).toBe(true);
+    const capture = screen.getByRole('button', { name: /capture face/i }) as HTMLButtonElement;
+    expect(capture.disabled).toBe(true);
     expect(screen.queryAllByTestId('detection-label')).toHaveLength(0);
     expect(screen.queryByText(/Simulate Computer Vision State/)).toBeNull();
     expect(screen.queryByRole('button', { name: /preview scan states/i })).toBeNull();
@@ -186,12 +307,31 @@ describe('ScanningScreen - LIVE', () => {
     expect(screen.queryByText(/confidence/i)).toBeNull();
   });
 
+  it('the disabled Capture button is described by the "Capture unavailable" text', async () => {
+    stubHealth(() => Promise.reject(new Error('down')));
+    render(<ScanningScreen />);
+    await flushReal();
+    const capture = screen.getByRole('button', { name: /capture face/i });
+    const id = capture.getAttribute('aria-describedby');
+    expect(id).toBeTruthy();
+    expect(document.getElementById(id!)?.textContent).toMatch(/Capture unavailable/);
+  });
+
   it('Retry re-checks the backend', async () => {
     const f = stubHealth(() => Promise.reject(new Error('down')));
     render(<ScanningScreen />);
     await screen.findByText('Vision service is not running');
     expect(f).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    await flushReal();
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it('Restart Scan also re-checks the backend', async () => {
+    const f = stubHealth(() => Promise.reject(new Error('down')));
+    render(<ScanningScreen />);
+    await screen.findByText('Vision service is not running');
+    fireEvent.click(screen.getByRole('button', { name: /restart scan/i }));
     await flushReal();
     expect(f).toHaveBeenCalledTimes(2);
   });
@@ -251,7 +391,7 @@ describe('ScanningScreen - LIVE', () => {
       expect(getUserMedia).toHaveBeenCalledTimes(1);
     });
 
-    it('video is unmirrored and letterboxed (object-contain)', async () => {
+    it('video is unmirrored, letterboxed (object-contain) and labelled', async () => {
       const { container } = render(<ScanningScreen />);
       const { stream } = fakeStream();
       getUserMedia.mockResolvedValue(stream);
@@ -263,6 +403,23 @@ describe('ScanningScreen - LIVE', () => {
       expect(video.className).not.toMatch(/scale-x|-scale|mirror|rotate-y/);
       expect(video.style.transform).toBe('');
       expect(video.srcObject).toBe(stream);
+      expect(video.getAttribute('aria-label')).toMatch(/camera/i);
+    });
+
+    it('while requesting: polite status, and the SAME button stays mounted, disabled, focusable', async () => {
+      render(<ScanningScreen />);
+      getUserMedia.mockReturnValue(new Promise(() => {})); // never settles
+      const btn = screen.getByRole('button', { name: /enable camera/i });
+      btn.focus();
+      fireEvent.click(btn);
+      await settle();
+      const same = screen.getByRole('button', { name: /requesting camera/i });
+      expect(same).toBe(btn);
+      expect(same.getAttribute('aria-disabled')).toBe('true');
+      expect(document.activeElement).toBe(btn);
+      fireEvent.click(same); // inert while requesting
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(/Waiting for camera permission/).closest('[role="status"]')).toBeTruthy();
     });
 
     it('unmount stops every track', async () => {
@@ -276,20 +433,34 @@ describe('ScanningScreen - LIVE', () => {
       expect(f.track.stopped).toBe(true);
     });
 
-    it('permission denied: specific message, nothing left running', async () => {
+    it('permission denied: specific message announced as an alert', async () => {
       render(<ScanningScreen />);
       getUserMedia.mockRejectedValue({ name: 'NotAllowedError' });
       fireEvent.click(screen.getByRole('button', { name: /enable camera/i }));
       await settle();
-      expect(screen.getByText('Camera permission was denied')).toBeTruthy();
+      expect(screen.getByRole('alert').textContent).toContain('Camera permission was denied');
     });
 
-    it('no camera found shows its own message', async () => {
+    it('no camera found: its own message, announced as an alert', async () => {
       render(<ScanningScreen />);
       getUserMedia.mockRejectedValue({ name: 'NotFoundError' });
       fireEvent.click(screen.getByRole('button', { name: /enable camera/i }));
       await settle();
-      expect(screen.getByText('No suitable camera was found')).toBeTruthy();
+      expect(screen.getByRole('alert').textContent).toContain('No suitable camera was found');
+    });
+
+    it('generic camera error is announced as an alert', async () => {
+      render(<ScanningScreen />);
+      getUserMedia.mockRejectedValue({ name: 'AbortError', message: 'boom' });
+      fireEvent.click(screen.getByRole('button', { name: /enable camera/i }));
+      await settle();
+      expect(screen.getByRole('alert').textContent).toContain('Could not start the camera');
+    });
+
+    it('header camera status is a polite live region', async () => {
+      render(<ScanningScreen />);
+      const status = screen.getByText('Camera Off');
+      expect(status.closest('[role="status"]')).toBeTruthy();
     });
 
     it('leaving the screen stops the tracks', async () => {
@@ -314,6 +485,50 @@ describe('ScanningScreen - LIVE', () => {
       expect(useSessionStore.getState().mode).toBe('live');
       expect(useSessionStore.getState().screen).toBe('scanning');
     });
+
+    it('restart while requesting: the late superseded stream is stopped, exactly one stays live', async () => {
+      render(<ScanningScreen />);
+      const a = fakeStream();
+      const b = fakeStream();
+      let resolveA!: (s: MediaStream) => void;
+      let resolveB!: (s: MediaStream) => void;
+      getUserMedia
+        .mockReturnValueOnce(new Promise<MediaStream>((r) => { resolveA = r; }))
+        .mockReturnValueOnce(new Promise<MediaStream>((r) => { resolveB = r; }));
+      fireEvent.click(screen.getByRole('button', { name: /enable camera/i }));
+      await settle();
+      fireEvent.click(screen.getByRole('button', { name: /restart scan/i })); // supersedes request A
+      fireEvent.click(screen.getByRole('button', { name: /enable camera/i }));
+      await settle();
+      expect(getUserMedia).toHaveBeenCalledTimes(2);
+      await act(async () => { resolveA(a.stream); await Promise.resolve(); });
+      expect(a.track.stopped).toBe(true);
+      await act(async () => { resolveB(b.stream); await Promise.resolve(); });
+      expect(b.track.stopped).toBe(false);
+      expect([a, b].filter((x) => !x.track.stopped)).toHaveLength(1);
+    });
+  });
+});
+
+// ===================================================================================
+describe('ScanningScreen - mode transition', () => {
+  it('demo -> live in one mounted screen: no scripted labels, no capture, no demo timers', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('down'))));
+    useRubikStore.getState().startFreshScan(false); // legacy store now holds demo targets
+    const spy = spyCapture();
+    render(<ScanningScreen />);
+    await advance(FIRST_CAPTURE_MS - 2 * TICK_MS); // demo script mid-stability
+    expect(screen.getAllByTestId('detection-label').length).toBeGreaterThan(0);
+
+    act(() => useSessionStore.getState().startSession('live', 'scanning'));
+    expect(screen.queryAllByTestId('detection-label')).toHaveLength(0);
+    expect(screen.queryByText('Simulated feed')).toBeNull();
+    await advance(60_000);
+    expect(spy).not.toHaveBeenCalled();
+    expect(Object.keys(useScanStore.getState().captured)).toHaveLength(0);
+    expect(useScanStore.getState().stability).toBe(0);
+    expect(screen.queryAllByTestId('detection-label')).toHaveLength(0);
   });
 });
 

@@ -13,62 +13,46 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { COLOR_META, codeToColorName, type StickerCode } from '@/lib/colors';
-import type { CameraState } from '@/hooks/useCamera';
-import type { ScanCondition } from '@/stores/scan-store';
+import { DEMO_CENTER_COLORS } from '@/demo/demo-fixtures';
+// TEMPORARY bridge — removed in T1.17
+import { useRubikStore } from '@/store/useRubikStore';
+import { useScanStore, type ScanCondition } from '@/stores/scan-store';
+import type { FaceId } from '@/types/cube';
 import webcamPreview from '@/assets/images/webcam_cube_hands_1795070971051.jpg';
-import type { ScanGuide } from './scan-guide';
-
-const WEBCAM_PREVIEW_SRC = webcamPreview;
+import { FACE_NAMES, type ScanGuide } from './scan-guide';
 
 const FRAME_CLASS =
-  'relative w-full aspect-[16/10] sm:aspect-[16/10] rounded-2xl overflow-hidden bg-[#111113] border border-zinc-800/90 shadow-[0_18px_60px_rgba(0,0,0,0.55)]';
+  'relative w-full aspect-[16/10] rounded-2xl overflow-hidden bg-[#111113] border border-zinc-800/90 shadow-[0_18px_60px_rgba(0,0,0,0.55)]';
 
 export interface DemoViewportProps {
-  mode: 'demo';
   condition: ScanCondition;
-  /** Scripted sticker colour codes for the current stage (fixture, never a detection). */
-  targetStickers: readonly StickerCode[];
+  activeFace: FaceId;
   guide: ScanGuide;
-  /** Fixture centre of the current stage and its display name, for the wrong-face script. */
-  expectedCenterCode: StickerCode;
-  expectedCenterName: string;
-  faceFullName: string;
-  stability: number;
   autoCapture: boolean;
   allCaptured: boolean;
   onCapture: () => void;
   onResumeDetection: () => void;
 }
 
-export interface LiveViewportProps {
-  mode: 'live';
-  camera: CameraState;
-  videoRef: (el: HTMLVideoElement | null) => void;
-  onEnableCamera: () => void;
-}
-
-export type ScanViewportProps = DemoViewportProps | LiveViewportProps;
-
-export function ScanViewport(props: ScanViewportProps) {
-  return props.mode === 'demo' ? <DemoViewport {...props} /> : <LiveViewport {...props} />;
-}
-
-function DemoViewport({
+/** Scripted DEMO viewport: stock photo + scripted boxes. Owns the stability subscription (re-renders per tick). */
+export function DemoViewport({
   condition: scanCondition,
-  targetStickers,
+  activeFace,
   guide,
-  expectedCenterCode,
-  expectedCenterName,
-  faceFullName,
-  stability: stabilityProgress,
   autoCapture: autoCaptureEnabled,
   allCaptured,
   onCapture,
   onResumeDetection,
 }: DemoViewportProps) {
+  const stabilityProgress = useScanStore((s) => s.stability);
+  // TEMPORARY bridge — removed in T1.17 (legacy mirror of the demo fixture grids)
+  const targetStickers = useRubikStore((s) => s.targetFaces)[activeFace];
   const [imgFailed, setImgFailed] = React.useState(false);
+  const expectedCenter = COLOR_META[DEMO_CENTER_COLORS[activeFace]];
+  const expectedCenterCode = expectedCenter.code;
   const wrongCode: StickerCode = expectedCenterCode === 'R' ? 'O' : 'R';
-  const expectedLower = expectedCenterName.toLowerCase();
+  const expectedLower = expectedCenter.name.toLowerCase();
+  const faceFullName = FACE_NAMES[activeFace].fullName;
 
   return (
     <div className={FRAME_CLASS}>
@@ -77,8 +61,8 @@ function DemoViewport({
         <>
           {!imgFailed ? (
             <img
-              src={WEBCAM_PREVIEW_SRC}
-              alt="Hands holding a physical scrambled 3x3 Rubik's Cube in front of the webcam"
+              src={webcamPreview}
+              alt="Simulated feed photo: hands holding a scrambled 3x3 Rubik's Cube in front of a webcam"
               referrerPolicy="no-referrer"
               onError={() => setImgFailed(true)}
               className={cn(
@@ -236,6 +220,7 @@ function DemoViewport({
         scanCondition === 'captured_flash') && (
         <div className="absolute top-4 inset-x-4 z-20 flex justify-center pointer-events-none">
           <div
+            role="status"
             className={cn(
               'pointer-events-auto max-w-lg px-4 py-2.5 rounded-xl border text-sm flex items-center gap-3 shadow-lg',
               scanCondition === 'captured_flash'
@@ -285,7 +270,14 @@ function DemoViewport({
                 {scanCondition === 'captured_flash' ? '100%' : `${stabilityProgress}%`}
               </span>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+            <div
+              role="progressbar"
+              aria-label="Scripted capture stability"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={scanCondition === 'captured_flash' ? 100 : stabilityProgress}
+              className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden"
+            >
               <div
                 className="h-full bg-emerald-400 transition-all duration-150 ease-out rounded-full"
                 style={{ width: `${scanCondition === 'captured_flash' ? 100 : stabilityProgress}%` }}
@@ -306,60 +298,6 @@ function DemoViewport({
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function LiveViewport({ camera, videoRef, onEnableCamera }: LiveViewportProps) {
-  const active = camera.status === 'active';
-  return (
-    <div className={FRAME_CLASS}>
-      {/* Real camera frames, unmirrored and letterboxed so overlays can map via contain-fit later. */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className={cn('absolute inset-0 w-full h-full object-contain bg-black', !active && 'invisible')}
-      />
-
-      {!active && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#111113] p-6 text-center">
-          <div className="h-12 w-12 rounded-xl bg-zinc-800/60 border border-zinc-700/60 flex items-center justify-center">
-            {camera.status === 'requesting' ? (
-              <Loader2 className="h-6 w-6 text-emerald-400 animate-spin" />
-            ) : camera.status === 'idle' ? (
-              <Camera className="h-6 w-6 text-zinc-400" />
-            ) : (
-              <CameraOff className="h-6 w-6 text-red-400" />
-            )}
-          </div>
-          <h3 className="mt-4 text-base font-semibold text-zinc-100">
-            {camera.status === 'requesting'
-              ? 'Waiting for camera permission…'
-              : camera.status === 'idle'
-                ? 'Camera is off'
-                : 'Camera unavailable'}
-          </h3>
-          <p className="mt-1.5 text-sm text-zinc-400 max-w-md">
-            {camera.message ??
-              'The camera is only used after you enable it. Video stays on this device and is not recorded.'}
-          </p>
-          {camera.status !== 'requesting' && (
-            <Button size="sm" className="mt-5" onClick={onEnableCamera}>
-              Enable camera
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Capture is unavailable in every live state until a scan connection exists. */}
-      <div className="absolute bottom-0 inset-x-0 z-20 px-4 py-3 bg-[#09090B]/90 border-t border-zinc-800/80 flex items-center justify-between gap-4">
-        <span className="text-xs text-zinc-400">Capture unavailable — no vision connection</span>
-        <Button size="sm" variant="secondary" disabled className="shrink-0">
-          Capture Face
-        </Button>
-      </div>
     </div>
   );
 }

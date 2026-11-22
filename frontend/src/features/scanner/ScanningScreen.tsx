@@ -2,14 +2,14 @@ import * as React from 'react';
 import { ArrowRight, CameraOff, RefreshCw, RotateCcw, Settings, Video } from 'lucide-react';
 import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import { Button } from '@/components/ui/button';
-import { COLOR_META, colorNameToCode, type StickerCode } from '@/lib/colors';
+import { COLOR_META } from '@/lib/colors';
 import { DEMO_CENTER_COLORS } from '@/demo/demo-fixtures';
 import { useBackendHealth } from '@/hooks/useBackendHealth';
 import { useCamera } from '@/hooks/useCamera';
 // TEMPORARY bridge — removed in T1.17 (legacy store: three demo actions + the demo target-grid mirror)
 import { useRubikStore } from '@/store/useRubikStore';
 import { useCubeStore } from '@/stores/cube-store';
-import { useScanStore } from '@/stores/scan-store';
+import { useScanStore, type ScanCondition } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 import { solveRequestGuard } from '@/stores/solve-guard';
 import { SCAN_FACE_ORDER, type CenterColors, type ColorName, type FaceId } from '@/types/cube';
@@ -17,15 +17,73 @@ import { CapturedFacesPanel } from './CapturedFacesPanel';
 import { LiveUnavailablePanel } from './LiveUnavailablePanel';
 import { ScanGuidePanel, type ScanMetrics } from './ScanGuidePanel';
 import { ScanSettingsDialog } from './ScanSettingsDialog';
-import { ScanViewport } from './ScanViewport';
+import { DemoViewport } from './DemoViewport';
+import { LiveViewport } from './LiveViewport';
 import { FACE_NAMES, scanGuide } from './scan-guide';
 import { useDemoScanScript } from './useDemoScanScript';
 
 /** Documented initial scan convention; every other centre is known only after its face is captured. */
 const LIVE_START_CENTERS: Partial<Record<FaceId, ColorName>> = { F: 'green', U: 'white' };
 
+/** Scripted readouts for the demo guide panel. */
+function demoMetricsFor(face: FaceId, scanCondition: ScanCondition): ScanMetrics {
+  const expectedCenter = COLOR_META[DEMO_CENTER_COLORS[face]];
+  const detectedStickerCount =
+    scanCondition === 'ready' || scanCondition === 'captured_flash' || scanCondition === 'wrong_face'
+      ? 9
+      : scanCondition === 'missing_stickers'
+        ? 6
+        : scanCondition === 'unstable'
+          ? 8
+          : 0;
+  const center =
+    scanCondition === 'wrong_face'
+      ? COLOR_META[expectedCenter.code === 'R' ? 'orange' : 'red']
+      : detectedStickerCount >= 5
+        ? expectedCenter
+        : null;
+  return {
+    centerName: center?.name ?? null,
+    centerHex: center?.hex ?? null,
+    stickers: detectedStickerCount,
+    confidenceLabel: 'Simulated',
+    faceStatus:
+      scanCondition === 'captured_flash'
+        ? 'Captured'
+        : scanCondition === 'ready'
+          ? 'Aligning'
+          : scanCondition === 'loading_model'
+            ? 'Starting demo'
+            : scanCondition.replace('_', ' '),
+  };
+}
+
+/** Neutral state when no session exists (mode null): never the live panel, never fake data. */
+function NoScanSession() {
+  return (
+    <div className="min-h-screen bg-[#09090B] text-zinc-100 flex flex-col">
+      <WorkspaceHeader activeStage="scan" />
+      <main className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <h1 className="text-lg font-semibold text-zinc-50">No scan session</h1>
+        <p className="text-sm text-zinc-400 max-w-md">
+          Start a scan from the home screen, or try the simulated demo scan.
+        </p>
+        <Button size="sm" onClick={() => useRubikStore.getState().startFreshScan(false)}>
+          {/* TEMPORARY bridge — removed in T1.17 */}
+          Start demo scan
+        </Button>
+      </main>
+    </div>
+  );
+}
+
 export function ScanningScreen() {
   const mode = useSessionStore((s) => s.mode);
+  if (mode === null) return <NoScanSession />;
+  return <ScanSession mode={mode} />;
+}
+
+function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
   const isDemo = mode === 'demo';
   const sessionId = useSessionStore((s) => s.sessionId);
   const screenNow = useSessionStore((s) => s.screen);
@@ -34,8 +92,6 @@ export function ScanningScreen() {
   const faceStatuses = useScanStore((s) => s.faceStatuses);
   const captured = useScanStore((s) => s.captured);
   const scanCondition = useScanStore((s) => s.condition);
-  const stability = useScanStore((s) => s.stability);
-  const demoTargetFaces = useRubikStore((s) => s.targetFaces); // TEMPORARY bridge — removed in T1.17
 
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [rescan, setRescan] = React.useState<{ face: FaceId; sessionId: number } | null>(null);
@@ -61,14 +117,16 @@ export function ScanningScreen() {
     if (restarted || screenNow !== 'scanning') stopCamera();
   }, [screenNow, sessionId, stopCamera]);
 
-  const selectFace = (face: FaceId) => {
+  const selectFace = React.useCallback((face: FaceId) => {
     const before = faceStatuses[face];
     // The captured grids change, so any in-flight or finished solve for the old grids is void.
     solveRequestGuard.reset();
     useCubeStore.getState().reset();
     useScanStore.getState().selectFaceForRescan(face);
     setRescan(before === 'captured' || before === 'rescan' ? { face, sessionId } : null);
-  };
+  }, [faceStatuses, sessionId]);
+
+  const resumeDetection = React.useCallback(() => useScanStore.getState().setCondition('ready'), []);
 
   const restartScan = () => {
     stopCamera();
@@ -76,6 +134,7 @@ export function ScanningScreen() {
       useRubikStore.getState().startFreshScan(true); // TEMPORARY bridge — removed in T1.17
     } else {
       useSessionStore.getState().startSession('live', 'scanning');
+      void refresh(); // a restarted live scan re-checks the vision service
     }
   };
 
@@ -89,42 +148,14 @@ export function ScanningScreen() {
     }
     return known;
   }, [isDemo, captured]);
-  const guide = scanGuide(activeFace, knownCenters);
+  const guide = React.useMemo(() => scanGuide(activeFace, knownCenters), [activeFace, knownCenters]);
   const rescanning = rescan?.face === activeFace && rescan.sessionId === sessionId && !captured[activeFace];
 
-  // ----- demo-only scripted readouts -----
-  const demoMetrics: ScanMetrics | null = (() => {
-    if (!isDemo) return null;
-    const expectedCenter = COLOR_META[DEMO_CENTER_COLORS[activeFace]];
-    const detectedStickerCount =
-      scanCondition === 'ready' || scanCondition === 'captured_flash' || scanCondition === 'wrong_face'
-        ? 9
-        : scanCondition === 'missing_stickers'
-          ? 6
-          : scanCondition === 'unstable'
-            ? 8
-            : 0;
-    const center =
-      scanCondition === 'wrong_face'
-        ? COLOR_META[expectedCenter.code === 'R' ? 'orange' : 'red']
-        : detectedStickerCount >= 5
-          ? expectedCenter
-          : null;
-    return {
-      centerName: center?.name ?? null,
-      centerHex: center?.hex ?? null,
-      stickers: detectedStickerCount,
-      confidenceLabel: 'Simulated',
-      faceStatus:
-        scanCondition === 'captured_flash'
-          ? 'Captured'
-          : scanCondition === 'ready'
-            ? 'Aligning'
-            : scanCondition === 'loading_model'
-              ? 'Starting demo'
-              : scanCondition.replace('_', ' '),
-    };
-  })();
+  // Demo-only scripted readouts (computed only in the demo branch; no stability dependency).
+  const demoMetrics = React.useMemo(
+    () => (isDemo ? demoMetricsFor(activeFace, scanCondition) : null),
+    [isDemo, activeFace, scanCondition],
+  );
 
   const cameraStatusText = isDemo
     ? scanCondition === 'permission_denied'
@@ -143,15 +174,13 @@ export function ScanningScreen() {
     ? scanCondition === 'permission_denied'
     : camera.state.status === 'denied' || camera.state.status === 'not-found' || camera.state.status === 'error';
 
-  const demoCenterCode = colorNameToCode(DEMO_CENTER_COLORS[activeFace]);
-
   return (
     <div className="min-h-screen bg-[#09090B] text-zinc-100 flex flex-col">
       <WorkspaceHeader
         activeStage="scan"
         rightSlot={
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-300 font-mono">
+            <div role="status" className="hidden sm:flex items-center gap-2 text-xs text-zinc-300 font-mono">
               {cameraBlocked ? (
                 <CameraOff className="h-3.5 w-3.5 text-red-400" />
               ) : (
@@ -199,27 +228,17 @@ export function ScanningScreen() {
           {!isDemo && <LiveUnavailablePanel readiness={readiness} onRetry={() => void refresh()} />}
 
           {isDemo ? (
-            <ScanViewport
-              mode="demo"
+            <DemoViewport
               condition={scanCondition}
-              targetStickers={demoTargetFaces[activeFace] as StickerCode[]}
+              activeFace={activeFace}
               guide={guide}
-              expectedCenterCode={demoCenterCode}
-              expectedCenterName={COLOR_META[DEMO_CENTER_COLORS[activeFace]].name}
-              faceFullName={names.fullName}
-              stability={stability}
               autoCapture={autoCaptureEnabled}
               allCaptured={allCaptured}
               onCapture={captureDemoFace}
-              onResumeDetection={() => useScanStore.getState().setCondition('ready')}
+              onResumeDetection={resumeDetection}
             />
           ) : (
-            <ScanViewport
-              mode="live"
-              camera={camera.state}
-              videoRef={camera.videoRef}
-              onEnableCamera={camera.start}
-            />
+            <LiveViewport camera={camera.state} videoRef={camera.videoRef} onEnableCamera={camera.start} />
           )}
 
           {/* Quick Controls Footer */}

@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { RubiksCube3D } from '@/components/three/RubiksCube3D';
 import { toCubies } from '@/engine/cubie-adapter';
 import { SOLVED } from '@/engine/cube-state';
@@ -24,7 +25,7 @@ interface ScanGuidePanelProps {
   rescanning: boolean;
 }
 
-export function ScanGuidePanel({ stageNumber, faceLabel, guide, metrics, rescanning }: ScanGuidePanelProps) {
+function ScanGuidePanelImpl({ stageNumber, faceLabel, guide, metrics, rescanning }: ScanGuidePanelProps) {
   return (
     <div data-testid="scan-guide-panel" className="rounded-2xl bg-[#111113] border border-zinc-800/80 p-5 space-y-4">
       <div className="flex items-start justify-between gap-4">
@@ -95,3 +96,5 @@ export function ScanGuidePanel({ stageNumber, faceLabel, guide, metrics, rescann
     </div>
   );
 }
+
+export const ScanGuidePanel = React.memo(ScanGuidePanelImpl);
