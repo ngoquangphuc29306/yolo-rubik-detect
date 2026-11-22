@@ -45,6 +45,24 @@ describe('computeContain', () => {
   });
 });
 
+describe('computeContain robustness', () => {
+  it('returns null when scale underflows to 0', () => {
+    expect(computeContain({ w: 5e-324, h: 100 }, { w: 1e300, h: 100 })).toBeNull();
+  });
+  it('returns null when scale overflows or draw size underflows', () => {
+    expect(computeContain({ w: 1e308, h: 1e308 }, { w: 1e-300, h: 1e-300 })).toBeNull();
+    expect(computeContain({ w: 1e-300, h: 1e-300 }, { w: 1e308, h: 1e308 })).toBeNull();
+  });
+  it('tiny frame width stays finite and viewToFrame never divides by zero', () => {
+    const t = computeContain({ w: 100, h: 100 }, { w: 5e-324, h: 100 });
+    if (t) {
+      expect(t.scale).toBeGreaterThan(0);
+      const p = viewToFrame({ x: 1, y: 1 }, t);
+      expect(Number.isFinite(p.x) && Number.isFinite(p.y)).toBe(true);
+    }
+  });
+});
+
 describe('point and box mapping', () => {
   const t = computeContain({ w: 800, h: 600 }, { w: 1280, h: 720 })!;
 

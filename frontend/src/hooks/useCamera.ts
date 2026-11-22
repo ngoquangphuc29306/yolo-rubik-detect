@@ -30,9 +30,13 @@ function stopTracks(stream: MediaStream | null): void {
   stream?.getTracks().forEach((t) => t.stop());
 }
 
+const SECURE_MSG = 'Camera access requires a secure connection (localhost or HTTPS)';
+
 function classify(err: unknown): CameraState {
-  const name = err instanceof Error ? err.name : '';
-  const detail = err instanceof Error && err.message ? `: ${err.message}` : '';
+  const e = (typeof err === 'object' && err !== null ? err : {}) as { name?: unknown; message?: unknown };
+  const name = typeof e.name === 'string' ? e.name : '';
+  const detail = typeof e.message === 'string' && e.message ? `: ${e.message}` : '';
+  if (name === 'InsecureContext') return { status: 'error', message: SECURE_MSG };
   if (name === 'NotAllowedError' || name === 'SecurityError') {
     return { status: 'denied', message: 'Camera permission was denied' };
   }
@@ -47,11 +51,26 @@ export function createCameraController(deps: CameraControllerDeps): CameraContro
   let active: MediaStream | null = null;
   let dead = false;
 
-  function stop(): void {
-    guard.reset();
-    stopTracks(active);
+  // Stops every track of the active stream and detaches it. Never throws.
+  function releaseActive(): void {
+    const old = active;
     active = null;
-    deps.attach(null);
+    try {
+      stopTracks(old);
+    } catch {
+      /* keep going: detach regardless */
+    }
+    try {
+      deps.attach(null);
+    } catch {
+      /* a failing detach must not block teardown */
+    }
+  }
+
+  function stop(): void {
+    if (dead) return;
+    guard.reset();
+    releaseActive();
     deps.onState({ status: 'idle' });
   }
 
@@ -59,6 +78,8 @@ export function createCameraController(deps: CameraControllerDeps): CameraContro
     start() {
       if (dead) return;
       const handle = guard.begin();
+      // Exactly one device is ever open: release any active stream BEFORE requesting a new one.
+      releaseActive();
       deps.onState({ status: 'requesting' });
       let request: Promise<MediaStream>;
       try {
@@ -73,10 +94,19 @@ export function createCameraController(deps: CameraControllerDeps): CameraContro
             stopTracks(stream);
             return;
           }
-          if (active && active !== stream) stopTracks(active);
-          active = stream;
-          deps.attach(stream);
-          deps.onState({ status: 'active' });
+          try {
+            active = stream;
+            deps.attach(stream);
+            deps.onState({ status: 'active' });
+          } catch (err) {
+            stopTracks(stream);
+            releaseActive();
+            try {
+              deps.onState(classify(err));
+            } catch {
+              /* nothing more can be reported */
+            }
+          }
         },
         (err: unknown) => {
           if (dead || !handle.isCurrent()) return;
@@ -88,8 +118,17 @@ export function createCameraController(deps: CameraControllerDeps): CameraContro
     dispose() {
       stop();
       dead = true;
+      guard.reset();
     },
   };
+}
+
+function browserGetUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
+  const md = typeof navigator === 'undefined' ? undefined : navigator.mediaDevices;
+  if (!md || typeof md.getUserMedia !== 'function') {
+    throw { name: 'InsecureContext', message: SECURE_MSG };
+  }
+  return md.getUserMedia(constraints);
 }
 
 export function useCamera({ enabled }: { enabled: boolean }) {
@@ -109,7 +148,7 @@ export function useCamera({ enabled }: { enabled: boolean }) {
   // One controller per mount (a fresh one after each StrictMode remount).
   useEffect(() => {
     const controller = createCameraController({
-      getUserMedia: (c) => navigator.mediaDevices.getUserMedia(c),
+      getUserMedia: browserGetUserMedia,
       onState: setState,
       attach: (stream) => {
         streamRef.current = stream;

@@ -23,7 +23,11 @@ export function computeContain(view: Size, frame: Size): ContainTransform | null
   const scale = Math.min(view.w / frame.w, view.h / frame.h);
   const drawW = frame.w * scale;
   const drawH = frame.h * scale;
-  return { scale, offsetX: (view.w - drawW) / 2, offsetY: (view.h - drawH) / 2, drawW, drawH };
+  const offsetX = (view.w - drawW) / 2;
+  const offsetY = (view.h - drawH) / 2;
+  const finite = [scale, drawW, drawH, offsetX, offsetY].every(Number.isFinite);
+  if (!finite || scale <= 0 || drawW <= 0 || drawH <= 0) return null;
+  return { scale, offsetX, offsetY, drawW, drawH };
 }
 
 export function frameToView(pt: Point, t: ContainTransform): Point {

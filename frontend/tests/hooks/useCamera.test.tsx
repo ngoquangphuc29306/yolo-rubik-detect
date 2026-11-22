@@ -121,7 +121,7 @@ describe('createCameraController', () => {
     await flush();
     expect(last().status).toBe(status);
     expect(last().message).toBeTruthy();
-    expect(attach).not.toHaveBeenCalled();
+    expect(attach.mock.calls.every((a) => a[0] === null)).toBe(true);
   });
 
   it('non-Error rejection -> error', async () => {
@@ -193,6 +193,7 @@ describe('createCameraController', () => {
     expect(allStopped(s1)).toBe(true);
     expect(live(s2)).toBe(true);
     expect(attach).toHaveBeenLastCalledWith(s2);
+    expect(attach).not.toHaveBeenCalledWith(s1);
     expect(last().status).toBe('active');
   });
 
@@ -302,6 +303,7 @@ describe('useCamera', () => {
     const made: FakeStream[] = [];
     await resolveAll(made);
     expect(allStopped(made[0])).toBe(true);
+    expect(made.filter(live)).toHaveLength(0);
     expect(err).not.toHaveBeenCalled();
   });
 
@@ -398,5 +400,195 @@ describe('useCamera', () => {
     const video = getByTestId('v') as HTMLVideoElement;
     rerender(<VideoHost enabled show={false} api={api} />);
     expect(video.srcObject).toBeNull();
+  });
+});
+
+// ---- fix round 1 (R26) ---------------------------------------------------------------
+describe('createCameraController fix round 1', () => {
+  function setup(over: Partial<Parameters<typeof createCameraController>[0]> = {}) {
+    const states: CameraState[] = [];
+    const attach = vi.fn();
+    const c = createCameraController({ getUserMedia, onState: (s) => states.push(s), attach, ...over });
+    return { c, states, attach, last: () => states[states.length - 1] };
+  }
+  async function activeWith(c: ReturnType<typeof createCameraController>) {
+    c.start();
+    const s = fakeStream(2);
+    pending[0].resolve(s);
+    await flush();
+    return s;
+  }
+
+  it('restart while active, new request REJECTS -> old stream stopped, failure state', async () => {
+    const { c, last, attach } = setup();
+    const s1 = await activeWith(c);
+    c.start();
+    expect(allStopped(s1)).toBe(true);
+    expect(attach).toHaveBeenLastCalledWith(null);
+    pending[1].reject(domError('NotAllowedError'));
+    await flush();
+    expect(allStopped(s1)).toBe(true);
+    expect(last().status).toBe('denied');
+  });
+
+  it('restart while active, getUserMedia throws synchronously -> old stream stopped, error', async () => {
+    let throwNext = false;
+    const gum = vi.fn((c: MediaStreamConstraints) => {
+      if (throwNext) throw new TypeError('sync');
+      return getUserMedia(c);
+    });
+    const { c, last } = setup({ getUserMedia: gum });
+    const s1 = await activeWith(c);
+    throwNext = true;
+    c.start();
+    expect(allStopped(s1)).toBe(true);
+    expect(last().status).toBe('error');
+  });
+
+  it('restart while active, success -> exactly one live stream', async () => {
+    const { c, last } = setup();
+    const s1 = await activeWith(c);
+    c.start();
+    const s2 = fakeStream();
+    pending[1].resolve(s2);
+    await flush();
+    expect([s1, s2].filter(live)).toEqual([s2]);
+    expect(last().status).toBe('active');
+  });
+
+  it('attach throwing on a fresh stream -> tracks stopped, error, no unhandled rejection', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      let first = true;
+      const attach = vi.fn((s: MediaStream | null) => {
+        if (s && first) {
+          first = false;
+          throw new Error('attach boom');
+        }
+      });
+      const { c, last } = setup({ attach });
+      c.start();
+      const s = fakeStream(2);
+      pending[0].resolve(s);
+      await flush();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(allStopped(s)).toBe(true);
+      expect(last().status).toBe('error');
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
+  it('onState throwing once on active -> tracks stopped, error, no unhandled rejection', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const states: CameraState[] = [];
+      let thrown = false;
+      const { c } = setup({
+        onState: (st) => {
+          if (st.status === 'active' && !thrown) {
+            thrown = true;
+            throw new Error('onState boom');
+          }
+          states.push(st);
+        },
+      });
+      c.start();
+      const s = fakeStream(2);
+      pending[0].resolve(s);
+      await flush();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(allStopped(s)).toBe(true);
+      expect(states[states.length - 1].status).toBe('error');
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
+  it('classify duck-types a plain object with a name', async () => {
+    const { c, last } = setup();
+    c.start();
+    pending[0].reject({ name: 'NotAllowedError' });
+    await flush();
+    expect(last().status).toBe('denied');
+  });
+
+  it('stop() after dispose() triggers no callbacks', () => {
+    const { c, states, attach } = setup();
+    c.dispose();
+    const n = states.length;
+    const a = attach.mock.calls.length;
+    c.stop();
+    expect(states.length).toBe(n);
+    expect(attach.mock.calls.length).toBe(a);
+  });
+
+  it('start after stop during requesting yields the new stream only', async () => {
+    const { c, last, attach } = setup();
+    c.start();
+    c.stop();
+    c.start();
+    const s1 = fakeStream();
+    const s2 = fakeStream();
+    pending[0].resolve(s1);
+    pending[1].resolve(s2);
+    await flush();
+    expect(allStopped(s1)).toBe(true);
+    expect(live(s2)).toBe(true);
+    expect(attach).not.toHaveBeenCalledWith(s1);
+    expect(last().status).toBe('active');
+  });
+});
+
+describe('useCamera fix round 1', () => {
+  type Api = { current?: ReturnType<typeof useCamera> };
+  function Host({ enabled, which, api }: { enabled: boolean; which: 'a' | 'b'; api: Api }) {
+    const cam = useCamera({ enabled });
+    useEffect(() => {
+      api.current = cam;
+    });
+    return which === 'a' ? (
+      <video key="a" data-testid="a" ref={cam.videoRef} />
+    ) : (
+      <video key="b" data-testid="b" ref={cam.videoRef} />
+    );
+  }
+
+  it('swapping the video element A -> B clears A and attaches B', async () => {
+    const api: Api = {};
+    const { rerender, getByTestId } = render(<Host enabled which="a" api={api} />);
+    const s = fakeStream();
+    pending[0].resolve(s);
+    await flush();
+    const a = getByTestId('a') as HTMLVideoElement;
+    expect(a.srcObject).toBe(s);
+    rerender(<Host enabled which="b" api={api} />);
+    expect(a.srcObject).toBeNull();
+    expect((getByTestId('b') as HTMLVideoElement).srcObject).toBe(s);
+  });
+
+  it('hook-level dispose then start never acquires', () => {
+    const { result, unmount } = renderHook(() => useCamera({ enabled: false }));
+    const { start } = result.current;
+    unmount();
+    start();
+    expect(getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it('missing mediaDevices -> error with secure-context message, no throw', () => {
+    vi.stubGlobal('navigator', {});
+    const { result } = renderHook(() => useCamera({ enabled: true }));
+    expect(result.current.state.status).toBe('error');
+    expect(result.current.state.message).toBe('Camera access requires a secure connection (localhost or HTTPS)');
+  });
+
+  it('mediaDevices without getUserMedia -> same error', () => {
+    vi.stubGlobal('navigator', { mediaDevices: {} });
+    const { result } = renderHook(() => useCamera({ enabled: true }));
+    expect(result.current.state.message).toBe('Camera access requires a secure connection (localhost or HTTPS)');
   });
 });
