@@ -36,6 +36,7 @@ import { SolvingScreen } from '@/features/solver/SolvingScreen';
 import { applyMove, buildSnapshots } from '@/engine/move-engine';
 import { SOLVED } from '@/engine/cube-state';
 import { useCubeStore } from '@/stores/cube-store';
+import { useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 import { startDemoScan } from '@/stores/demo-session';
 
@@ -329,6 +330,25 @@ describe('SolvingScreen: lost track dialog', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(cube.props!.frameRef.current).toMatchObject({ status: 'animating', activeIndex: 1, progress: 0 });
     expect(screen.getByTestId('step-counter').textContent).toBe('Step 2 of 2');
+  });
+
+  it('"Scan My Cube Again" from a LIVE session restarts live, seed unchanged, no demo capture', () => {
+    loadSolution(M2);
+    act(() => useSessionStore.setState({ mode: 'live', demoSeed: 1 }));
+    render(<SolvingScreen />);
+    fireEvent.click(dockButton(/lost track\? scan again\./i));
+    fireEvent.click(screen.getByRole('button', { name: /scan my cube again/i }));
+    expect(useSessionStore.getState()).toMatchObject({ mode: 'live', screen: 'scanning', demoSeed: 1 });
+    expect(useScanStore.getState().captured).toEqual({});
+  });
+
+  it('"Scan My Cube Again" from a DEMO session starts a demo scan on the next cube', () => {
+    loadSolution(M2);
+    act(() => useSessionStore.setState({ demoSeed: 1 }));
+    render(<SolvingScreen />);
+    fireEvent.click(dockButton(/lost track\? scan again\./i));
+    fireEvent.click(screen.getByRole('button', { name: /scan my cube again/i }));
+    expect(useSessionStore.getState()).toMatchObject({ mode: 'demo', screen: 'scanning', demoSeed: 2 });
   });
 
   it('"Scan My Cube Again" starts a fresh scanning session', () => {

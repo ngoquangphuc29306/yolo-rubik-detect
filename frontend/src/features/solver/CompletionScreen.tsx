@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { toCubies } from '@/engine/cubie-adapter';
 import { playSuccessChime } from '@/lib/audio';
 import { useCubeStore, type SolutionData } from '@/stores/cube-store';
-import { startDemoScan } from '@/stores/demo-session';
+import { restartScan } from '@/stores/demo-session';
 import { useSessionStore } from '@/stores/session-store';
 import { formatDuration } from '@/lib/utils';
 
@@ -234,7 +234,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                   <Button
                     size="lg"
                     variant="secondary"
-                    onClick={() => startDemoScan(true)}
+                    onClick={() => restartScan(true)}
                   >
                     <Camera className="h-4 w-4" />
                     Scan Again
@@ -255,7 +255,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => startDemoScan(true)}
+                    onClick={() => restartScan(true)}
                     className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
@@ -278,7 +278,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button size="lg" onClick={() => startDemoScan(true)}>
+                  <Button size="lg" onClick={() => restartScan(true)}>
                     <Camera className="h-4 w-4" />
                     Solve Another Cube
                   </Button>
@@ -289,7 +289,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                   <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => startDemoScan(false)}
+                    onClick={() => restartScan(false)}
                   >
                     Scan Again
                   </Button>

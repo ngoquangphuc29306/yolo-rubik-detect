@@ -7,7 +7,7 @@ import { DEMO_CENTER_COLORS } from '@/demo/demo-fixtures';
 import { useBackendHealth } from '@/hooks/useBackendHealth';
 import { useCamera } from '@/hooks/useCamera';
 import { useCubeStore } from '@/stores/cube-store';
-import { captureDemoFace, startDemoScan, startDemoShortcut } from '@/stores/demo-session';
+import { captureDemoFace, restartScan, startDemoScan, startDemoShortcut } from '@/stores/demo-session';
 import { useScanStore, type ScanCondition } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 import { solveRequestGuard } from '@/stores/solve-guard';
@@ -124,14 +124,10 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
 
   const resumeDetection = React.useCallback(() => useScanStore.getState().setCondition('ready'), []);
 
-  const restartScan = () => {
+  const handleRestart = () => {
     stopCamera();
-    if (isDemo) {
-      startDemoScan(true);
-    } else {
-      useSessionStore.getState().startSession('live', 'scanning');
-      void refresh(); // a restarted live scan re-checks the vision service
-    }
+    restartScan(true); // mode-aware: live stays live, demo advances to the next demo cube
+    if (!isDemo) void refresh(); // a restarted live scan re-checks the vision service
   };
 
   // Guide wording: demo uses the scripted fixture centres; live names only centres it has actually seen.
@@ -240,7 +236,7 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
           {/* Quick Controls Footer */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={restartScan}>
+              <Button variant="outline" size="sm" onClick={handleRestart}>
                 <RefreshCw className="h-3.5 w-3.5" />
                 Restart Scan
               </Button>

@@ -34,7 +34,7 @@ const HOW_IT_WORKS_STEPS = [
     title: 'Scan',
     subtitle: 'Capture all six faces with your webcam',
     description:
-      'Hold your physical cube inside the guided 3×3 frame. Fine-tuned YOLO sticker detection locks onto all nine tiles and auto-captures each face as soon as your hand is steady.',
+      'Hold your physical cube inside the guided 3×3 frame. YOLO sticker detection is designed to lock onto all nine tiles and auto-capture each face as soon as your hand is steady.',
     icon: Camera,
   },
   {
@@ -61,7 +61,7 @@ const TECH_STACK = [
     role: 'Sticker Localization & Color Classification',
     metric: '54 tiles · per-face detection',
     description:
-      'Fine-tuned single-stage detector trained across varied lighting, cube plastic finishes, and hand occlusions to localize all nine stickers per face with per-tile confidence scoring.',
+      'Single-stage detector designed for varied lighting, cube plastic finishes, and hand occlusions, localizing all nine stickers per face and reporting a confidence for each tile.',
     span: 'lg:col-span-2',
   },
   {

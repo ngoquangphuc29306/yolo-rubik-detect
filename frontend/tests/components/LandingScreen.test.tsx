@@ -88,6 +88,7 @@ describe('LandingScreen entry points', () => {
     expect(text).not.toMatch(/\d\s*ms/i);
     expect(text).not.toMatch(/\d\s*fps/i);
     expect(text).not.toMatch(/consensus/i);
+    expect(text).not.toMatch(/trained|fine-tuned/i); // no model exists yet
     expect(text).not.toMatch(/\d+\s*\/\s*\d+\s*frame/i);
     expect(text).not.toMatch(/≤\s*\d+\s*moves/i);
     expect(text).not.toMatch(/moves average/i);

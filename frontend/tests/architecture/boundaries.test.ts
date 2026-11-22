@@ -12,7 +12,7 @@ const UPPER = 'components|features|hooks|stores';
 const FORBIDDEN_IMPORT = new RegExp(
   String.raw`(?:from\s+|import\s*\(\s*|import\s+|require\s*\(\s*)['"](?:react|react-dom|react\/[^'"]*|three|three\/[^'"]*|@react-three\/[^'"]*|zustand|zustand\/[^'"]*` +
     String.raw`|@\/(?:${UPPER})(?:\/[^'"]*)?` +
-    String.raw`|@\/store(?:\/[^'"]*)?` + // legacy store path
+    String.raw`|@\/store(?:\/[^'"]*)?` + // the retired store/ directory (now stores/)
     String.raw`|(?:\.\.?\/)+(?:${UPPER}|store)(?:\/[^'"]*)?)['"]`,
 );
 const DOM_GLOBAL = new RegExp(
@@ -25,7 +25,7 @@ function listSources(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) return listSources(p);
-    return /\.(ts|tsx|js|jsx)$/.test(e.name) ? [p] : [];
+    return /\.([cm]?[tj]sx?)$/.test(e.name) ? [p] : [];
   });
 }
 
@@ -52,8 +52,8 @@ function scan(srcRoot: string, layers: readonly string[] = GUARDED): string[] {
 }
 
 const TESTS = path.resolve(import.meta.dirname, '..');
-/** Any quoted module specifier (import, require, dynamic import, vi.mock) ending in the retired modules. */
-const LEGACY_SPECIFIER = /['"](?:[^'"]*\/)?(?:cubeEngine|useRubikStore)(?:\.[cm]?[tj]sx?)?['"]/;
+/** Any quoted or template-literal module specifier (import, require, dynamic import, vi.mock), incl. subpaths, naming the retired modules. */
+const LEGACY_SPECIFIER = /['"`](?:[^'"`]*\/)?(?:cubeEngine|useRubikStore)(?:\/[^'"`]*)?(?:\.[cm]?[tj]sx?)?['"`]/;
 
 /** Lists files under `roots` that mention a retired module specifier; `exclude` skips this guard's own file. */
 function scanLegacy(roots: readonly string[], exclude: readonly string[] = []): string[] {
@@ -67,6 +67,27 @@ function scanLegacy(roots: readonly string[], exclude: readonly string[] = []): 
         .split('\n')
         .forEach((line, i) => {
           if (LEGACY_SPECIFIER.test(line)) offenders.push(`${path.relative(root, file)}:${i + 1}: ${line.trim()}`);
+        });
+    }
+  }
+  return offenders;
+}
+
+// stores/ and hooks/ sit below the UI: they must not import features/ or components/ (absolute or relative).
+// Deliberately NOT forbidden: stores importing hooks (demo-session legitimately uses hooks/useSolveSession runSolve).
+const UP_LAYERS = ['stores', 'hooks'];
+const UI_IMPORT = /['"`](?:@\/|(?:\.\.?\/)+)(?:features|components)(?:\/[^'"`]*)?['"`]/;
+
+function scanUpward(srcRoot: string, layers: readonly string[] = UP_LAYERS): string[] {
+  const offenders: string[] = [];
+  for (const dir of layers) {
+    const root = path.join(srcRoot, dir);
+    if (!fs.existsSync(root)) continue;
+    for (const file of listSources(root)) {
+      stripComments(fs.readFileSync(file, 'utf8'))
+        .split('\n')
+        .forEach((line, i) => {
+          if (UI_IMPORT.test(line)) offenders.push(`${path.relative(srcRoot, file)}:${i + 1}: ${line.trim()}`);
         });
     }
   }
@@ -154,6 +175,9 @@ describe('architecture boundaries', () => {
       `const e = await import('../../src/store/useRubikStore');`,
       `vi.mock('@/lib/cubeEngine', () => ({}));`,
       `const f = require("./useRubikStore.js");`,
+      `import { g } from '@/lib/cubeEngine/x';`,
+      'const h = await import(`../lib/cubeEngine`);',
+      `import { i } from './useRubikStore.mts';`,
     ]) {
       expect(LEGACY_SPECIFIER.test(bad), bad).toBe(true);
     }
@@ -161,6 +185,7 @@ describe('architecture boundaries', () => {
       `import { a } from '@/engine/move-engine';`,
       `import { b } from '@/stores/demo-session';`,
       `import { c } from './cubeEngineAdapter';`,
+      `import { e } from './useRubikStoreHelpers';`,
       `import { d } from '@/lib/colors';`,
     ]) {
       expect(LEGACY_SPECIFIER.test(ok), ok).toBe(false);
@@ -176,9 +201,16 @@ describe('architecture boundaries', () => {
     fs.writeFileSync(path.join(tmp, 'tests', 'bad.test.ts'), `import { s } from '@/store/useRubikStore';\n`);
     fs.writeFileSync(path.join(tmp, 'tests', 'self.test.ts'), `const p = '@/lib/cubeEngine';\n`);
     fs.writeFileSync(path.join(tmp, 'src', 'good.ts'), `import { y } from '@/stores/session-store';\n`);
+    fs.writeFileSync(path.join(tmp, 'src', 'sub.ts'), `import { z } from '@/lib/cubeEngine/x';\n`);
+    fs.writeFileSync(path.join(tmp, 'src', 'tpl.ts'), 'const m = await import(`../lib/cubeEngine`);\n');
+    fs.writeFileSync(path.join(tmp, 'src', 'esm.mjs'), `import { a } from './useRubikStore.mjs';\n`);
+    fs.writeFileSync(path.join(tmp, 'src', 'cjs.cjs'), `const a = require('../store/useRubikStore');\n`);
+    fs.writeFileSync(path.join(tmp, 'src', 'ts.mts'), `export { a } from "./cubeEngine.mts";\n`);
+    fs.writeFileSync(path.join(tmp, 'tests', 'mock.test.ts'), `vi.mock('@/lib/cubeEngine', () => ({}));\n`);
 
     const offenders = scanLegacy([path.join(tmp, 'src'), path.join(tmp, 'tests')], [path.join(tmp, 'tests', 'self.test.ts')]);
-    expect(offenders).toHaveLength(2);
+    const files = offenders.map((o) => o.split(':')[0]).sort();
+    expect(files).toEqual(['bad.test.ts', 'bad.ts', 'cjs.cjs', 'esm.mjs', 'mock.test.ts', 'sub.ts', 'tpl.ts', 'ts.mts']);
     expect(offenders.some((o) => o.startsWith('bad.ts:1'))).toBe(true);
     expect(offenders.some((o) => o.startsWith('bad.test.ts:1'))).toBe(true);
   });
@@ -186,4 +218,45 @@ describe('architecture boundaries', () => {
   it('no file under src/ or tests/ imports the retired legacy engine or bridge store', () => {
     expect(scanLegacy([SRC, TESTS], [import.meta.filename])).toEqual([]);
   });
+
+  it('upward-import guard recognises UI imports from stores/hooks (self-check)', () => {
+    for (const bad of [
+      `import { A } from '@/features/scanner/X';`,
+      `import { B } from "@/components/Cube";`,
+      `import { C } from '../features/a';`,
+      `import { D } from '../../components/ui/button';`,
+      'const e = await import(`@/components/x`);',
+    ]) {
+      expect(UI_IMPORT.test(bad), bad).toBe(true);
+    }
+    for (const ok of [
+      `import { a } from '@/hooks/useSolveSession';`,
+      `import { b } from '@/stores/cube-store';`,
+      `import { c } from './componentsList';`,
+      `import { d } from '@/lib/utils';`,
+    ]) {
+      expect(UI_IMPORT.test(ok), ok).toBe(false);
+    }
+  });
+
+  it('scanUpward() reports UI imports in a fixture tree and allows stores -> hooks', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'upward-guard-'));
+    tmpDirs.push(tmp);
+    fs.mkdirSync(path.join(tmp, 'stores'));
+    fs.mkdirSync(path.join(tmp, 'hooks'));
+    fs.writeFileSync(path.join(tmp, 'stores', 'bad.ts'), `import { A } from '@/features/x';\nexport const a = 1;\n`);
+    fs.writeFileSync(path.join(tmp, 'hooks', 'bad.ts'), `import { B } from '../components/y';\n`);
+    fs.writeFileSync(path.join(tmp, 'hooks', 'comment.ts'), `// import { C } from '@/components/z';\n`);
+    fs.writeFileSync(path.join(tmp, 'stores', 'ok.ts'), `import { run } from '@/hooks/useSolveSession';\n`);
+    const offenders = scanUpward(tmp);
+    expect(offenders).toHaveLength(2);
+    expect(offenders.some((o) => o.includes('bad.ts:1') && o.startsWith('stores'))).toBe(true);
+    expect(offenders.some((o) => o.includes('bad.ts:1') && o.startsWith('hooks'))).toBe(true);
+  });
+
+  for (const dir of UP_LAYERS) {
+    it(`src/${dir} does not import features/ or components/`, () => {
+      expect(scanUpward(SRC, [dir])).toEqual([]);
+    });
+  }
 });

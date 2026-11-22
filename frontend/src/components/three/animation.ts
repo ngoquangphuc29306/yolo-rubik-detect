@@ -1,7 +1,7 @@
 // Pure maths for the controlled cube renderer: no React, no three. Unit-tested in node.
 import type { PlaybackFrame } from '@/hooks/usePlayback';
 
-/** Same curve as the legacy inline easing in RubiksCube3D. */
+/** Ease-in-out cubic used for move interpolation. */
 export function easeInOutCubic(p: number): number {
   const t = Math.min(1, Math.max(0, p));
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -36,8 +36,8 @@ export interface ShownSelection<M> {
  * Single source of truth for what the renderer shows from one PlaybackFrame read.
  * Mid-turn means status 'animating', or 'paused' from animating (displayedIndex === activeIndex;
  * paused from waiting shows activeIndex + 1). Idle, waiting and complete show a static snapshot.
- * The highlight (layer tint + arrow) additionally persists through waiting and any pause, matching the
- * legacy look; only idle and complete clear it.
+ * The highlight (layer tint + arrow) additionally persists through waiting and any pause, matching
+ * the established look; only idle and complete clear it.
  */
 export function selectShown<M>(
   frame: PlaybackFrame,

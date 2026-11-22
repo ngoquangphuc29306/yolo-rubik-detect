@@ -40,6 +40,16 @@ export function startDemoScan(newSeed = false): void {
   useScanStore.getState().setCondition('loading_model');
 }
 
+/**
+ * Restart a scan in the CURRENT mode: live stays live (the seed never advances, no fixture is captured), demo starts the
+ * next demo scan (`newSeed` picks the next demo cube), and no mode counts as demo. Callers needing camera/health cleanup
+ * add it around this call.
+ */
+export function restartScan(newSeed: boolean): void {
+  if (useSessionStore.getState().mode === 'live') useSessionStore.getState().startSession('live', 'scanning');
+  else startDemoScan(newSeed);
+}
+
 /** "Interactive demo" shortcut: all six demo faces captured, straight to reconstruction, solve started once. */
 export function startDemoShortcut(): void {
   useSessionStore.getState().startSession('demo', 'reconstructing');

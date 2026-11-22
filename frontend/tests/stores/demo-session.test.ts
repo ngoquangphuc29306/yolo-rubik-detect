@@ -7,12 +7,20 @@ import {
   captureDemoFace,
   demoFacesForSeed,
   demoIndexForSeed,
+  restartScan,
   startDemoScan,
   startDemoShortcut,
 } from '@/stores/demo-session';
 import { DEMO_SCRAMBLES, demoFaces } from '@/demo/demo-fixtures';
+import { demoSolve } from '@/demo/demo-solver';
 import { colorNameToCode } from '@/lib/colors';
 import { SCAN_FACE_ORDER, type MoveToken } from '@/types/cube';
+
+// Delegating counter: the real demo solver still runs; tests can count how many solves were started.
+vi.mock('@/demo/demo-solver', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/demo/demo-solver')>();
+  return { ...actual, demoSolve: vi.fn(actual.demoSolve) };
+});
 
 const invert = (m: MoveToken): MoveToken => (m.endsWith("'") ? (m[0] as MoveToken) : m.endsWith('2') ? m : (`${m}'` as MoveToken));
 const inverseOf = (i: number) => [...DEMO_SCRAMBLES[i]].reverse().map(invert);
@@ -110,18 +118,19 @@ describe('startDemoScan + captureDemoFace', () => {
     expect(useScanStore.getState().captured).toEqual({});
   });
 
-  it('a 7th capture after completion does not restart the solve', async () => {
+  it('a 7th capture after completion does not start another solve (counts solver calls)', async () => {
+    vi.mocked(demoSolve).mockClear();
     startDemoScan();
-    const begin = vi.spyOn(useCubeStore.getState(), 'beginSolve');
     for (let i = 0; i < 6; i++) captureDemoFace();
     await ready();
-    expect(begin).toHaveBeenCalledTimes(1);
+    expect(demoSolve).toHaveBeenCalledTimes(1);
     const sol = useCubeStore.getState().solution;
     captureDemoFace();
+    captureDemoFace();
+    await new Promise((r) => setTimeout(r, 20));
     expect(useCubeStore.getState().status).toBe('ready');
     expect(useCubeStore.getState().solution).toBe(sol);
-    expect(begin).toHaveBeenCalledTimes(1);
-    begin.mockRestore();
+    expect(demoSolve).toHaveBeenCalledTimes(1);
   });
 
   it('session-store settings (delay clamp, sound, auto-capture) work directly on the store', () => {
@@ -135,5 +144,35 @@ describe('startDemoScan + captureDemoFace', () => {
     s.setAutoCapture(false);
     expect(useSessionStore.getState().settings.autoCaptureEnabled).toBe(false);
     s.setAutoCapture(true);
+  });
+});
+
+describe('restartScan (mode-aware)', () => {
+  it('live: restarts a LIVE scanning session, never advances the seed, leaves no demo capture', () => {
+    useSessionStore.getState().startSession('live', 'completion');
+    useSessionStore.setState({ demoSeed: 2 });
+    const id = useSessionStore.getState().sessionId;
+    for (const newSeed of [true, false]) {
+      restartScan(newSeed);
+      expect(useSessionStore.getState()).toMatchObject({ mode: 'live', screen: 'scanning', demoSeed: 2 });
+      expect(useScanStore.getState().captured).toEqual({});
+      expect(useScanStore.getState().condition).not.toBe('loading_model');
+    }
+    expect(useSessionStore.getState().sessionId).toBe(id + 2);
+  });
+
+  it('demo: starts a demo scan; the seed advances only when asked', () => {
+    useSessionStore.getState().startSession('demo', 'completion');
+    restartScan(false);
+    expect(useSessionStore.getState()).toMatchObject({ mode: 'demo', screen: 'scanning', demoSeed: 0 });
+    restartScan(true);
+    expect(useSessionStore.getState()).toMatchObject({ mode: 'demo', screen: 'scanning', demoSeed: 1 });
+    expect(useScanStore.getState().condition).toBe('loading_model');
+  });
+
+  it('mode null behaves as demo', () => {
+    expect(useSessionStore.getState().mode).toBeNull();
+    restartScan(true);
+    expect(useSessionStore.getState()).toMatchObject({ mode: 'demo', screen: 'scanning', demoSeed: 1 });
   });
 });

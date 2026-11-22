@@ -28,6 +28,7 @@ import { applyMove, buildSnapshots } from '@/engine/move-engine';
 import { SOLVED } from '@/engine/cube-state';
 import { toCubies } from '@/engine/cubie-adapter';
 import { useCubeStore } from '@/stores/cube-store';
+import { useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 
 const CENTERS: CenterColors = { U: 'red', R: 'blue', F: 'white', D: 'orange', L: 'green', B: 'yellow' };
@@ -232,5 +233,37 @@ describe('CompletionScreen', () => {
     load(['R'], 59500);
     render(<CompletionScreen />);
     expect(screen.getByText('1:00')).toBeTruthy();
+  });
+});
+
+describe('CompletionScreen restart buttons are mode-aware', () => {
+  const pre = [/^Scan Again$/, /Solve Another Cube/];
+  const clickPre = (i: number) => fireEvent.click(screen.getAllByRole('button', { name: pre[i] })[0]);
+  const clickPost = (name: RegExp) => {
+    confirm();
+    fireEvent.click(screen.getAllByRole('button', { name })[0]);
+  };
+  const sites: [string, boolean, () => void][] = [
+    ['Scan Again (before confirm)', true, () => clickPre(0)],
+    ['Solve Another Cube link (before confirm)', true, () => clickPre(1)],
+    ['Solve Another Cube (after confirm)', true, () => clickPost(/Solve Another Cube/)],
+    ['Scan Again (after confirm)', false, () => clickPost(/^Scan Again$/)],
+  ];
+
+  it.each(sites)('LIVE: %s restarts a live scan, seed unchanged, no demo capture', (_n, _adv, click) => {
+    load(['R', 'U'], 12400, 'live');
+    useSessionStore.setState({ demoSeed: 1 });
+    render(<CompletionScreen />);
+    click();
+    expect(useSessionStore.getState()).toMatchObject({ mode: 'live', screen: 'scanning', demoSeed: 1 });
+    expect(useScanStore.getState().captured).toEqual({});
+  });
+
+  it.each(sites)('DEMO: %s starts a demo scan; seed advances only where it did before', (_n, advances, click) => {
+    load(['R', 'U'], 12400, 'demo');
+    useSessionStore.setState({ demoSeed: 1 });
+    render(<CompletionScreen />);
+    click();
+    expect(useSessionStore.getState()).toMatchObject({ mode: 'demo', screen: 'scanning', demoSeed: advances ? 2 : 1 });
   });
 });

@@ -296,8 +296,11 @@ describe('ReconstructionScreen - live mode', () => {
     expect(screen.queryByRole('button', { name: /Test Invalid Cube State/ })).toBeNull();
     expect(summary('Solution')).toBeDefined();
     expect(document.body.textContent).not.toMatch(/demo/i);
+    useSessionStore.setState({ demoSeed: 1 });
     fireEvent.click(screen.getByRole('button', { name: 'Rescan' }));
     expect(useSessionStore.getState().mode).toBe('live');
+    expect(useSessionStore.getState().demoSeed).toBe(1);
+    expect(useScanStore.getState().captured).toEqual({});
     expect(useSessionStore.getState().screen).toBe('scanning');
   });
 

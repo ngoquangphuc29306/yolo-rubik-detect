@@ -16,7 +16,7 @@ import { toCubies } from '@/engine/cubie-adapter';
 import { colorNameToCode, type StickerCode } from '@/lib/colors';
 import { useSolveSession } from '@/hooks/useSolveSession';
 import { useCubeStore } from '@/stores/cube-store';
-import { startDemoScan } from '@/stores/demo-session';
+import { restartScan } from '@/stores/demo-session';
 import { buildSolveRequest, useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 import { solveRequestGuard } from '@/stores/solve-guard';
@@ -58,7 +58,6 @@ export function ReconstructionScreen() {
   const captured = useScanStore((s) => s.captured);
   const mode = useSessionStore((s) => s.mode);
   const setScreen = useSessionStore((s) => s.setScreen);
-  const startSession = useSessionStore((s) => s.startSession);
   const { status, error, solution, solve } = useSolveSession();
 
   const [revealed, setRevealed] = React.useState(0);
@@ -141,8 +140,7 @@ export function ReconstructionScreen() {
     setAttempt((a) => a + 1);
   };
   const restartFullScan = () => {
-    if (mode === 'live') startSession('live', 'scanning');
-    else startDemoScan(false);
+    restartScan(false);
   };
 
   const moveCount = solution?.moves.length ?? 0;

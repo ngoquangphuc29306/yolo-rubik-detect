@@ -1,4 +1,4 @@
-// Renderer-only derived model: 27 cubies (incl. the stickerless core at (0,0,0), id 13, as in legacy createSolvedCube) from the authoritative FaceletState. Pure; no React/three.
+// Renderer-only derived model: 27 cubies (incl. the stickerless core at (0,0,0), id 13, the renderer shows it through layer gaps) from the authoritative FaceletState. Pure; no React/three.
 // Cubie ids identify POSITION SLOTS, not physical cubies: the same (x,y,z) always gets the same id.
 import type { CenterColors, FaceId, FaceletState, RenderCubie } from '@/types/cube';
 import { SOLVER_FACE_ORDER } from '@/types/cube';

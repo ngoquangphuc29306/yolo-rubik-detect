@@ -1,5 +1,5 @@
 // Scan-stage presentation text. A colour word is used ONLY for a centre in `knownCenters`;
-// otherwise the face direction is named. Wording otherwise matches legacy FACE_META.
+// otherwise the face direction is named. Wording is pinned by tests/golden/legacy-scan-guide.json.
 import type { ColorName, FaceId } from '@/types/cube';
 
 export type ScanArrow = 'none' | 'left' | 'right' | 'down' | 'up';
@@ -69,7 +69,7 @@ export function scanGuide(stage: FaceId, knownCenters: Partial<Record<FaceId, Co
   }
 }
 
-/** Face names for the scan UI (wording matches legacy FACE_META label / fullName). */
+/** Face names for the scan UI (wording pinned by tests/golden/legacy-scan-guide.json). */
 export const FACE_NAMES: Readonly<Record<FaceId, { label: string; fullName: string }>> = {
   F: { label: 'F — Front', fullName: 'Front' },
   R: { label: 'R — Right', fullName: 'Right' },

@@ -11,14 +11,14 @@ import { parseMove } from '@/engine/move-presentation';
 import { usePlayback } from '@/hooks/usePlayback';
 import { COLOR_META } from '@/lib/colors';
 import { useCubeStore, type SolutionData } from '@/stores/cube-store';
-import { startDemoScan } from '@/stores/demo-session';
+import { restartScan } from '@/stores/demo-session';
 import { useSessionStore } from '@/stores/session-store';
 import { CountdownRing, type RingPhase } from './CountdownRing';
 import { MoveInfoPanel } from './MoveInfoPanel';
 import { OrientationCue } from './OrientationCue';
 import { PlaybackDock } from './PlaybackDock';
 
-/** Beat showing the solved cube before Completion (kept from the legacy screen). */
+/** Beat showing the solved cube before Completion (the cube stays visible before the transition). */
 const FINISHING_BEAT_MS = 900;
 
 // Fixed canonical solving viewpoint: Front (+Z) in front, Top (+Y) on top, Right (+X) on right, pulled comfortably back.
@@ -320,7 +320,7 @@ function SolvingSession({ solution }: { solution: SolutionData }) {
               size="sm"
               onClick={() => {
                 setLostSyncOpen(false);
-                startDemoScan(true);
+                restartScan(true);
               }}
             >
               <Camera className="h-3.5 w-3.5" />
