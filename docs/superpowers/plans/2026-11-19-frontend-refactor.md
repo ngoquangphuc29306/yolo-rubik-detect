@@ -227,7 +227,7 @@ export function animDurationMs(move: MoveToken): number;  // move.endsWith('2') 
 
 export type PlaybackStatus = 'idle' | 'animating' | 'waiting' | 'paused' | 'complete';
 export interface PlaybackState {
-  readonly generation: number;                 // owning session generation; 0 = never reset
+  readonly generation: number;                 // playback-run generation (not the session id); 0 = never reset
   readonly status: PlaybackStatus;
   readonly pausedFrom: 'animating' | 'waiting' | null;
   readonly pauseReason: 'user' | 'hidden' | null;
@@ -508,12 +508,12 @@ File `engine/playback-fsm.ts`; tests `tests/engine/playback-fsm.test.ts`.
 
 **T1.10 `usePlayback` hook** — Deps: T1.9, T1.8.
 - [ ] RED: §6.4 hook tests (stall truncation 250 ms, hidden pause, `lastTs` reset, StrictMode, generation).
-- [ ] GREEN: single rAF loop; exposes `{state, displayedSnapshotIndex, progressRef, controls}`; UI state published ≤ 30 Hz, renderer reads `progressRef` per frame; audio cues emitted from reducer transitions (move start, last-3-seconds ticks, success), not from step-keyed effects.
+- [ ] GREEN: single rAF loop; exposes `{state, displayedSnapshotIndex, progressRef, controls}`; UI state published ≤ 30 Hz, renderer reads `progressRef` per frame; (superseded: `frameRef {displayedIndex, activeIndex, progress, status}`; no `controls.setDelay`); audio cues emitted from reducer transitions (move start, last-3-seconds ticks, success), not from step-keyed effects.
 - [ ] Verify + commit `feat(hooks): usePlayback with single clock`.
 
 **T1.11 `RubiksCube3D` controlled animation + type fix** — Deps: T1.10, T1.5.
 - [ ] RED: unit tests for pure `components/three/animation.ts` (`easeInOutCubic`, `pivotRotation(move, progress)`; same curve as today).
-- [ ] GREEN: renderer takes `moveProgress` (ref or number) and `activeMove`; internal elapsed/duration/`onMoveAnimationComplete` path removed (single owner); pivot reset to identity when progress is `null` or `cubies` change; `three-stdlib` type import replaced by `React.ElementRef<typeof OrbitControls>`; materials, lighting, arrow, `isSoftwareGl`, context-loss recovery untouched. Landing/Reconstruction/Alignment/Completion/Scanner usages (no animation) keep working.
+- [ ] GREEN: renderer takes `moveProgress` (ref or number) and `activeMove`; (superseded: `frameRef {displayedIndex, activeIndex, progress, status}`; no `controls.setDelay`); internal elapsed/duration/`onMoveAnimationComplete` path removed (single owner); pivot reset to identity when progress is `null` or `cubies` change; `three-stdlib` type import replaced by `React.ElementRef<typeof OrbitControls>`; materials, lighting, arrow, `isSoftwareGl`, context-loss recovery untouched. Landing/Reconstruction/Alignment/Completion/Scanner usages (no animation) keep working.
 - [ ] Verify unit + lint + build; manual (or NOT RUN): Pause mid-turn freezes the layer, Resume continues without a jump; screenshots vs baseline. Commit `refactor(three): controlled move progress`.
 
 **T1.12 Solving screen** — Deps: T1.10, T1.11, T1.8.
@@ -717,3 +717,19 @@ Use the Superpowers executing-plans (or subagent-driven-development) flow task b
   - `.claude/` and `skills-lock.json` are never staged.
 - **Skills:** standalone Superpowers skills are used by their registered names (no `superpowers:` prefix), with `playwright-cli` for desktop verification.
 - **Git:** work only on `refactor/phase-1-frontend`; no merge, remote or push.
+
+
+---
+
+## 16. Phase 1 execution outcome (added at T1.20; the sections above stay as the historical record)
+
+- All planned tasks T1.1-T1.20 ran on branch `refactor/phase-1-frontend`; the evidence is in `docs/superpowers/reports/phase1-verification.md`. Nothing from Phase 2+ (backend, WebSocket server, weights, training) was started.
+- T1.8 was split into T1.8a (session, scan and cube stores, `useSolveSession`, `useBackendHealth`) and T1.8b (a temporary one-way bridge from the legacy store, removed in T1.17). A single `stores/solve-guard.ts` owns solve cancellation.
+- T1.14 was split into T1.14a (`lib/contain-transform.ts`, `hooks/useCamera.ts`) and T1.14b (the scanner split and demo/live wiring).
+- T1.15b added a precondition to `runSolve`: it validates the request structurally before any solver or network call.
+- The playback property test was too slow on the dev machine (9-19 s, over the 5 s default timeout); it was rewritten to about 50 ms with its coverage kept.
+- Playback RESET uses a playback-run generation separate from the session id. The renderer reads `frameRef` (not `progressRef`), and `controls` has no `setDelay`; the delay comes from the session-store setting.
+- The scope became desktop-first (section 15): mobile defects are deferred, not fixed.
+- The legacy engine and store were deleted in T1.17; the Landing copy was made honest (no unmeasured performance claims, no fabricated validation claim) and restart keeps the session mode.
+- All implementers and reviewers ran on Sonnet 5.5 (user rule of 2026-11-22; no Opus escalation).
+- ARCHITECTURE.md was amended to v1.1 in T1.20. The backend, the WebSocket transport, the trained model and the Python `kociemba` cross-check remain open.

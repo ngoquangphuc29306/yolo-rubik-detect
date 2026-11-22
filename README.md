@@ -38,7 +38,7 @@ The dev server only listens on `127.0.0.1`. It proxies `/api`, `/health` and `/w
 
 ## Demo and Live
 
-- **Demo** is simulated. The scan, detections and solution come from deterministic fixtures, and every demo screen carries a visible "Demo" label. A finished demo only means the instructions ended. It says nothing about a real cube.
+- **Demo** is simulated. The scan, detections and solution come from deterministic fixtures, and every demo workflow screen carries a visible "Demo" label (the Landing hero is a labelled illustration). A finished demo only means the instructions ended. It says nothing about a real cube.
 - **Live** needs the backend and model, which do not exist yet, so it is blocked and says so. It never falls back to fixtures silently.
 - The camera is used only after you press "Enable camera". Video frames stay in the browser: they are not stored and not sent anywhere.
 

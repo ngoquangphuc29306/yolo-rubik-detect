@@ -37,7 +37,7 @@ If paths differ, locate the actual documents rather than creating duplicate spec
 | 5 | Dataset audit, six-color label mapping, training and evaluation |
 | 6 | Load `backend/weights/best.pt`, benchmark real webcam and physical end-to-end recovery (model-ready gate) |
 
-Current authorization is determined by the user's latest approval, not by this roadmap. Before Phase 1 approval, review only. The current proposal is `docs/superpowers/plans/2026-11-19-frontend-refactor.md`.
+Current authorization is determined by the user's latest approval, not by this roadmap. Phase 1 is implemented on branch `refactor/phase-1-frontend` (plan `docs/superpowers/plans/2026-11-19-frontend-refactor.md`) and awaits the user's approval and merge; evidence is in `docs/superpowers/reports/phase1-verification.md`. Phase 2 (backend) needs its own design and plan and is not started.
 
 ## Architecture boundaries
 
@@ -77,10 +77,10 @@ Current authorization is determined by the user's latest approval, not by this r
 
 ## Commands and verification
 
-Use the actual project layout and selected package manager from the approved plan. Before migration run from root; after migration run from `frontend/`.
+The package manager is npm (`frontend/package-lock.json` is the only lockfile; Bun is no longer used). Run frontend commands from `frontend/`.
 
-- Install: `bun install --frozen-lockfile` if Bun is selected; `npm ci` if npm has an approved lockfile. Do not invent a passing baseline when a tool is missing.
-- Frontend: `<pm> run dev`, `<pm> run lint` (TypeScript check as currently named), `<pm> run test` (once configured), `<pm> run build`.
+- Install: `npm ci`. Do not invent a passing baseline when a tool is missing.
+- Frontend: `npm run dev` (http://127.0.0.1:5173, loopback only), `npm run lint` (`tsc --noEmit`), `npm run test` (Vitest; one file with `npx vitest run <path>`), `npm run build`.
 - Backend (once created): `python -m pytest` from `backend/`; run the documented local Uvicorn command from README.
 - Verify actual browser behavior for affected flows, including 3D direction, pause mid-turn, resize, camera cleanup and missing backend/model. jsdom tests do not verify WebGL.
 - Report command, exit status, failed/passed counts, visual checks actually performed, and any remaining limitations. Keep independent reference provenance and shared JSON fixtures reviewable.
