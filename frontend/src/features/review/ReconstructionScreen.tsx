@@ -11,83 +11,173 @@ import { WorkspaceHeader } from '@/components/WorkspaceHeader';
 import { FaceGrid2D } from '@/components/FaceGrid2D';
 import { RubiksCube3D } from '@/components/three/RubiksCube3D';
 import { Button } from '@/components/ui/button';
-import { FACE_ORDER, FaceKey } from '@/lib/cubeEngine';
+import { demoInvalidStateError } from '@/demo/demo-errors';
+import { toCubies } from '@/engine/cubie-adapter';
+import { colorNameToCode, type StickerCode } from '@/lib/colors';
+import { useSolveSession } from '@/hooks/useSolveSession';
+// TEMPORARY bridge (removed in T1.17): fresh demo scan still goes through the legacy store.
 import { useRubikStore } from '@/store/useRubikStore';
+import { useCubeStore } from '@/stores/cube-store';
+import { buildSolveRequest, useScanStore } from '@/stores/scan-store';
+import { useSessionStore } from '@/stores/session-store';
+import { solveRequestGuard } from '@/stores/solve-guard';
+import { SCAN_FACE_ORDER, type FaceId } from '@/types/cube';
 import { cn } from '@/lib/utils';
+import {
+  capturedFacesAreStructurallyValid,
+  deriveReconstructionStages,
+  describeSolveError,
+  isValidationError,
+  type Stage,
+} from './stages';
 
-const CHECKLIST_ITEMS = [
-  '54 stickers detected',
-  'Six faces captured',
-  'Color distribution validated',
-  'Cube state validated',
-  'Digital twin reconstructed',
-  'Kociemba solution generated',
-];
+/** Presentation-only delay between revealed checklist steps. */
+const REVEAL_STEP_MS = 340;
+
+/**
+ * Gates REAL stage states behind the reveal counter: a passed/failed stage is shown as such only once its
+ * reveal tick has happened (never earlier than its real state). Unresolved stages are shown as they are.
+ */
+function applyReveal(stages: readonly Stage[], revealed: number): Stage[] {
+  let blocked = false;
+  return stages.map((s, i): Stage => {
+    if (blocked) return { ...s, state: 'pending' };
+    if (s.state === 'passed' || s.state === 'failed') {
+      if (i < revealed) {
+        if (s.state === 'failed') blocked = true;
+        return s;
+      }
+      blocked = true;
+      return { id: s.id, label: s.label, state: 'active' };
+    }
+    blocked = true;
+    return s;
+  });
+}
 
 export function ReconstructionScreen() {
-  const {
-    initialCube,
-    solution,
-    targetFaces,
-    capturedFaces,
-    forceInvalidCube,
-    invalidReason,
-    invalidFaceKey,
-    setScreen,
-    setForceInvalidCube,
-    selectFaceForRescan,
-    startFreshScan,
-  } = useRubikStore();
+  const captured = useScanStore((s) => s.captured);
+  const mode = useSessionStore((s) => s.mode);
+  const setScreen = useSessionStore((s) => s.setScreen);
+  const startSession = useSessionStore((s) => s.startSession);
+  const startFreshScan = useRubikStore((s) => s.startFreshScan);
+  const { status, error, solution, solve } = useSolveSession();
 
-  const [completedSteps, setCompletedSteps] = React.useState(0);
+  const [revealed, setRevealed] = React.useState(0);
+  const [attempt, setAttempt] = React.useState(0);
   const [assembledView, setAssembledView] = React.useState(false);
 
-  const facesToDisplay = React.useMemo(() => {
-    const merged: Record<FaceKey, typeof targetFaces.F> = { ...targetFaces };
-    for (const k of FACE_ORDER) {
-      if (capturedFaces[k]) merged[k] = capturedFaces[k]!;
-    }
-    return merged;
-  }, [capturedFaces, targetFaces]);
+  const capturedCount = SCAN_FACE_ORDER.filter((f) => captured[f]).length;
+  const incomplete = capturedCount < 6;
+  const request = React.useMemo(() => buildSolveRequest(captured), [captured]);
+  const structurallyValid = React.useMemo(() => capturedFacesAreStructurallyValid(captured), [captured]);
+  const demo = mode === 'demo';
 
-  // Sequential validation animation
+  // Start the solve once for a complete, structurally valid scan. A solve already in flight or finished
+  // (the temporary bridge may have started it) is never restarted.
   React.useEffect(() => {
-    setCompletedSteps(0);
-    setAssembledView(false);
+    if (!request || !structurallyValid) return;
+    if (useCubeStore.getState().status !== 'idle') return;
+    void solve(request);
+  }, [request, structurallyValid, status, solve]);
 
-    const maxStep = forceInvalidCube ? 3 : CHECKLIST_ITEMS.length;
+  // Presentation stagger. Restarted (attempt) whenever the solve is re-run.
+  React.useEffect(() => {
+    setRevealed(0);
     let step = 0;
-
     const timer = window.setInterval(() => {
       step += 1;
-      setCompletedSteps(step);
-      if (step >= 5 && !forceInvalidCube) {
-        setAssembledView(true);
-      }
-      if (step >= maxStep) {
-        window.clearInterval(timer);
-      }
-    }, 340);
-
+      setRevealed(step);
+      if (step >= 6) window.clearInterval(timer);
+    }, REVEAL_STEP_MS);
     return () => window.clearInterval(timer);
-  }, [forceInvalidCube]);
+  }, [attempt]);
 
-  const isComplete = !forceInvalidCube && completedSteps >= CHECKLIST_ITEMS.length;
-  const isInvalidDetected = forceInvalidCube && completedSteps >= 3;
+  const realStages = React.useMemo(
+    () => deriveReconstructionStages({ captured, mode, cube: { status, error, solution } }),
+    [captured, mode, status, error, solution],
+  );
+  const stages = React.useMemo(() => applyReveal(realStages, revealed), [realStages, revealed]);
+  const passedCount = stages.filter((s) => s.state === 'passed').length;
+  const isComplete = status === 'ready' && stages.every((s) => s.state === 'passed');
+
+  const cancelled = error?.kind === 'client' && error.code === 'REQUEST_CANCELLED';
+  const solveFailed = !incomplete && status === 'error' && error !== null && !cancelled;
+  const validationFailed = solveFailed && isValidationError(error);
+  const problem = incomplete || solveFailed;
+
+  const cubies = React.useMemo(
+    () => (solution ? toCubies(solution.state, solution.centers) : null),
+    [solution],
+  );
+  const showAssembled = assembledView && status === 'ready' && cubies !== null;
+
+  const autoAssemble = status === 'ready' && revealed >= 5;
+  React.useEffect(() => {
+    if (autoAssemble) setAssembledView(true);
+  }, [autoAssemble]);
+
+  const rerunSolve = () => {
+    setAssembledView(false);
+    setAttempt((a) => a + 1);
+    // Rebuilt from the store so each retry carries its own request object (and a new guard handle in runSolve).
+    const fresh = buildSolveRequest(useScanStore.getState().captured);
+    if (fresh) void solve(fresh);
+  };
+  const toggleInvalidTest = () => {
+    if (status === 'error') {
+      rerunSolve();
+      return;
+    }
+    // Void any in-flight solve so its late result cannot overwrite the injected error.
+    solveRequestGuard.reset();
+    useCubeStore.getState().setError(demoInvalidStateError());
+    setAssembledView(false);
+    setAttempt((a) => a + 1);
+  };
+  const restartFullScan = () => {
+    if (mode === 'live') startSession('live', 'scanning');
+    else startFreshScan(false);
+  };
+
+  const moveCount = solution?.moves.length ?? 0;
+  const solutionValue: React.ReactNode =
+    status === 'ready'
+      ? (
+        <>
+          {moveCount} moves
+          {demo && <span className="font-sans text-xs font-normal text-zinc-500"> · demo, pre-computed</span>}
+        </>
+      )
+      : solveFailed || incomplete
+        ? '—'
+        : 'Computing…';
+  const cubeStateLabel = isComplete
+    ? 'Valid'
+    : incomplete
+      ? 'Not validated'
+      : validationFailed
+        ? 'Invalid'
+        : solveFailed
+          ? 'Not validated'
+          : 'Validating…';
 
   return (
     <div className="min-h-screen bg-[#09090B] text-zinc-100 flex flex-col">
       <WorkspaceHeader
         activeStage="reconstruct"
         rightSlot={
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setForceInvalidCube(!forceInvalidCube)}
-            className="text-xs text-zinc-400"
-          >
-            {forceInvalidCube ? 'Restore Valid State' : 'Test Invalid Cube State'}
-          </Button>
+          demo ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={incomplete}
+              onClick={toggleInvalidTest}
+              className="text-xs text-zinc-400"
+            >
+              {status === 'error' ? 'Restore Valid State' : 'Test Invalid Cube State'}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -98,18 +188,26 @@ export function ReconstructionScreen() {
             <div className="flex items-center justify-between gap-4 z-10">
               <div>
                 <p className="font-mono text-xs text-emerald-400 uppercase tracking-wider">
-                  {isInvalidDetected
-                    ? 'Validation Failed'
-                    : assembledView
-                      ? 'Digital Twin Ready'
-                      : 'Assembling Scanned Net'}
+                  {incomplete
+                    ? 'Scan Incomplete'
+                    : validationFailed
+                      ? 'Validation Failed'
+                      : solveFailed
+                        ? 'Solve Failed'
+                        : showAssembled
+                          ? 'Digital Twin Ready'
+                          : 'Assembling Scanned Net'}
                 </p>
                 <h1 className="text-xl font-semibold text-zinc-50 mt-1">
-                  {isInvalidDetected
-                    ? 'Cube state could not be validated'
-                    : assembledView
-                      ? 'Interactive 3D Cube Reconstructed'
-                      : 'Mapping 54 stickers to 3D geometry'}
+                  {incomplete
+                    ? 'Not all six faces were captured'
+                    : validationFailed
+                      ? 'Cube state could not be validated'
+                      : solveFailed
+                        ? 'No verified solution yet'
+                        : showAssembled
+                          ? 'Interactive 3D Cube Reconstructed'
+                          : 'Mapping 54 stickers to 3D geometry'}
                 </h1>
               </div>
 
@@ -145,11 +243,11 @@ export function ReconstructionScreen() {
 
             {/* Central Visual Morph Stage */}
             <div className="relative flex-1 my-4 flex items-center justify-center min-h-[320px]">
-              {/* Unfolded 2D Cube Net View */}
+              {/* Unfolded 2D Cube Net View (real captured faces only; a missing face is an empty placeholder) */}
               <div
                 className={cn(
                   'transition-all duration-500 ease-out flex items-center justify-center',
-                  assembledView && !isInvalidDetected
+                  showAssembled
                     ? 'opacity-0 scale-75 pointer-events-none absolute'
                     : 'opacity-100 scale-100'
                 )}
@@ -157,65 +255,29 @@ export function ReconstructionScreen() {
                 <div className="grid grid-cols-4 grid-rows-3 gap-2.5 sm:gap-3">
                   {/* Row 1: U */}
                   <div />
-                  <NetFaceCell
-                    faceKey="U"
-                    label="U"
-                    stickers={facesToDisplay.U}
-                    validated={completedSteps >= 2}
-                    flagged={isInvalidDetected && invalidFaceKey === 'U'}
-                  />
+                  <NetFaceCell faceKey="U" stickers={stickersOf(captured, 'U')} validated={colorsChecked(stages)} />
                   <div />
                   <div />
 
                   {/* Row 2: L, F, R, B */}
-                  <NetFaceCell
-                    faceKey="L"
-                    label="L"
-                    stickers={facesToDisplay.L}
-                    validated={completedSteps >= 2}
-                    flagged={isInvalidDetected && invalidFaceKey === 'L'}
-                  />
-                  <NetFaceCell
-                    faceKey="F"
-                    label="F"
-                    stickers={facesToDisplay.F}
-                    validated={completedSteps >= 1}
-                    flagged={isInvalidDetected && invalidFaceKey === 'F'}
-                  />
-                  <NetFaceCell
-                    faceKey="R"
-                    label="R"
-                    stickers={facesToDisplay.R}
-                    validated={completedSteps >= 1}
-                    flagged={isInvalidDetected && invalidFaceKey === 'R'}
-                  />
-                  <NetFaceCell
-                    faceKey="B"
-                    label="B"
-                    stickers={facesToDisplay.B}
-                    validated={completedSteps >= 2 && !isInvalidDetected}
-                    flagged={isInvalidDetected && invalidFaceKey === 'B'}
-                  />
+                  <NetFaceCell faceKey="L" stickers={stickersOf(captured, 'L')} validated={colorsChecked(stages)} />
+                  <NetFaceCell faceKey="F" stickers={stickersOf(captured, 'F')} validated={colorsChecked(stages)} />
+                  <NetFaceCell faceKey="R" stickers={stickersOf(captured, 'R')} validated={colorsChecked(stages)} />
+                  <NetFaceCell faceKey="B" stickers={stickersOf(captured, 'B')} validated={colorsChecked(stages)} />
 
                   {/* Row 3: D */}
                   <div />
-                  <NetFaceCell
-                    faceKey="D"
-                    label="D"
-                    stickers={facesToDisplay.D}
-                    validated={completedSteps >= 3 && !isInvalidDetected}
-                    flagged={isInvalidDetected && invalidFaceKey === 'D'}
-                  />
+                  <NetFaceCell faceKey="D" stickers={stickersOf(captured, 'D')} validated={colorsChecked(stages)} />
                   <div />
                   <div />
                 </div>
               </div>
 
               {/* Assembled Interactive 3D Digital Twin */}
-              {assembledView && !isInvalidDetected && (
+              {showAssembled && cubies && (
                 <div className="w-full h-[340px] sm:h-[380px] transition-opacity duration-500">
                   <RubiksCube3D
-                    cubies={initialCube}
+                    cubies={cubies}
                     mode="interactive"
                     cameraPosition={[4.3, 3.2, 4.8]}
                     className="w-full h-full"
@@ -226,12 +288,18 @@ export function ReconstructionScreen() {
 
             <div className="flex items-center justify-between text-xs text-zinc-500 pt-3 border-t border-zinc-800/80">
               <span>
-                {assembledView && !isInvalidDetected
+                {showAssembled
                   ? 'Drag to inspect your reconstructed 3D cube from any angle.'
-                  : 'Six captured faces arranged as a standard cross cube net.'}
+                  : 'Captured faces arranged as a standard cross cube net.'}
               </span>
-              <span className="font-mono tabular-nums">
-                {isInvalidDetected ? 'Parity check failed' : `${Math.min(completedSteps, 6)}/6 checks`}
+              <span role="status" aria-live="polite" className="font-mono tabular-nums">
+                {incomplete
+                  ? `${capturedCount}/6 faces`
+                  : solveFailed
+                    ? validationFailed
+                      ? 'Validation failed'
+                      : 'Not validated'
+                    : `${passedCount}/6 checks`}
               </span>
             </div>
           </section>
@@ -244,15 +312,17 @@ export function ReconstructionScreen() {
               </h2>
 
               <ul className="space-y-3">
-                {CHECKLIST_ITEMS.map((label, idx) => {
+                {stages.map((stage, idx) => {
                   const stepNum = idx + 1;
-                  const failedHere = isInvalidDetected && stepNum === 3;
-                  const passed = !failedHere && completedSteps >= stepNum && !(isInvalidDetected && stepNum > 3);
-                  const active = !isInvalidDetected && completedSteps === idx;
+                  const failedHere = stage.state === 'failed';
+                  const passed = stage.state === 'passed';
+                  const active = stage.state === 'active';
 
                   return (
                     <li
-                      key={label}
+                      key={stage.id}
+                      data-testid={`stage-${stage.id}`}
+                      data-state={stage.state}
                       className="flex items-center justify-between gap-3 text-sm"
                     >
                       <div className="flex items-center gap-3">
@@ -283,11 +353,24 @@ export function ReconstructionScreen() {
                             !passed && !active && !failedHere && 'text-zinc-500'
                           )}
                         >
-                          {label}
+                          {stage.label}
                         </span>
                       </div>
-                      <span className="font-mono text-xs tabular-nums text-zinc-500">
-                        {failedHere ? 'Error' : passed ? 'OK' : active ? '...' : ''}
+                      <span
+                        className={cn(
+                          'font-mono text-xs tabular-nums text-right whitespace-nowrap shrink-0',
+                          failedHere ? 'text-red-400' : 'text-zinc-500'
+                        )}
+                      >
+                        {(passed || failedHere) && stage.detail
+                          ? stage.detail
+                          : failedHere
+                            ? 'Error'
+                            : passed
+                              ? 'OK'
+                              : active
+                                ? '...'
+                                : ''}
                       </span>
                     </li>
                   );
@@ -295,30 +378,49 @@ export function ReconstructionScreen() {
               </ul>
             </div>
 
-            {/* Result Summary OR Invalid State Recovery */}
-            {isInvalidDetected ? (
-              <div className="rounded-2xl bg-[#191112] border border-red-500/35 p-6 space-y-4">
+            {/* Result Summary OR Problem / Recovery */}
+            {problem ? (
+              <div role="alert" className="rounded-2xl bg-[#191112] border border-red-500/35 p-6 space-y-4">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <h3 className="text-sm font-semibold text-red-200">
-                      Invalid Cube State Detected
+                      {incomplete
+                        ? `Scan incomplete — ${capturedCount} of 6 faces captured`
+                        : validationFailed
+                          ? 'Invalid Cube State Detected'
+                          : 'Could not verify a solution'}
                     </h3>
                     <p className="text-sm text-zinc-300 leading-relaxed">
-                      {invalidReason ??
-                        'Two sticker colors look similar under current lighting. Re-scanning the flagged face fixes this in seconds.'}
+                      {incomplete
+                        ? 'Every face must be scanned before the cube can be reconstructed. Missing faces are never filled in.'
+                        : describeSolveError(error!)}
                     </p>
+                    {solveFailed && (
+                      <p className="text-xs text-zinc-500">
+                        {error!.retryable
+                          ? 'This may be temporary. You can try again.'
+                          : 'Trying again will not change this. Rescan your cube.'}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <Button
-                    onClick={() => selectFaceForRescan(invalidFaceKey ?? 'B')}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Rescan Back Face
-                  </Button>
-                  <Button variant="secondary" onClick={() => startFreshScan(false)}>
+                  {incomplete ? (
+                    <Button onClick={() => setScreen('scanning')}>
+                      <RotateCcw className="h-4 w-4" />
+                      Back to scan
+                    </Button>
+                  ) : (
+                    error!.retryable && (
+                      <Button onClick={rerunSolve}>
+                        <RotateCcw className="h-4 w-4" />
+                        Try again
+                      </Button>
+                    )
+                  )}
+                  <Button variant="secondary" onClick={restartFullScan}>
                     <RefreshCw className="h-4 w-4" />
                     Restart Full Scan
                   </Button>
@@ -332,13 +434,13 @@ export function ReconstructionScreen() {
                   <div>
                     <span className="text-xs text-zinc-500 block">Captured Faces</span>
                     <span className="mt-0.5 block font-mono text-base font-semibold text-zinc-100 tabular-nums">
-                      6/6
+                      {capturedCount}/6
                     </span>
                   </div>
                   <div>
-                    <span className="text-xs text-zinc-500 block">Detected Stickers</span>
+                    <span className="text-xs text-zinc-500 block">Captured Stickers</span>
                     <span className="mt-0.5 block font-mono text-base font-semibold text-zinc-100 tabular-nums">
-                      54/54
+                      {capturedCount * 9}/54
                     </span>
                   </div>
                   <div>
@@ -349,16 +451,22 @@ export function ReconstructionScreen() {
                         isComplete ? 'text-emerald-400' : 'text-zinc-400'
                       )}
                     >
-                      {isComplete ? 'Valid' : 'Validating...'}
+                      {cubeStateLabel}
                     </span>
                   </div>
                   <div>
-                    <span className="text-xs text-zinc-500 block">Kociemba Solution</span>
+                    <span className="text-xs text-zinc-500 block">{demo ? 'Demo Solution' : 'Solution'}</span>
                     <span className="mt-0.5 block font-mono text-base font-semibold text-zinc-100 tabular-nums">
-                      {isComplete ? `${solution.length} moves` : 'Computing...'}
+                      {solutionValue}
                     </span>
                   </div>
                 </div>
+
+                {isComplete && moveCount === 0 && (
+                  <p data-testid="already-solved-note" className="text-xs text-zinc-400">
+                    Already solved — no moves needed.
+                  </p>
+                )}
 
                 <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <Button
@@ -370,11 +478,7 @@ export function ReconstructionScreen() {
                     Prepare to Solve
                     <ArrowRight className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => startFreshScan(false)}
-                  >
+                  <Button size="lg" variant="outline" onClick={restartFullScan}>
                     Rescan
                   </Button>
                 </div>
@@ -387,26 +491,36 @@ export function ReconstructionScreen() {
   );
 }
 
+function stickersOf(captured: ReturnType<typeof useScanStore.getState>['captured'], face: FaceId): StickerCode[] | undefined {
+  const c = captured[face];
+  return c ? c.grid.map(colorNameToCode) : undefined;
+}
+
+/** The captured colours were checked (stage 2 revealed as passed). */
+function colorsChecked(stages: readonly Stage[]): boolean {
+  return stages.find((s) => s.id === 'colors')?.state === 'passed';
+}
+
 function NetFaceCell({
   faceKey,
-  label,
   stickers,
   validated,
-  flagged,
 }: {
-  faceKey: FaceKey;
-  label: string;
-  stickers: ReturnType<typeof useRubikStore.getState>['targetFaces']['F'];
+  faceKey: FaceId;
+  stickers: StickerCode[] | undefined;
   validated: boolean;
-  flagged: boolean;
 }) {
+  const missing = stickers === undefined;
+  const ok = validated && !missing;
   return (
     <div
+      data-testid={`net-face-${faceKey}`}
+      data-state={missing ? 'missing' : 'captured'}
       className={cn(
         'relative rounded-xl p-1.5 border transition-all duration-300',
-        flagged
-          ? 'border-red-400 bg-red-500/15 shadow-[0_0_24px_rgba(248,113,113,0.28)]'
-          : validated
+        missing
+          ? 'border-dashed border-zinc-700 bg-[#09090B] opacity-60'
+          : ok
             ? 'border-emerald-400/60 bg-emerald-400/[0.06] shadow-[0_0_20px_rgba(52,211,153,0.12)]'
             : 'border-zinc-800 bg-[#09090B]'
       )}
@@ -415,15 +529,13 @@ function NetFaceCell({
       <span
         className={cn(
           'absolute -top-2 -right-2 h-5 w-5 rounded-md font-mono text-[10px] font-semibold flex items-center justify-center border',
-          flagged
-            ? 'bg-red-500 text-zinc-950 border-red-400'
-            : validated
-              ? 'bg-emerald-400 text-zinc-950 border-emerald-300'
-              : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+          ok
+            ? 'bg-emerald-400 text-zinc-950 border-emerald-300'
+            : 'bg-zinc-900 text-zinc-400 border-zinc-700'
         )}
-        title={`Face ${faceKey}`}
+        title={missing ? `Face ${faceKey} (not captured)` : `Face ${faceKey}`}
       >
-        {label}
+        {faceKey}
       </span>
     </div>
   );
