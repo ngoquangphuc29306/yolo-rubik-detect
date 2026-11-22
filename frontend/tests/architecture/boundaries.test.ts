@@ -1,4 +1,5 @@
-// Architecture guard: pure layers must not import UI/runtime frameworks or touch DOM globals.
+// Architecture guard: pure layers must not import UI/runtime frameworks or touch DOM globals, and nothing under
+// src/ or tests/ may reach the retired legacy engine or bridge store again.
 // Passes vacuously for directories that do not exist yet.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -45,6 +46,28 @@ function scan(srcRoot: string, layers: readonly string[] = GUARDED): string[] {
           offenders.push(`${path.relative(srcRoot, file)}:${i + 1}: ${line.trim()}`);
         }
       });
+    }
+  }
+  return offenders;
+}
+
+const TESTS = path.resolve(import.meta.dirname, '..');
+/** Any quoted module specifier (import, require, dynamic import, vi.mock) ending in the retired modules. */
+const LEGACY_SPECIFIER = /['"](?:[^'"]*\/)?(?:cubeEngine|useRubikStore)(?:\.[cm]?[tj]sx?)?['"]/;
+
+/** Lists files under `roots` that mention a retired module specifier; `exclude` skips this guard's own file. */
+function scanLegacy(roots: readonly string[], exclude: readonly string[] = []): string[] {
+  const skip = new Set(exclude.map((f) => path.resolve(f)));
+  const offenders: string[] = [];
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue;
+    for (const file of listSources(root)) {
+      if (skip.has(path.resolve(file))) continue;
+      fs.readFileSync(file, 'utf8')
+        .split('\n')
+        .forEach((line, i) => {
+          if (LEGACY_SPECIFIER.test(line)) offenders.push(`${path.relative(root, file)}:${i + 1}: ${line.trim()}`);
+        });
     }
   }
   return offenders;
@@ -121,4 +144,46 @@ describe('architecture boundaries', () => {
       expect(scan(SRC, [dir])).toEqual([]);
     });
   }
+
+  it('legacy-module guard recognises every import spelling (self-check)', () => {
+    for (const bad of [
+      `import { a } from '@/lib/cubeEngine';`,
+      `import { b } from "@/store/useRubikStore";`,
+      `import { c } from '../lib/cubeEngine';`,
+      `import { d } from './cubeEngine.ts';`,
+      `const e = await import('../../src/store/useRubikStore');`,
+      `vi.mock('@/lib/cubeEngine', () => ({}));`,
+      `const f = require("./useRubikStore.js");`,
+    ]) {
+      expect(LEGACY_SPECIFIER.test(bad), bad).toBe(true);
+    }
+    for (const ok of [
+      `import { a } from '@/engine/move-engine';`,
+      `import { b } from '@/stores/demo-session';`,
+      `import { c } from './cubeEngineAdapter';`,
+      `import { d } from '@/lib/colors';`,
+    ]) {
+      expect(LEGACY_SPECIFIER.test(ok), ok).toBe(false);
+    }
+  });
+
+  it('scanLegacy() reports offenders in a fixture src/tests tree and honours the exclusion', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'legacy-guard-'));
+    tmpDirs.push(tmp);
+    fs.mkdirSync(path.join(tmp, 'src'));
+    fs.mkdirSync(path.join(tmp, 'tests'));
+    fs.writeFileSync(path.join(tmp, 'src', 'bad.ts'), `import { x } from '@/lib/cubeEngine';\nexport const ok = 1;\n`);
+    fs.writeFileSync(path.join(tmp, 'tests', 'bad.test.ts'), `import { s } from '@/store/useRubikStore';\n`);
+    fs.writeFileSync(path.join(tmp, 'tests', 'self.test.ts'), `const p = '@/lib/cubeEngine';\n`);
+    fs.writeFileSync(path.join(tmp, 'src', 'good.ts'), `import { y } from '@/stores/session-store';\n`);
+
+    const offenders = scanLegacy([path.join(tmp, 'src'), path.join(tmp, 'tests')], [path.join(tmp, 'tests', 'self.test.ts')]);
+    expect(offenders).toHaveLength(2);
+    expect(offenders.some((o) => o.startsWith('bad.ts:1'))).toBe(true);
+    expect(offenders.some((o) => o.startsWith('bad.test.ts:1'))).toBe(true);
+  });
+
+  it('no file under src/ or tests/ imports the retired legacy engine or bridge store', () => {
+    expect(scanLegacy([SRC, TESTS], [import.meta.filename])).toEqual([]);
+  });
 });

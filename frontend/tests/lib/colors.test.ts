@@ -1,19 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { COLOR_META, codeToColorName, colorNameToCode } from '@/lib/colors';
-import { STICKER_COLORS } from '@/lib/cubeEngine';
-
-// REMOVED WITH THE LEGACY ENGINE (T1.17 commit B): this block proves COLOR_META == legacy STICKER_COLORS.
-describe('COLOR_META equals the legacy STICKER_COLORS table', () => {
-  it('has the same six codes', () => {
-    expect(Object.keys(STICKER_COLORS).sort()).toEqual(Object.values(COLOR_META).map((m) => m.code).sort());
-  });
-  it.each(Object.values(COLOR_META).map((m) => [m.code, m] as const))('%s: every field is identical', (code, meta) => {
-    expect(meta).toEqual(STICKER_COLORS[code]);
-    for (const k of ['code', 'name', 'hex', 'threeHex', 'tailwindBg', 'textDark'] as const) {
-      expect(meta[k], k).toBe(STICKER_COLORS[code][k]);
-    }
-  });
-});
 
 describe('COLOR_META literal values (frozen from the legacy STICKER_COLORS)', () => {
   it('matches the literal table', () => {
