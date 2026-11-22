@@ -143,13 +143,20 @@ describe('deriveReconstructionStages', () => {
     expect(isValidationError(e)).toBe(false);
   });
 
-  it('RESPONSE_MISMATCH: 4 passed, 5 failed, 6 pending', () => {
+  it('RESPONSE_MISMATCH: stage 4 failed (never claims validation), 5 and 6 pending', () => {
     const s = deriveReconstructionStages({
       captured: full(),
       mode: 'live',
       cube: { status: 'error', error: clientErr('RESPONSE_MISMATCH'), solution: null },
     });
-    expect(states(s)).toEqual(['passed', 'passed', 'passed', 'passed', 'failed', 'pending']);
+    expect(states(s)).toEqual(['passed', 'passed', 'passed', 'failed', 'pending', 'pending']);
+    expect(s[3].detail).toBe('The solver answered for a different cube');
+  });
+
+  it('colour count detail names the colours', () => {
+    const c = withCell(full(), 'U', 0, 'red');
+    const s = deriveReconstructionStages({ captured: c, mode: 'demo', cube: idle });
+    expect(s[1].detail).toBe('yellow appears 8 times, red appears 10 times');
   });
 
   it('SOLUTION_REPLAY_MISMATCH: 4 and 5 passed, 6 failed', () => {

@@ -80,7 +80,9 @@ function frontendVerdicts(captured: CapturedFaces): Partial<Record<StageId, Verd
   for (const f of SCAN_FACE_ORDER) for (const c of captured[f]!.grid) counts.set(c, (counts.get(c) ?? 0) + 1);
   const bad = COLOR_NAMES.filter((c) => (counts.get(c) ?? 0) !== 9);
   if (bad.length > 0) {
-    out.colors = { state: 'failed', detail: bad.map((c) => `${c} ${counts.get(c) ?? 0}`).join(', ') };
+    out.colors = { state: 'failed', detail: bad
+        .map((c) => `${c} appears ${counts.get(c) ?? 0} ${counts.get(c) === 1 ? 'time' : 'times'}`)
+        .join(', ') };
     return out;
   }
   out.colors = { state: 'passed' };
@@ -131,8 +133,8 @@ export function deriveReconstructionStages(input: {
       verdicts.replay = passed(n === undefined ? undefined : n === 0 ? 'Already solved' : `${n} moves`);
     } else if (status === 'error' && error && !(error.kind === 'client' && error.code === 'REQUEST_CANCELLED')) {
       if (error.kind === 'client' && error.code === 'RESPONSE_MISMATCH') {
-        verdicts.validated = passed(demo ? 'Demo fixture' : undefined);
-        verdicts['solution-match'] = { state: 'failed', detail: 'Answered for a different cube' };
+        // The answer was for another cube: nothing about THIS cube was validated.
+        verdicts.validated = { state: 'failed', detail: 'The solver answered for a different cube' };
       } else if (error.kind === 'client' && error.code === 'SOLUTION_REPLAY_MISMATCH') {
         verdicts.validated = passed(demo ? 'Demo fixture' : undefined);
         verdicts['solution-match'] = passed(demo ? 'Demo fixture' : undefined);

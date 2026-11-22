@@ -104,15 +104,20 @@ export function ReconstructionScreen() {
   const cancelled = error?.kind === 'client' && error.code === 'REQUEST_CANCELLED';
   const solveFailed = !incomplete && status === 'error' && error !== null && !cancelled;
   const validationFailed = solveFailed && isValidationError(error);
-  const problem = incomplete || solveFailed;
+  // Six faces but the frontend checks failed: no solve is sent, so this must be its own terminal state.
+  const checkFailure = !incomplete && !structurallyValid ? realStages.find((s) => s.state === 'failed') : undefined;
+  const frontendFailed = checkFailure !== undefined;
+  const problem = incomplete || frontendFailed || solveFailed;
+  // R28: a face is green only once stage 4 is revealed as passed and nothing has failed; never per-face red.
+  const netValidated = stages.find((s) => s.id === 'validated')?.state === 'passed' && !stages.some((s) => s.state === 'failed');
 
   const cubies = React.useMemo(
     () => (solution ? toCubies(solution.state, solution.centers) : null),
     [solution],
   );
-  const showAssembled = assembledView && status === 'ready' && cubies !== null;
+  const showAssembled = assembledView && isComplete && cubies !== null;
 
-  const autoAssemble = status === 'ready' && revealed >= 5;
+  const autoAssemble = isComplete;
   React.useEffect(() => {
     if (autoAssemble) setAssembledView(true);
   }, [autoAssemble]);
@@ -190,7 +195,7 @@ export function ReconstructionScreen() {
                 <p className="font-mono text-xs text-emerald-400 uppercase tracking-wider">
                   {incomplete
                     ? 'Scan Incomplete'
-                    : validationFailed
+                    : frontendFailed || validationFailed
                       ? 'Validation Failed'
                       : solveFailed
                         ? 'Solve Failed'
@@ -201,7 +206,7 @@ export function ReconstructionScreen() {
                 <h1 className="text-xl font-semibold text-zinc-50 mt-1">
                   {incomplete
                     ? 'Not all six faces were captured'
-                    : validationFailed
+                    : frontendFailed || validationFailed
                       ? 'Cube state could not be validated'
                       : solveFailed
                         ? 'No verified solution yet'
@@ -255,19 +260,19 @@ export function ReconstructionScreen() {
                 <div className="grid grid-cols-4 grid-rows-3 gap-2.5 sm:gap-3">
                   {/* Row 1: U */}
                   <div />
-                  <NetFaceCell faceKey="U" stickers={stickersOf(captured, 'U')} validated={colorsChecked(stages)} />
+                  <NetFaceCell faceKey="U" stickers={stickersOf(captured, 'U')} validated={netValidated} />
                   <div />
                   <div />
 
                   {/* Row 2: L, F, R, B */}
-                  <NetFaceCell faceKey="L" stickers={stickersOf(captured, 'L')} validated={colorsChecked(stages)} />
-                  <NetFaceCell faceKey="F" stickers={stickersOf(captured, 'F')} validated={colorsChecked(stages)} />
-                  <NetFaceCell faceKey="R" stickers={stickersOf(captured, 'R')} validated={colorsChecked(stages)} />
-                  <NetFaceCell faceKey="B" stickers={stickersOf(captured, 'B')} validated={colorsChecked(stages)} />
+                  <NetFaceCell faceKey="L" stickers={stickersOf(captured, 'L')} validated={netValidated} />
+                  <NetFaceCell faceKey="F" stickers={stickersOf(captured, 'F')} validated={netValidated} />
+                  <NetFaceCell faceKey="R" stickers={stickersOf(captured, 'R')} validated={netValidated} />
+                  <NetFaceCell faceKey="B" stickers={stickersOf(captured, 'B')} validated={netValidated} />
 
                   {/* Row 3: D */}
                   <div />
-                  <NetFaceCell faceKey="D" stickers={stickersOf(captured, 'D')} validated={colorsChecked(stages)} />
+                  <NetFaceCell faceKey="D" stickers={stickersOf(captured, 'D')} validated={netValidated} />
                   <div />
                   <div />
                 </div>
@@ -292,14 +297,30 @@ export function ReconstructionScreen() {
                   ? 'Drag to inspect your reconstructed 3D cube from any angle.'
                   : 'Captured faces arranged as a standard cross cube net.'}
               </span>
-              <span role="status" aria-live="polite" className="font-mono tabular-nums">
+              <span data-testid="checks-count" className="font-mono tabular-nums">
                 {incomplete
                   ? `${capturedCount}/6 faces`
-                  : solveFailed
-                    ? validationFailed
-                      ? 'Validation failed'
-                      : 'Not validated'
-                    : `${passedCount}/6 checks`}
+                  : frontendFailed
+                    ? 'Validation failed'
+                    : solveFailed
+                      ? validationFailed
+                        ? 'Validation failed'
+                        : 'Not validated'
+                      : `${passedCount}/6 checks`}
+              </span>
+              {/* Terminal states only; per-tick progress is deliberately not announced. */}
+              <span role="status" aria-live="polite" className="sr-only">
+                {incomplete
+                  ? 'Scan incomplete'
+                  : frontendFailed
+                    ? 'Validation failed'
+                    : solveFailed
+                      ? validationFailed
+                        ? 'Validation failed'
+                        : 'Not validated'
+                      : isComplete
+                        ? 'Reconstruction complete. All checks passed.'
+                        : ''}
               </span>
             </div>
           </section>
@@ -387,16 +408,23 @@ export function ReconstructionScreen() {
                     <h3 className="text-sm font-semibold text-red-200">
                       {incomplete
                         ? `Scan incomplete — ${capturedCount} of 6 faces captured`
-                        : validationFailed
+                        : frontendFailed
+                          ? 'Scan could not be validated'
+                          : validationFailed
                           ? 'Invalid Cube State Detected'
                           : 'Could not verify a solution'}
                     </h3>
                     <p className="text-sm text-zinc-300 leading-relaxed">
                       {incomplete
                         ? 'Every face must be scanned before the cube can be reconstructed. Missing faces are never filled in.'
-                        : describeSolveError(error!)}
+                        : checkFailure
+                          ? `${checkFailure.label}: ${checkFailure.detail ?? 'failed'}`
+                          : describeSolveError(error!)}
                     </p>
-                    {solveFailed && (
+                    {frontendFailed && (
+                      <p className="text-xs text-zinc-500">Cube State: Not validated. Rescan the cube to fix this.</p>
+                    )}
+                    {solveFailed && !frontendFailed && (
                       <p className="text-xs text-zinc-500">
                         {error!.retryable
                           ? 'This may be temporary. You can try again.'
@@ -407,13 +435,13 @@ export function ReconstructionScreen() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 pt-2">
-                  {incomplete ? (
+                  {incomplete || frontendFailed ? (
                     <Button onClick={() => setScreen('scanning')}>
                       <RotateCcw className="h-4 w-4" />
                       Back to scan
                     </Button>
                   ) : (
-                    error!.retryable && (
+                    !!error && error.retryable && (
                       <Button onClick={rerunSolve}>
                         <RotateCcw className="h-4 w-4" />
                         Try again
@@ -496,11 +524,6 @@ function stickersOf(captured: ReturnType<typeof useScanStore.getState>['captured
   return c ? c.grid.map(colorNameToCode) : undefined;
 }
 
-/** The captured colours were checked (stage 2 revealed as passed). */
-function colorsChecked(stages: readonly Stage[]): boolean {
-  return stages.find((s) => s.id === 'colors')?.state === 'passed';
-}
-
 function NetFaceCell({
   faceKey,
   stickers,
@@ -516,6 +539,7 @@ function NetFaceCell({
     <div
       data-testid={`net-face-${faceKey}`}
       data-state={missing ? 'missing' : 'captured'}
+      data-validated={ok ? 'true' : 'false'}
       className={cn(
         'relative rounded-xl p-1.5 border transition-all duration-300',
         missing

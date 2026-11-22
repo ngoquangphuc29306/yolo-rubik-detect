@@ -14,6 +14,11 @@ vi.mock('@/components/three/RubiksCube3D', async () => {
     },
   };
 });
+const gate = vi.hoisted(() => ({ hold: null as null | Promise<void> }));
+vi.mock('@/demo/demo-solver', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@/demo/demo-solver')>();
+  return { ...orig, demoSolve: (r: SolveRequest) => (gate.hold ? gate.hold.then(() => orig.demoSolve(r)) : orig.demoSolve(r)) };
+});
 const backend = vi.hoisted(() => ({ solve: vi.fn() }));
 vi.mock('@/services/solver-client', () => ({ solve: backend.solve }));
 
@@ -25,7 +30,7 @@ import { toCubies } from '@/engine/cubie-adapter';
 import { useCubeStore } from '@/stores/cube-store';
 import { useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
-import { SCAN_FACE_ORDER, type FaceId, type SixFaces } from '@/types/cube';
+import { SCAN_FACE_ORDER, type FaceGrid, type FaceId, type SixFaces } from '@/types/cube';
 import { parseSolveResponse } from '@/services/parsers';
 import { loadFixture } from '../services/fixtures';
 
@@ -45,6 +50,8 @@ const stage = (id: string) => screen.getByTestId(`stage-${id}`).getAttribute('da
 const stageStates = () =>
   ['faces', 'colors', 'centers', 'validated', 'solution-match', 'replay'].map(stage);
 const summary = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
+const netValidated = () => SCAN_FACE_ORDER.map((f) => screen.getByTestId(`net-face-${f}`).getAttribute('data-validated'));
+const statusText = () => screen.getByRole('status').textContent;
 const prepare = () => screen.getByRole('button', { name: /Prepare to Solve/ }) as HTMLButtonElement;
 
 function deferred<T>() {
@@ -67,6 +74,7 @@ const goodBackend = async (request: SolveRequest): Promise<SolveResult> => {
 beforeEach(() => {
   vi.useFakeTimers();
   cube.props = null;
+  gate.hold = null;
   backend.solve.mockReset();
   backend.solve.mockImplementation(() => { throw new Error('backend must not be called'); });
   useSessionStore.getState().startSession('demo', 'reconstructing');
@@ -150,7 +158,8 @@ describe('ReconstructionScreen - incomplete scan', () => {
     expect(screen.getByText('Scan incomplete — 5 of 6 faces captured')).toBeTruthy();
     expect(screen.getByTestId('net-face-B').getAttribute('data-state')).toBe('missing');
     expect(screen.queryByRole('button', { name: /Prepare to Solve/ })).toBeNull();
-    expect(screen.getByRole('status').textContent).toBe('5/6 faces');
+    expect(screen.getByTestId('checks-count').textContent).toBe('5/6 faces');
+    expect(statusText()).toBe('Scan incomplete');
     expect(useCubeStore.getState().status).toBe('idle'); // no solve started
     expect(Object.keys(useScanStore.getState().captured)).toHaveLength(5);
     await advance(STEP * 8);
@@ -248,13 +257,21 @@ describe('ReconstructionScreen - demo invalid state test', () => {
     expect(prepare().disabled).toBe(false);
   });
 
-  it('Test Invalid during an in-flight solve is not overwritten by the late result', async () => {
+  it('Test Invalid during a REAL in-flight solve is not overwritten by the late result', async () => {
+    let release!: () => void;
+    gate.hold = new Promise<void>((r) => { release = r; });
     capture('demo');
-    act(() => useCubeStore.getState().beginSolve());
     render(<ReconstructionScreen />);
     await flush();
+    expect(useCubeStore.getState().status).toBe('solving'); // started by the screen through runSolve
     fireEvent.click(screen.getByRole('button', { name: 'Test Invalid Cube State' }));
     expect(useCubeStore.getState().status).toBe('error');
+    release();
+    await flush();
+    await flush();
+    expect(useCubeStore.getState().status).toBe('error');
+    expect(useCubeStore.getState().error).toMatchObject({ kind: 'api', code: 'INVALID_CUBE_STATE' });
+    expect(useCubeStore.getState().solution).toBeNull();
   });
 
   it('Restart Full Scan starts a fresh demo scan', async () => {
@@ -293,7 +310,7 @@ describe('ReconstructionScreen - live mode', () => {
     expect(alert.textContent).toContain('Solver service is not running');
     expect(stageStates()).toEqual(['passed', 'passed', 'passed', 'failed', 'pending', 'pending']);
     expect(prepare).toThrow(); // Prepare to Solve is not offered at all
-    expect(screen.getByRole('status').textContent).toBe('Not validated');
+    expect(statusText()).toBe('Not validated');
     expect(useCubeStore.getState().solution).toBeNull();
 
     backend.solve.mockImplementation(goodBackend);
@@ -334,7 +351,7 @@ describe('ReconstructionScreen - live mode', () => {
     await flush();
     await advance(STEP * 6);
     expect(screen.getByRole('alert').textContent).toContain('The solver answered for a different cube');
-    expect(stageStates()).toEqual(['passed', 'passed', 'passed', 'passed', 'failed', 'pending']);
+    expect(stageStates()).toEqual(['passed', 'passed', 'passed', 'failed', 'pending', 'pending']);
     expect(screen.queryByRole('button', { name: /Prepare to Solve/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull(); // not retryable
   });
@@ -372,9 +389,104 @@ describe('ReconstructionScreen - accessibility', () => {
     render(<ReconstructionScreen />);
     await flush();
     await advance(STEP * 2);
-    expect(screen.getByRole('status').textContent).toMatch(/2\/6 checks/);
+    expect(screen.getByTestId('checks-count').textContent).toBe('2/6 checks');
+    expect(statusText()).toBe(''); // per-tick progress is not announced
+    await advance(STEP * 4);
+    expect(statusText()).toMatch(/complete/i);
     expect(screen.queryByRole('alert')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Test Invalid Cube State' }));
     expect(screen.getByRole('alert')).toBeTruthy();
+  });
+});
+
+describe('ReconstructionScreen - net styling', () => {
+  it('net faces turn green only once stage 4 is revealed as passed', async () => {
+    capture('demo');
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 3);
+    expect(netValidated()).toEqual(Array(6).fill('false'));
+    await advance(STEP);
+    expect(netValidated()).toEqual(Array(6).fill('true'));
+  });
+
+  it('after the demo invalid test no face is green', async () => {
+    capture('demo');
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 6);
+    fireEvent.click(screen.getByRole('button', { name: 'Test Invalid Cube State' }));
+    expect(netValidated()).toEqual(Array(6).fill('false'));
+    await advance(STEP * 6);
+    expect(stage('validated')).toBe('failed');
+    expect(netValidated()).toEqual(Array(6).fill('false'));
+  });
+});
+
+describe('ReconstructionScreen - twin only when complete', () => {
+  it('no Digital Twin Ready heading or 3D tab until the stagger finished', async () => {
+    capture('demo');
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 5);
+    expect(screen.queryByRole('button', { name: '3D Twin' })).toBeNull();
+    expect(screen.queryByText('Digital Twin Ready')).toBeNull();
+    expect(cube.props).toBeNull();
+    await advance(STEP);
+    expect(screen.getByText('Digital Twin Ready')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '3D Twin' })).toBeTruthy();
+  });
+});
+
+describe('ReconstructionScreen - malformed six-face scans never dead-end', () => {
+  type Faces = Record<FaceId, readonly string[]>;
+  const base = (): Faces => ({ ...demoFaces(0) });
+  const load = (faces: Faces) => {
+    act(() => {
+      useSessionStore.getState().startSession('demo', 'reconstructing');
+      const captured: Record<string, { grid: FaceGrid; source: 'demo' }> = {};
+      for (const f of SCAN_FACE_ORDER) captured[f] = { grid: faces[f] as unknown as FaceGrid, source: 'demo' };
+      useScanStore.setState({ captured });
+    });
+  };
+  const edit = (f: Faces, face: FaceId, i: number, c: string): Faces => {
+    const g = [...f[face]];
+    g[i] = c;
+    return { ...f, [face]: g };
+  };
+  const cases: [string, () => Faces, RegExp][] = [
+    ['colour counts 10 and 8', () => edit(base(), 'U', 0, 'red'), /red appears 10 times/],
+    [
+      'duplicate centres',
+      () => {
+        const b = base();
+        const green = b.F[4];
+        const face = SCAN_FACE_ORDER.find((x) => x !== 'U' && b[x].some((c, i) => i !== 4 && c === green))!;
+        const idx = b[face].findIndex((c, i) => i !== 4 && c === green);
+        return edit(edit(b, 'U', 4, green), face, idx, b.U[4]);
+      },
+      /share a center color/,
+    ],
+    ['an unknown colour', () => edit(base(), 'U', 0, 'purple'), /Color counts/],
+  ];
+
+  it.each(cases)('%s: alert with detail, recovery buttons, no waiting, no solve', async (_n, make, detail) => {
+    load(make());
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 8);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toMatch(detail);
+    expect(within(alert).getByRole('button', { name: 'Back to scan' })).toBeTruthy();
+    expect(within(alert).getByRole('button', { name: 'Restart Full Scan' })).toBeTruthy();
+    expect(alert.textContent).toContain('Not validated');
+    expect(screen.getByText('Validation Failed')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/Validating…|Computing…|Assembling/);
+    expect(screen.queryByRole('button', { name: /Prepare to Solve/ })).toBeNull();
+    expect(useCubeStore.getState().status).toBe('idle');
+    expect(backend.solve).not.toHaveBeenCalled();
+    expect(netValidated()).toEqual(Array(6).fill('false'));
+    fireEvent.click(within(alert).getByRole('button', { name: 'Back to scan' }));
+    expect(useSessionStore.getState().screen).toBe('scanning');
   });
 });
