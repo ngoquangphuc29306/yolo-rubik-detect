@@ -723,7 +723,7 @@ Use the Superpowers executing-plans (or subagent-driven-development) flow task b
 
 ## 16. Phase 1 execution outcome (added at T1.20; the sections above stay as the historical record)
 
-- All planned tasks T1.1-T1.20 ran on branch `refactor/phase-1-frontend`; the evidence is in `docs/superpowers/reports/phase1-verification.md`. Nothing from Phase 2+ (backend, WebSocket server, weights, training) was started.
+- Tasks T1.1-T1.20, including the splits (T1.4a/b/c, T1.8a/b, T1.14a/b, T1.15b), ran on branch `refactor/phase-1-frontend`. Final verification T1.19 (browser evidence T1.19a, fresh commands and report T1.19b) produced `docs/superpowers/reports/phase1-verification.md`. The desktop browser regression ran at commit `da110b7`; one later copy-only commit (`56aae9e`) was not re-run in a browser. Nothing from Phase 2+ (backend, WebSocket server, weights, training) was started.
 - T1.8 was split into T1.8a (session, scan and cube stores, `useSolveSession`, `useBackendHealth`) and T1.8b (a temporary one-way bridge from the legacy store, removed in T1.17). A single `stores/solve-guard.ts` owns solve cancellation.
 - T1.14 was split into T1.14a (`lib/contain-transform.ts`, `hooks/useCamera.ts`) and T1.14b (the scanner split and demo/live wiring).
 - T1.15b added a precondition to `runSolve`: it validates the request structurally before any solver or network call.
