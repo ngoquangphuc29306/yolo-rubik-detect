@@ -200,7 +200,9 @@ export function ReconstructionScreen() {
                         ? 'Solve Failed'
                         : showAssembled
                           ? 'Digital Twin Ready'
-                          : 'Assembling Scanned Net'}
+                          : isComplete
+                            ? 'Scan Validated'
+                            : 'Assembling Scanned Net'}
                 </p>
                 <h1 className="text-xl font-semibold text-zinc-50 mt-1">
                   {incomplete
@@ -211,7 +213,9 @@ export function ReconstructionScreen() {
                         ? 'No verified solution yet'
                         : showAssembled
                           ? 'Interactive 3D Cube Reconstructed'
-                          : 'Mapping 54 stickers to 3D geometry'}
+                          : isComplete
+                            ? 'Six faces validated and mapped to the 3D cube'
+                            : 'Mapping 54 stickers to 3D geometry'}
                 </h1>
               </div>
 

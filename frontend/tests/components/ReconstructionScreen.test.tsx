@@ -582,3 +582,21 @@ describe('ReconstructionScreen - malformed scans are never re-sent (R30)', () =>
     expect(useCubeStore.getState().status).toBe('ready');
   });
 });
+
+describe('ReconstructionScreen - 2D net heading reflects progress', () => {
+  it('says Assembling while revealing, a finished-state heading once complete, and Digital Twin Ready on the 3D tab', async () => {
+    capture('demo');
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 2);
+    const heading = () => screen.getByRole('heading', { level: 1 }).textContent ?? '';
+    const eyebrow = () => (screen.getByRole('heading', { level: 1 }).previousElementSibling as HTMLElement).textContent ?? '';
+    expect(`${eyebrow()} ${heading()}`).toMatch(/assembling/i);
+    await advance(STEP * 4);
+    fireEvent.click(screen.getByRole('button', { name: '2D Net' }));
+    expect(`${eyebrow()} ${heading()}`).toMatch(/validated/i);
+    expect(`${eyebrow()} ${heading()}`).not.toMatch(/assembling|mapping 54/i);
+    fireEvent.click(screen.getByRole('button', { name: '3D Twin' }));
+    expect(eyebrow()).toBe('Digital Twin Ready');
+  });
+});
