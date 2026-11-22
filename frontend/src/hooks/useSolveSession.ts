@@ -1,5 +1,7 @@
 // Solve orchestration. runSolve is pure (no React) so it can be tested directly.
 import { useCallback } from 'react';
+import { CubeStateError, buildFaceletState } from '@/engine/cube-state';
+import type { SixFaces } from '@/types/cube';
 import { bindSolveResponse } from '@/engine/solve-binding';
 import type { LatestGuard } from '@/lib/request-guard';
 import { solveRequestGuard } from '@/stores/solve-guard';
@@ -27,6 +29,20 @@ export async function runSolve(request: SolveRequest, deps: SolveDeps): Promise<
   const handle = guard.begin();
   const sessionId = deps.getSessionId();
   const stale = () => !handle.isCurrent() || deps.getSessionId() !== sessionId;
+
+  // Fail closed BEFORE any solver/network call: a malformed scan is never sent anywhere.
+  // guard.begin() above already superseded (and aborted) any earlier in-flight run.
+  try {
+    buildFaceletState(request.faces as unknown as SixFaces);
+  } catch (e) {
+    actions.setError({
+      kind: 'client',
+      code: 'REQUEST_INVALID',
+      message: e instanceof CubeStateError ? e.message : 'The scanned cube data is malformed.',
+      retryable: false,
+    });
+    return;
+  }
   actions.beginSolve();
 
   try {

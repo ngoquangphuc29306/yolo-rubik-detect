@@ -202,3 +202,61 @@ describe('runSolve', () => {
     });
   });
 });
+
+describe('runSolve request validation (R31)', () => {
+  const clone = () => JSON.parse(JSON.stringify(demoFaces(0))) as Record<string, string[]>;
+  const bad = (mutate: (f: Record<string, string[]>) => void): SolveRequest => {
+    const f = clone();
+    mutate(f);
+    return { schemaVersion: 1, faces: f } as unknown as SolveRequest;
+  };
+  const cases: [string, SolveRequest][] = [
+    ['duplicate centres', bad((f) => { f.R[4] = f.U[4]; })],
+    ['colour count 10/8', bad((f) => { f.U[0] = f.U[0] === f.D[4] ? f.R[4] : f.D[4]; })],
+    ['missing face', bad((f) => { delete f.B; })],
+    ['unknown colour', bad((f) => { f.F[0] = 'purple'; })],
+    ['null faces', { schemaVersion: 1, faces: null } as unknown as SolveRequest],
+    ['garbage faces', { schemaVersion: 1, faces: 'xyz' } as unknown as SolveRequest],
+    ['null request', null as unknown as SolveRequest],
+  ];
+
+  for (const mode of ['demo', 'live'] as const) {
+    for (const [name, request] of cases) {
+      it(`${mode}: ${name} is REQUEST_INVALID with zero solver calls`, async () => {
+        let calls = 0;
+        const d = deps({
+          mode,
+          solveBackend: async () => { calls++; throw new Error('must not be called'); },
+          solveDemo: async () => { calls++; throw new Error('must not be called'); },
+        });
+        await expect(runSolve(request, d)).resolves.toBeUndefined();
+        expect(calls).toBe(0);
+        expect(state()).toMatchObject({ status: 'error', solution: null, error: { kind: 'client', code: 'REQUEST_INVALID', retryable: false } });
+        expect(typeof (state().error as { message: string }).message).toBe('string');
+      });
+    }
+  }
+
+  it('a valid request is unchanged', async () => {
+    await runSolve(scrambled, deps());
+    expect(state().status).toBe('ready');
+  });
+
+  it('a malformed request issued while a valid one is in flight supersedes it; the late result is dropped', async () => {
+    const guard = createLatestGuard();
+    const pending = deferred<SolveResult>();
+    let signal!: AbortSignal;
+    let calls = 0;
+    const d = deps({ mode: 'live', guard, solveBackend: (_r, o) => { calls++; signal = o.signal; return pending.promise; } });
+    const p1 = runSolve(scrambled, d);
+    await runSolve(cases[0][1], d);
+    expect(signal.aborted).toBe(true);
+    expect(state()).toMatchObject({ status: 'error', error: { code: 'REQUEST_INVALID' } });
+    const g = await demoSolve(scrambled);
+    if (!g.ok) throw new Error('demo');
+    pending.resolve(okBackend(g.outcome.response));
+    await p1;
+    expect(calls).toBe(1);
+    expect(state()).toMatchObject({ status: 'error', error: { code: 'REQUEST_INVALID' } });
+  });
+});
