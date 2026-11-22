@@ -168,13 +168,22 @@ describe('deriveReconstructionStages', () => {
     expect(states(s)).toEqual(['passed', 'passed', 'passed', 'passed', 'passed', 'failed']);
   });
 
-  it('REQUEST_CANCELLED is not a failure', () => {
+  it('REQUEST_CANCELLED left in the store is terminal: stage 4 failed as interrupted, never waits forever', () => {
     const s = deriveReconstructionStages({
       captured: full(),
       mode: 'live',
       cube: { status: 'error', error: clientErr('REQUEST_CANCELLED'), solution: null },
     });
-    expect(states(s)).toEqual(['passed', 'passed', 'passed', 'active', 'pending', 'pending']);
+    expect(states(s)).toEqual(['passed', 'passed', 'passed', 'failed', 'pending', 'pending']);
+    expect(s[3].detail).toBe('Validation was interrupted');
+    expect(isValidationError(clientErr('REQUEST_CANCELLED'))).toBe(false);
+  });
+
+  it('an unknown colour is named in the stage 2 detail', () => {
+    const c = withCell(full(), 'U', 0, 'purple' as ColorName);
+    const s = deriveReconstructionStages({ captured: c, mode: 'demo', cube: idle });
+    expect(s[1].state).toBe('failed');
+    expect(s[1].detail).toBe('Unknown color: purple');
   });
 
   it('an earlier frontend failure wins over a later cube error', () => {
@@ -218,7 +227,7 @@ describe('describeSolveError', () => {
     expect(describeSolveError(clientErr('RESPONSE_MISMATCH'))).toBe('The solver answered for a different cube');
     expect(describeSolveError(clientErr('SOLUTION_REPLAY_MISMATCH'))).toBe('The solution did not solve your cube');
     expect(describeSolveError(clientErr('BACKEND_UNAVAILABLE'))).toBe('Solver service is not running');
-    expect(describeSolveError(clientErr('REQUEST_CANCELLED'))).toBe('');
+    expect(describeSolveError(clientErr('REQUEST_CANCELLED'))).toBe('Validation was interrupted');
   });
   it('uses the server message verbatim for api errors', () => {
     const e: SolveError = { kind: 'api', code: 'INVALID_CUBE_STATE', message: 'Hello <b>x</b>', retryable: true };

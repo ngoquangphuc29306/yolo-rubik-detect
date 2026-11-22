@@ -14,10 +14,10 @@ vi.mock('@/components/three/RubiksCube3D', async () => {
     },
   };
 });
-const gate = vi.hoisted(() => ({ hold: null as null | Promise<void> }));
+const gate = vi.hoisted(() => ({ hold: null as null | Promise<void>, calls: 0 }));
 vi.mock('@/demo/demo-solver', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/demo/demo-solver')>();
-  return { ...orig, demoSolve: (r: SolveRequest) => (gate.hold ? gate.hold.then(() => orig.demoSolve(r)) : orig.demoSolve(r)) };
+  return { ...orig, demoSolve: (r: SolveRequest) => (gate.calls++, gate.hold ? gate.hold.then(() => orig.demoSolve(r)) : orig.demoSolve(r)) };
 });
 const backend = vi.hoisted(() => ({ solve: vi.fn() }));
 vi.mock('@/services/solver-client', () => ({ solve: backend.solve }));
@@ -28,6 +28,7 @@ import { DEMO_CENTER_COLORS, demoFaces } from '@/demo/demo-fixtures';
 import { SOLVED, facesFromState } from '@/engine/cube-state';
 import { toCubies } from '@/engine/cubie-adapter';
 import { useCubeStore } from '@/stores/cube-store';
+import { demoInvalidStateError } from '@/demo/demo-errors';
 import { useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 import { SCAN_FACE_ORDER, type FaceGrid, type FaceId, type SixFaces } from '@/types/cube';
@@ -75,6 +76,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   cube.props = null;
   gate.hold = null;
+  gate.calls = 0;
   backend.solve.mockReset();
   backend.solve.mockImplementation(() => { throw new Error('backend must not be called'); });
   useSessionStore.getState().startSession('demo', 'reconstructing');
@@ -467,7 +469,7 @@ describe('ReconstructionScreen - malformed six-face scans never dead-end', () =>
       },
       /share a center color/,
     ],
-    ['an unknown colour', () => edit(base(), 'U', 0, 'purple'), /Color counts/],
+    ['an unknown colour', () => edit(base(), 'U', 0, 'purple'), /Unknown color: purple/],
   ];
 
   it.each(cases)('%s: alert with detail, recovery buttons, no waiting, no solve', async (_n, make, detail) => {
@@ -488,5 +490,92 @@ describe('ReconstructionScreen - malformed six-face scans never dead-end', () =>
     expect(netValidated()).toEqual(Array(6).fill('false'));
     fireEvent.click(within(alert).getByRole('button', { name: 'Back to scan' }));
     expect(useSessionStore.getState().screen).toBe('scanning');
+  });
+});
+
+describe('ReconstructionScreen - malformed scans are never re-sent (R30)', () => {
+  type Faces = Record<FaceId, readonly string[]>;
+  const malformed = (): Faces => {
+    const f: Faces = { ...demoFaces(0) };
+    const g = [...f.U];
+    g[0] = 'red';
+    return { ...f, U: g };
+  };
+  const setCaptured = (faces: Faces) =>
+    act(() => {
+      const captured: Record<string, { grid: FaceGrid; source: 'demo' }> = {};
+      for (const f of SCAN_FACE_ORDER) captured[f] = { grid: faces[f] as unknown as FaceGrid, source: 'demo' };
+      useScanStore.setState({ captured });
+    });
+  const reactProps = (el: Element) => {
+    const key = Object.keys(el).find((k) => k.startsWith('__reactProps'))!;
+    return (el as unknown as Record<string, { onClick: () => void }>)[key];
+  };
+
+  it('Test Invalid is disabled (with a reason) for a malformed scan and nothing reaches a solver', async () => {
+    act(() => useSessionStore.getState().startSession('demo', 'reconstructing'));
+    setCaptured(malformed());
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 8);
+    const btn = screen.getByRole('button', { name: 'Test Invalid Cube State' }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.title).toMatch(/valid/i);
+    expect(gate.calls).toBe(0);
+    expect(backend.solve).not.toHaveBeenCalled();
+  });
+
+  it('the restore/retry handler is a no-op when the scan became malformed', async () => {
+    capture('demo');
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 6);
+    fireEvent.click(screen.getByRole('button', { name: 'Test Invalid Cube State' }));
+    expect(gate.calls).toBe(1); // only the initial, valid solve
+    setCaptured(malformed());
+    const restore = screen.getByRole('button', { name: 'Restore Valid State' }) as HTMLButtonElement;
+    expect(restore.disabled).toBe(true);
+    act(() => reactProps(restore).onClick()); // bypass the disabled attribute: the handler itself must refuse
+    await flush();
+    expect(gate.calls).toBe(1);
+    expect(backend.solve).not.toHaveBeenCalled();
+    expect(useCubeStore.getState().status).toBe('error');
+  });
+
+  it('frontend failure takes precedence over a solve error: no Try again', async () => {
+    act(() => useSessionStore.getState().startSession('demo', 'reconstructing'));
+    setCaptured(malformed());
+    act(() => useCubeStore.getState().setError(demoInvalidStateError()));
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 8);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toMatch(/red appears 10 times/);
+    expect(alert.textContent).not.toContain('The captured cube could not be validated');
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(within(alert).getByRole('button', { name: 'Back to scan' })).toBeTruthy();
+    expect(screen.getByText('Validation Failed')).toBeTruthy();
+    expect(gate.calls).toBe(0);
+  });
+
+  it('a REQUEST_CANCELLED error left in the store is terminal with Try again that recovers', async () => {
+    capture('demo');
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 6);
+    act(() =>
+      useCubeStore.getState().setError({ kind: 'client', code: 'REQUEST_CANCELLED', message: 'x', retryable: false }),
+    );
+    await advance(STEP * 6);
+    expect(document.body.textContent).not.toMatch(/Validating…|Computing…/);
+    expect(stage('validated')).toBe('failed');
+    expect(stage('validated')).toBe('failed');
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Validation was interrupted');
+    expect(within(alert).getByRole('button', { name: 'Restart Full Scan' })).toBeTruthy();
+    fireEvent.click(within(alert).getByRole('button', { name: 'Try again' }));
+    await flush();
+    await advance(STEP * 6);
+    expect(useCubeStore.getState().status).toBe('ready');
   });
 });

@@ -38,7 +38,7 @@ export function FaceGrid2D({
     >
       {cells.map((code, idx) => {
         const isCenter = idx === 4;
-        const bg = code ? STICKER_COLORS[code]?.hex ?? '#1f1f24' : '#1f1f24';
+        const bg = code ? STICKER_COLORS[code].hex : '#1f1f24';
         return (
           <div
             key={idx}

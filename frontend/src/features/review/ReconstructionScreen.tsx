@@ -102,7 +102,7 @@ export function ReconstructionScreen() {
   const isComplete = status === 'ready' && stages.every((s) => s.state === 'passed');
 
   const cancelled = error?.kind === 'client' && error.code === 'REQUEST_CANCELLED';
-  const solveFailed = !incomplete && status === 'error' && error !== null && !cancelled;
+  const solveFailed = !incomplete && status === 'error' && error !== null;
   const validationFailed = solveFailed && isValidationError(error);
   // Six faces but the frontend checks failed: no solve is sent, so this must be its own terminal state.
   const checkFailure = !incomplete && !structurallyValid ? realStages.find((s) => s.state === 'failed') : undefined;
@@ -123,6 +123,8 @@ export function ReconstructionScreen() {
   }, [autoAssemble]);
 
   const rerunSolve = () => {
+    // Never re-send a scan that failed the frontend checks (also guards against stale handlers).
+    if (!structurallyValid) return;
     setAssembledView(false);
     setAttempt((a) => a + 1);
     // Rebuilt from the store so each retry carries its own request object (and a new guard handle in runSolve).
@@ -176,7 +178,8 @@ export function ReconstructionScreen() {
             <Button
               variant="ghost"
               size="sm"
-              disabled={incomplete}
+              disabled={!structurallyValid}
+              title={structurallyValid ? undefined : 'Needs six valid captured faces'}
               onClick={toggleInvalidTest}
               className="text-xs text-zinc-400"
             >
@@ -426,7 +429,7 @@ export function ReconstructionScreen() {
                     )}
                     {solveFailed && !frontendFailed && (
                       <p className="text-xs text-zinc-500">
-                        {error!.retryable
+                        {error!.retryable || cancelled
                           ? 'This may be temporary. You can try again.'
                           : 'Trying again will not change this. Rescan your cube.'}
                       </p>
@@ -441,7 +444,7 @@ export function ReconstructionScreen() {
                       Back to scan
                     </Button>
                   ) : (
-                    !!error && error.retryable && (
+                    !!error && (error.retryable || cancelled) && (
                       <Button onClick={rerunSolve}>
                         <RotateCcw className="h-4 w-4" />
                         Try again

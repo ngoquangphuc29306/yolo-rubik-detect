@@ -50,7 +50,7 @@ export function describeSolveError(error: SolveError): string {
     case 'NETWORK':
       return 'Could not reach the solver';
     case 'REQUEST_CANCELLED':
-      return '';
+      return 'Validation was interrupted';
     case 'REQUEST_INVALID':
       return error.message;
   }
@@ -75,6 +75,12 @@ function frontendVerdicts(captured: CapturedFaces): Partial<Record<StageId, Verd
   const present = SCAN_FACE_ORDER.filter((f) => captured[f]);
   if (present.length < 6) return { faces: { state: 'failed', detail: `${present.length} of 6` } };
   const out: Partial<Record<StageId, Verdict>> = { faces: { state: 'passed' } };
+
+  const unknown = SCAN_FACE_ORDER.flatMap((f) => captured[f]!.grid).find((c) => !COLOR_NAMES.includes(c));
+  if (unknown !== undefined) {
+    out.colors = { state: 'failed', detail: `Unknown color: ${String(unknown)}` };
+    return out;
+  }
 
   const counts = new Map<ColorName, number>();
   for (const f of SCAN_FACE_ORDER) for (const c of captured[f]!.grid) counts.set(c, (counts.get(c) ?? 0) + 1);
@@ -131,8 +137,11 @@ export function deriveReconstructionStages(input: {
       verdicts['solution-match'] = passed(demo ? 'Demo fixture' : undefined);
       const n = solution?.moves.length;
       verdicts.replay = passed(n === undefined ? undefined : n === 0 ? 'Already solved' : `${n} moves`);
-    } else if (status === 'error' && error && !(error.kind === 'client' && error.code === 'REQUEST_CANCELLED')) {
-      if (error.kind === 'client' && error.code === 'RESPONSE_MISMATCH') {
+    } else if (status === 'error' && error) {
+      if (error.kind === 'client' && error.code === 'REQUEST_CANCELLED') {
+        // Left in the store with nothing running: terminal, never an endless "validating".
+        verdicts.validated = { state: 'failed', detail: 'Validation was interrupted' };
+      } else if (error.kind === 'client' && error.code === 'RESPONSE_MISMATCH') {
         // The answer was for another cube: nothing about THIS cube was validated.
         verdicts.validated = { state: 'failed', detail: 'The solver answered for a different cube' };
       } else if (error.kind === 'client' && error.code === 'SOLUTION_REPLAY_MISMATCH') {
