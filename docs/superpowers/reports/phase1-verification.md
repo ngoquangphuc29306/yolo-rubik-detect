@@ -80,6 +80,8 @@ Branch `refactor/phase-1-frontend`. All commands run from `frontend/` unless not
 | T1.13-R24 | Browser a11y spot check | n/a | After My Cube Is Solved: document.activeElement is H1, role=status text "You confirmed all 54 stickers are solved after 18 moves."; console only favicon 404. |
 | T1.13-R24 | `npx vitest run tests/components tests/stores tests/lib` (RED, before fix) | 1 | 11 failed: Alignment Finish left guidance, stale-button double confirm, unmount did not reset confetti, 0-move copy, status/focus, sr-only disclaimer, SolvingScreen finishEmpty guidance {0}, setGuidance NaN/Infinity/-Infinity/-1 accepted. |
 | T1.13-R24 | same (GREEN) / `npm run test` / lint / build | 0 / 0 / 0 | 7 files 117 tests; full 28 files, 624 tests passed; tsc clean; built. |
+| T1.14a | `npx vitest run tests/lib/contain-transform.test.ts tests/hooks/useCamera.test.tsx` (RED, stub hook, no contain-transform) | 1 | 2 files failed, 32 tests failed (missing module; stub throws 'todo'). |
+| T1.14a | same (GREEN) / `npm run test` / lint / build | 0 / 0 / 0 / 0 | 2 files 47 tests; full 30 files, 671 tests passed; tsc clean; built. Fake streams only; no real camera; browser NOT RUN (not wired). |
 
 ## Notes
 
