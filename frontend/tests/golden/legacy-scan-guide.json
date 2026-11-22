@@ -1,0 +1,73 @@
+{
+ "_meta": {
+  "source": "legacy lib/cubeEngine FACE_META (scan fields); generated in T1.17"
+ },
+ "faces": {
+  "F": {
+   "scanHeading": "Hold the Front face toward your camera",
+   "scanInstruction": "Start with the green center facing you and the white center on top. Keep all 9 stickers inside the frame.",
+   "rotationHint": "Hold cube steady facing forward",
+   "arrowDirection": "none",
+   "referenceRotation": [
+    0.18,
+    -0.22,
+    0
+   ]
+  },
+  "R": {
+   "scanHeading": "Rotate the whole cube left to show the Right face",
+   "scanInstruction": "Turn the entire cube 90° to the left (do not twist a layer) until the red center faces the camera.",
+   "rotationHint": "Rotate whole cube 90° left",
+   "arrowDirection": "left",
+   "referenceRotation": [
+    0.18,
+    -1.7907963267948965,
+    0
+   ]
+  },
+  "B": {
+   "scanHeading": "Rotate left again to show the Back face",
+   "scanInstruction": "Turn the entire cube another 90° left so the blue center faces the camera, keeping white on top.",
+   "rotationHint": "Rotate whole cube 90° left",
+   "arrowDirection": "left",
+   "referenceRotation": [
+    0.18,
+    -3.3615926535897933,
+    0
+   ]
+  },
+  "L": {
+   "scanHeading": "Rotate left once more for the Left face",
+   "scanInstruction": "Turn the entire cube 90° left so the orange center faces the camera. Hold steady for auto-capture.",
+   "rotationHint": "Rotate whole cube 90° left",
+   "arrowDirection": "left",
+   "referenceRotation": [
+    0.18,
+    1.3507963267948966,
+    0
+   ]
+  },
+  "U": {
+   "scanHeading": "Return to Front, then tilt downward for the Top face",
+   "scanInstruction": "Turn back to green front, then tilt the top of the whole cube forward toward the camera to show the white center.",
+   "rotationHint": "Tilt whole cube top toward camera",
+   "arrowDirection": "down",
+   "referenceRotation": [
+    1.7507963267948965,
+    -0.22,
+    0
+   ]
+  },
+  "D": {
+   "scanHeading": "Tilt upward to show the Bottom face",
+   "scanInstruction": "Tilt the bottom of the whole cube upward toward the camera so the yellow center faces straight ahead.",
+   "rotationHint": "Tilt whole cube bottom toward camera",
+   "arrowDirection": "up",
+   "referenceRotation": [
+    -1.3907963267948966,
+    -0.22,
+    0
+   ]
+  }
+ }
+}

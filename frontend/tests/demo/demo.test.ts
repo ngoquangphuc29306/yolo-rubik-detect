@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { generateScrambleSession } from '@/lib/cubeEngine';
 import { SOLVED, facesFromState } from '@/engine/cube-state';
 import { applyMove } from '@/engine/move-engine';
 import { bindSolveResponse } from '@/engine/solve-binding';
@@ -11,6 +10,16 @@ import { demoSolve } from '@/demo/demo-solver';
 import { demoInvalidStateError } from '@/demo/demo-errors';
 import { DEMO_SCAN_CONDITIONS } from '@/demo/demo-scan-source';
 
+// Literal copies of the three legacy presets (frozen in tests/golden/legacy-characterization.json `presets`).
+const PRESETS = [
+  { scramble: ["R", "U", "R'", "F2", "D'", "L", "B2", "U2", "R'", "F", "U", "L'", "D2", "B'", "R2", "U", "F'", "D"],
+    solution: ["D'", "F", "U'", "R2", "B", "D2", "L", "U'", "F'", "R", "U2", "B2", "L'", "D", "F2", "R", "U'", "R'"] },
+  { scramble: ["F", "R2", "U'", "B", "L2", "D", "R'", "F2", "U", "L'", "B'", "D2", "R", "U'", "F", "L", "D'", "B2"],
+    solution: ["B2", "D", "L'", "F'", "U", "R'", "D2", "B", "L", "U'", "F2", "R", "D'", "L2", "B'", "U", "R2", "F'"] },
+  { scramble: ["U2", "R", "F'", "L2", "D", "B'", "R2", "U", "L'", "F2", "D'", "B", "R'", "U2", "L", "F'", "D2", "R"],
+    solution: ["R'", "D2", "F", "L'", "U2", "R", "B'", "D", "F2", "L", "U'", "R2", "B", "D'", "L2", "F", "R'", "U2"] },
+];
+
 const req = (faces: SixFaces): SolveRequest => ({ schemaVersion: 1, faces: faces as unknown as SolveRequest['faces'] });
 const solvedRequest = req(facesFromState(SOLVED, DEMO_CENTER_COLORS));
 const demoRequests: [string, SolveRequest][] = [
@@ -19,15 +28,15 @@ const demoRequests: [string, SolveRequest][] = [
 ];
 
 describe('demo fixtures', () => {
-  it('scrambles equal the legacy presets and are frozen', () => {
-    const legacy = [0, 1, 2].map((i) => generateScrambleSession(i));
-    expect(DEMO_SCRAMBLES.map((s) => [...s])).toEqual(legacy.map((l) => l.scramble));
-    // Pins the legacy preset count at 3 (index wraps modulo the preset count).
-    expect(generateScrambleSession(3).scramble).toEqual(legacy[0].scramble);
+  it('scrambles equal the three legacy presets (and their inverses solve) and are frozen', () => {
+    expect(DEMO_SCRAMBLES.map((s) => [...s])).toEqual(PRESETS.map((p) => p.scramble));
+    // Pins the preset count at 3: callers wrap the seed modulo this count, indices past it are rejected.
     expect(DEMO_SCRAMBLES).toHaveLength(3);
-    legacy.forEach((l, i) => {
+    expect(PRESETS).toHaveLength(3);
+    expect(() => demoInitialState(3)).toThrow(RangeError);
+    PRESETS.forEach((p, i) => {
       const inverse = [...DEMO_SCRAMBLES[i]].reverse().map((m) => (m.endsWith("'") ? m[0] : m.endsWith('2') ? m : `${m}'`));
-      expect(inverse).toEqual(l.solution);
+      expect(inverse).toEqual(p.solution);
     });
     expect(Object.isFrozen(DEMO_SCRAMBLES)).toBe(true);
     DEMO_SCRAMBLES.forEach((s) => expect(Object.isFrozen(s)).toBe(true));

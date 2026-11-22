@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import golden_ from '../golden/to-cubies.json';
+import legacyScrambleMoves from '../golden/legacy-moves-on-scramble.json';
+import legacyChar from '../golden/legacy-characterization.json';
 import { toCubies } from '@/engine/cubie-adapter';
 import { CubeStateError, SOLVED, facesFromState } from '@/engine/cube-state';
 import { applyMove, parseMoveToken } from '@/engine/move-engine';
 import { colorNameToCode } from '@/lib/colors';
-import {
-  applyMove as legacyApplyMove,
-  createSolvedCube,
-  extractAllFaces,
-  type MoveNotation,
-} from '@/lib/cubeEngine';
 import type { CenterColors, FaceletState, MoveToken } from '@/types/cube';
 
 const DEMO: CenterColors = { U: 'white', R: 'red', F: 'green', D: 'yellow', L: 'orange', B: 'blue' };
@@ -30,24 +26,26 @@ const byPosition = (cubies: readonly Pos[]) =>
     .map((c) => ({ x: c.x, y: c.y, z: c.z, stickers: c.stickers }));
 
 describe('toCubies', () => {
-  it('SOLVED + demo centres equals legacy createSolvedCube per position', () => {
-    expect(byPosition(toCubies(SOLVED, DEMO))).toEqual(byPosition(createSolvedCube()));
+  it('SOLVED + demo centres equals the frozen legacy createSolvedCube per position', () => {
+    expect(byPosition(toCubies(SOLVED, DEMO))).toEqual(byPosition(golden_.solved as unknown as Pos[]));
   });
 
   it('scrambled state is not the solved layout (guards vacuous comparisons)', () => {
     expect(byPosition(toCubies(S, DEMO))).not.toEqual(byPosition(toCubies(SOLVED, DEMO)));
   });
 
-  it.each(TOKENS)('legacy applyMove(toCubies(S), %s) equals toCubies(applyMove(S, %s))', (t) => {
-    const legacy = legacyApplyMove(toCubies(S, DEMO), t as MoveNotation);
-    expect(byPosition(legacy)).toEqual(byPosition(toCubies(applyMove(S, t), DEMO)));
+  it.each(TOKENS)('frozen legacy applyMove(toCubies(S), %s) equals toCubies(applyMove(S, %s))', (t) => {
+    const frozen = (legacyScrambleMoves.moves as Record<string, unknown>)[t];
+    expect(frozen).toBeDefined();
+    expect(byPosition(toCubies(applyMove(S, t), DEMO))).toEqual(frozen);
   });
 
-  it('round-trips with facesFromState via legacy extractAllFaces', () => {
+  it('frozen legacy face grids of the scramble equal facesFromState (the cubie/facelet round trip)', () => {
     const faces = facesFromState(S, DEMO);
-    const legacyFaces = extractAllFaces(toCubies(S, DEMO));
+    const frozen = legacyChar.fixedScrambleFaceGrids.faces as Record<string, string[]>;
+    expect(legacyChar.fixedScrambleFaceGrids.scramble.join(' ')).toBe(SCRAMBLE.join(' '));
     for (const f of ['U', 'R', 'F', 'D', 'L', 'B'] as const) {
-      expect(legacyFaces[f]).toEqual(faces[f].map(colorNameToCode));
+      expect(frozen[f]).toEqual(faces[f].map(colorNameToCode));
     }
   });
 

@@ -3,15 +3,10 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, RoundedBox } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import {
-  CubieState,
-  FaceKey,
-  MoveDescriptor,
-  STICKER_COLORS,
-} from '@/lib/cubeEngine';
-import type { MoveDescriptor as EngineMoveDescriptor } from '@/engine/move-presentation';
+import type { MoveDescriptor } from '@/engine/move-presentation';
+import { COLOR_META, codeToColorName } from '@/lib/colors';
 import type { PlaybackFrame } from '@/hooks/usePlayback';
-import type { RenderCubie } from '@/types/cube';
+import type { FaceId, RenderCubie } from '@/types/cube';
 import { reconcile, selectShown } from './animation';
 
 const isSoftwareGl: boolean = (() => {
@@ -31,8 +26,8 @@ const isSoftwareGl: boolean = (() => {
 
 const _targetCamPos = new THREE.Vector3();
 const EMPTY_SNAPSHOTS: readonly (readonly RenderCubie[])[] = [];
-const EMPTY_MOVES: readonly EngineMoveDescriptor[] = [];
-const EMPTY_CUBIES: readonly CubieState[] = [];
+const EMPTY_MOVES: readonly MoveDescriptor[] = [];
+const EMPTY_CUBIES: readonly RenderCubie[] = [];
 
 function StudioEnvironment() {
   const { gl, scene } = useThree();
@@ -101,13 +96,13 @@ function ContactShadowGround({ y = -2.25 }: { y?: number }) {
 }
 
 interface CubieMeshProps {
-  cubie: CubieState;
+  cubie: RenderCubie;
   highlighted?: boolean;
   wireframeTwin?: boolean;
 }
 
 const FACE_OFFSETS: Record<
-  FaceKey,
+  FaceId,
   { pos: [number, number, number]; rot: [number, number, number] }
 > = {
   R: { pos: [0.462, 0, 0], rot: [0, Math.PI / 2, 0] },
@@ -143,11 +138,11 @@ const CubieMesh = React.memo(function CubieMesh({
         />
       </RoundedBox>
 
-      {(Object.keys(cubie.stickers) as FaceKey[]).map((faceKey) => {
+      {(Object.keys(cubie.stickers) as FaceId[]).map((faceKey) => {
         const colorCode = cubie.stickers[faceKey];
         if (!colorCode) return null;
         const offset = FACE_OFFSETS[faceKey];
-        const hex = STICKER_COLORS[colorCode].threeHex;
+        const hex = COLOR_META[codeToColorName(colorCode)].threeHex;
         return (
           <mesh key={faceKey} position={offset.pos} rotation={offset.rot}>
             <RoundedBox args={[0.78, 0.78, 0.05]} radius={0.045} smoothness={2}>
@@ -210,7 +205,7 @@ function MoveArrow3D({ move }: { move: MoveDescriptor }) {
       const tip2 = move.turns === 2 ? makeCone(startAngle + dir * sweep * 0.52) : null;
 
       const faceTransform: Record<
-        FaceKey,
+        FaceId,
         { pos: [number, number, number]; rot: [number, number, number] }
       > = {
         F: { pos: [0, 0, 1.64], rot: [0, 0, 0] },
@@ -297,11 +292,11 @@ interface ControlledProps {
   /** One toCubies result per snapshot S[0..N]; the caller memoises them. */
   snapshots?: readonly (readonly RenderCubie[])[];
   /** Move i turns S[i] into S[i+1]. */
-  activeMoves?: readonly EngineMoveDescriptor[];
+  activeMoves?: readonly MoveDescriptor[];
 }
 
 interface CubeSceneProps extends ControlledProps {
-  cubies: readonly CubieState[];
+  cubies: readonly RenderCubie[];
   mode: 'hero' | 'interactive' | 'reference' | 'solving' | 'solved';
   heroTwinWireframe?: boolean;
   referenceRotation?: [number, number, number];
@@ -446,16 +441,16 @@ function CubeScene({
     }
   });
 
-  const shownCubies: readonly CubieState[] = controlled
+  const shownCubies: readonly RenderCubie[] = controlled
     ? (snaps[shown.snapshotIndex] ?? EMPTY_CUBIES)
     : cubies;
 
   const { activeCubies, staticCubies } = React.useMemo(() => {
     if (!activeMove) {
-      return { activeCubies: [] as CubieState[], staticCubies: shownCubies };
+      return { activeCubies: [] as RenderCubie[], staticCubies: shownCubies };
     }
-    const active: CubieState[] = [];
-    const rest: CubieState[] = [];
+    const active: RenderCubie[] = [];
+    const rest: RenderCubie[] = [];
     for (const c of shownCubies) {
       if (c[activeMove.axis] === activeMove.layer) {
         active.push(c);
@@ -519,7 +514,7 @@ function CubeScene({
 }
 
 export interface RubiksCube3DProps extends ControlledProps {
-  cubies: readonly CubieState[];
+  cubies: readonly RenderCubie[];
   mode?: 'hero' | 'interactive' | 'reference' | 'solving' | 'solved';
   heroTwinWireframe?: boolean;
   referenceRotation?: [number, number, number];

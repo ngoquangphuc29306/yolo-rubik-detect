@@ -3,7 +3,7 @@ import golden from '../golden/legacy-characterization.json';
 import { applyMove, buildSnapshots, parseMoveToken, verifySolution } from '@/engine/move-engine';
 import { CubeStateError, SOLVED, facesFromState } from '@/engine/cube-state';
 import { parseMove } from '@/engine/move-presentation';
-import { parseMove as legacyParseMove, type MoveNotation } from '@/lib/cubeEngine';
+import legacyParse from '../golden/legacy-parse-move.json';
 import type { CenterColors, ColorName, FaceId, FaceletState, MoveToken } from '@/types/cube';
 import {
   SOLVED as REF_SOLVED,
@@ -234,8 +234,10 @@ describe('legacy agreement (characterization cross-check)', () => {
 });
 
 describe('move-presentation parseMove', () => {
-  it('equals legacy parseMove for all 18 tokens', () => {
-    for (const t of ALL_TOKENS) expect(parseMove(t), t).toEqual(legacyParseMove(t as MoveNotation));
+  it('equals the frozen legacy parseMove descriptor (all fields incl. copy and camera) for all 18 tokens', () => {
+    const frozen = legacyParse.descriptors as Record<string, unknown>;
+    expect(Object.keys(frozen)).toHaveLength(18);
+    for (const t of ALL_TOKENS) expect(parseMove(t), t).toEqual(frozen[t]);
   });
   it('matches golden parsedMoves', () => {
     for (const t of ALL_TOKENS) {

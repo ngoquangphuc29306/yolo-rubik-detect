@@ -22,6 +22,11 @@ vi.mock('@/components/FaceGrid2D', async () => {
     },
   };
 });
+// Delegating spy: the real capture still runs, the test can count scripted captures.
+vi.mock('@/stores/demo-session', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/stores/demo-session')>();
+  return { ...actual, captureDemoFace: vi.fn(() => actual.captureDemoFace()) };
+});
 vi.mock('@/lib/audio', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/audio')>()),
   playCaptureSound: vi.fn(),
@@ -33,7 +38,7 @@ import { DEMO_START_MS, FLASH_MS, TICK_MS, TICK_STEP } from '@/features/scanner/
 import { useCubeStore } from '@/stores/cube-store';
 import { useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
-import { useRubikStore } from '@/store/useRubikStore';
+import { captureDemoFace, startDemoScan } from '@/stores/demo-session';
 import type { FaceGrid } from '@/types/cube';
 import { loadFixture } from '../services/fixtures';
 
@@ -58,17 +63,13 @@ const settle = async () => { await act(async () => { await Promise.resolve(); aw
 const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 const flushReal = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 
-const originalCapture = useRubikStore.getState().captureCurrentFace;
-const spyCapture = () => {
-  const spy = vi.fn(() => originalCapture());
-  useRubikStore.setState({ captureCurrentFace: spy });
-  return spy;
-};
+const spyCapture = () => vi.mocked(captureDemoFace);
 
 beforeEach(() => {
   getUserMedia.mockReset();
   installMediaDevices();
   vi.mocked(playCaptureSound).mockClear();
+  vi.mocked(captureDemoFace).mockClear();
   renders.cube = 0;
   renders.faceGrid = 0;
 });
@@ -76,7 +77,6 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
-  useRubikStore.setState({ captureCurrentFace: originalCapture });
   useScanStore.getState().reset();
   useCubeStore.getState().reset();
   useSessionStore.setState({ mode: null, screen: 'landing' });
@@ -86,7 +86,7 @@ afterEach(() => {
 describe('ScanningScreen - DEMO', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    useRubikStore.getState().startFreshScan(false); // demo session, condition 'loading_model'
+    startDemoScan(false); // demo session, condition 'loading_model'
   });
 
   it('labels the viewport "Simulated feed" and starts with an honest "Starting demo feed" overlay', () => {
@@ -515,7 +515,7 @@ describe('ScanningScreen - mode transition', () => {
   it('demo -> live in one mounted screen: no scripted labels, no capture, no demo timers', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('down'))));
-    useRubikStore.getState().startFreshScan(false); // legacy store now holds demo targets
+    startDemoScan(false);
     const spy = spyCapture();
     render(<ScanningScreen />);
     await advance(FIRST_CAPTURE_MS - 2 * TICK_MS); // demo script mid-stability
@@ -535,7 +535,7 @@ describe('ScanningScreen - mode transition', () => {
 describe('ScanningScreen - structure', () => {
   it('scan guide panel is its own component root', () => {
     vi.useFakeTimers();
-    useRubikStore.getState().startFreshScan(false);
+    startDemoScan(false);
     render(<ScanningScreen />);
     const panel = screen.getByTestId('scan-guide-panel');
     expect(within(panel).getByText(/Face 1 of 6/)).toBeTruthy();

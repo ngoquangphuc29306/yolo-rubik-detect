@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scanGuide } from '@/features/scanner/scan-guide';
-import { FACE_META } from '@/lib/cubeEngine';
+import legacyScanGuide from '../golden/legacy-scan-guide.json';
 import { SCAN_FACE_ORDER, type ColorName, type FaceId } from '@/types/cube';
 
 const ALL: Record<FaceId, ColorName> = { U: 'white', R: 'red', F: 'green', D: 'yellow', L: 'orange', B: 'blue' };
@@ -35,9 +35,9 @@ describe('scanGuide', () => {
     });
   });
 
-  it.each(SCAN_FACE_ORDER)('all six known: %s equals the legacy FACE_META text', (stage) => {
+  it.each(SCAN_FACE_ORDER)('all six known: %s equals the frozen legacy FACE_META text', (stage) => {
     const g = scanGuide(stage, ALL);
-    const m = FACE_META[stage];
+    const m = legacyScanGuide.faces[stage];
     expect(g.heading).toBe(m.scanHeading);
     expect(g.instruction).toBe(m.scanInstruction);
     expect(g.rotationHint).toBe(m.rotationHint);

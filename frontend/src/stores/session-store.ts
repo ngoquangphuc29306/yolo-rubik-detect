@@ -26,9 +26,12 @@ interface SessionStoreState {
   screen: AppScreen;
   sessionId: number;
   settings: SessionSettings;
+  /** Which preset demo cube demo sessions use. Survives startSession; only advanceDemoSeed changes it. */
+  demoSeed: number;
   /** Set when a guidance run completes; reset by startSession. */
   guidance: GuidanceResult | null;
   startSession: (mode: SessionMode, screen: AppScreen) => void;
+  advanceDemoSeed: () => void;
   setScreen: (screen: AppScreen) => void;
   setGuidance: (playbackMs: number | null) => void;
   setDelayMs: (ms: number) => void;
@@ -42,6 +45,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   sessionId: 0,
   settings: { delayMs: 5000, soundEnabled: true, autoCaptureEnabled: true },
   guidance: null,
+  demoSeed: 0,
 
   startSession: (mode, screen) => {
     // Synchronously first: aborts any in-flight solve before the new session exists.
@@ -50,6 +54,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
     useCubeStore.getState().reset();
     set((s) => ({ mode, screen, sessionId: s.sessionId + 1, guidance: null }));
   },
+  advanceDemoSeed: () => set((s) => ({ demoSeed: s.demoSeed + 1 })),
   setScreen: (screen) => set({ screen }),
   setGuidance: (playbackMs) =>
     set((s) => {

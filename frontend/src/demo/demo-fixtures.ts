@@ -1,5 +1,5 @@
 // Deterministic DEMO fixtures. Everything here is simulated; never present it as a camera reading.
-// Scrambles are copied (not moved) from the legacy lib/cubeEngine PRESET_SCRAMBLES.
+// Scrambles are the three preset scrambles of the retired legacy engine (frozen in tests/golden/legacy-characterization.json).
 import type { CenterColors, FaceletState, MoveToken, SixFaces } from '@/types/cube';
 import type { SolveProvenance } from '@/types/api';
 import { SOLVED, facesFromState } from '@/engine/cube-state';

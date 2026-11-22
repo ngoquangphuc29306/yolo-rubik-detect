@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { STICKER_COLORS, StickerColor } from '@/lib/cubeEngine';
+import { COLOR_META, codeToColorName, type StickerCode } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 
 interface FaceGrid2DProps {
-  stickers?: StickerColor[];
+  stickers?: StickerCode[];
   size?: 'xs' | 'sm' | 'md' | 'lg';
   highlightCenter?: boolean;
   dimmed?: boolean;
@@ -24,7 +24,7 @@ export function FaceGrid2D({
     lg: 'w-24 h-24 gap-1.5 p-1.5',
   };
 
-  const cells: (StickerColor | null)[] =
+  const cells: (StickerCode | null)[] =
     stickers && stickers.length === 9 ? stickers : Array(9).fill(null);
 
   return (
@@ -38,7 +38,7 @@ export function FaceGrid2D({
     >
       {cells.map((code, idx) => {
         const isCenter = idx === 4;
-        const bg = code ? STICKER_COLORS[code].hex : '#1f1f24';
+        const bg = code ? COLOR_META[codeToColorName(code)].hex : '#1f1f24';
         return (
           <div
             key={idx}

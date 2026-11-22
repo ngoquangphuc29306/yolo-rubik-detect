@@ -10,9 +10,8 @@ import { toCubies } from '@/engine/cubie-adapter';
 import { parseMove } from '@/engine/move-presentation';
 import { usePlayback } from '@/hooks/usePlayback';
 import { COLOR_META } from '@/lib/colors';
-// TEMPORARY bridge — removed in T1.14/T1.17 (only the "Scan my cube again" action uses it).
-import { useRubikStore } from '@/store/useRubikStore';
 import { useCubeStore, type SolutionData } from '@/stores/cube-store';
+import { startDemoScan } from '@/stores/demo-session';
 import { useSessionStore } from '@/stores/session-store';
 import { CountdownRing, type RingPhase } from './CountdownRing';
 import { MoveInfoPanel } from './MoveInfoPanel';
@@ -321,7 +320,7 @@ function SolvingSession({ solution }: { solution: SolutionData }) {
               size="sm"
               onClick={() => {
                 setLostSyncOpen(false);
-                useRubikStore.getState().startFreshScan(true);
+                startDemoScan(true);
               }}
             >
               <Camera className="h-3.5 w-3.5" />

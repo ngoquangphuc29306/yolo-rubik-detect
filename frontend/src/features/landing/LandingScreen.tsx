@@ -14,8 +14,7 @@ import { Button } from '@/components/ui/button';
 import { RubiksCube3D } from '@/components/three/RubiksCube3D';
 import { toCubies } from '@/engine/cubie-adapter';
 import { DEMO_CENTER_COLORS, demoInitialState } from '@/demo/demo-fixtures';
-// TEMPORARY bridge — demo entry actions removed in T1.17.
-import { useRubikStore } from '@/store/useRubikStore';
+import { startDemoScan, startDemoShortcut } from '@/stores/demo-session';
 import { useSessionStore } from '@/stores/session-store';
 import { cn } from '@/lib/utils';
 
@@ -60,7 +59,7 @@ const TECH_STACK = [
   {
     name: 'YOLO Object Detection',
     role: 'Sticker Localization & Color Classification',
-    metric: '54 tiles · < 18ms inference',
+    metric: '54 tiles · per-face detection',
     description:
       'Fine-tuned single-stage detector trained across varied lighting, cube plastic finishes, and hand occlusions to localize all nine stickers per face with per-tile confidence scoring.',
     span: 'lg:col-span-2',
@@ -68,7 +67,7 @@ const TECH_STACK = [
   {
     name: 'Computer Vision Pipeline',
     role: 'Temporal Stability & Grid Mapping',
-    metric: '9/9 frame consensus',
+    metric: 'Frame-by-frame agreement check',
     description:
       'Spatial grid sorting and multi-frame stability filtering eliminate false captures when rotating the cube between faces.',
     span: 'lg:col-span-1',
@@ -76,7 +75,7 @@ const TECH_STACK = [
   {
     name: 'Kociemba Algorithm',
     role: 'Two-Phase Optimal Solver',
-    metric: '≤ 22 moves average',
+    metric: 'Short, near-optimal solutions',
     description:
       'Validates cube state solvability (corner twist, edge flip, permutation parity) and generates beginner-friendly move sequences.',
     span: 'lg:col-span-1',
@@ -84,7 +83,7 @@ const TECH_STACK = [
   {
     name: 'Three.js & Interactive 3D',
     role: 'Real-Time Digital Twin Guidance',
-    metric: '60 fps PBR studio scene',
+    metric: 'Real-time PBR studio scene',
     description:
       'Physically based cubie materials, curved 3D turn indicators, and automatic virtual camera framing keep every move unmistakable from any angle.',
     span: 'lg:col-span-2',
@@ -93,8 +92,6 @@ const TECH_STACK = [
 
 export function LandingScreen() {
   const startSession = useSessionStore((s) => s.startSession);
-  const startFreshScan = useRubikStore((s) => s.startFreshScan);
-  const startInteractiveDemo = useRubikStore((s) => s.startInteractiveDemo);
 
   const [heroView, setHeroView] = React.useState<'vision' | 'twin'>('vision');
 
@@ -191,7 +188,7 @@ export function LandingScreen() {
                   <Button
                     size="lg"
                     variant="secondary"
-                    onClick={startInteractiveDemo}
+                    onClick={startDemoShortcut}
                   >
                     <Play className="h-4 w-4 text-emerald-400" />
                     Try Interactive Demo
@@ -202,7 +199,7 @@ export function LandingScreen() {
                   Demo uses a built-in cube and a pre-computed solution.{' '}
                   <button
                     type="button"
-                    onClick={() => startFreshScan(false)}
+                    onClick={() => startDemoScan(false)}
                     className="text-zinc-400 hover:text-zinc-200 underline decoration-zinc-700 hover:decoration-zinc-400 underline-offset-4 transition-colors cursor-pointer"
                   >
                     Walk through the simulated scan
@@ -431,7 +428,7 @@ export function LandingScreen() {
                   Scan My Cube
                   <ArrowRight className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" onClick={startInteractiveDemo}>
+                <Button variant="outline" onClick={startDemoShortcut}>
                   Try Interactive Demo
                 </Button>
               </div>

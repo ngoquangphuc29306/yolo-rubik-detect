@@ -1,5 +1,5 @@
 // Presentation descriptor for a move token (axis, layer, angle, copy). Behaviour copied verbatim from the
-// legacy lib/cubeEngine.ts parseMove; the legacy version stays until T1.17. Pure: no React/DOM/Three.
+// legacy lib/cubeEngine.ts parseMove (frozen in tests/golden/legacy-parse-move.json). Pure: no React/DOM/Three.
 import type { FaceId, MoveToken } from '@/types/cube';
 
 export interface MoveDescriptor {

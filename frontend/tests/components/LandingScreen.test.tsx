@@ -56,12 +56,20 @@ describe('LandingScreen entry points', () => {
     for (const b of buttons) {
       const handle = seedStale();
       expect(useCubeStore.getState().status).toBe('ready');
+      expect(Object.keys(useScanStore.getState().captured)).toContain('F');
+      useScanStore.getState().setCondition('no_cube'); // stale scan condition must not survive either
       fireEvent.click(b);
       expect(useSessionStore.getState().mode).toBe('demo');
       expect(useSessionStore.getState().screen).toBe('reconstructing');
       expect(useSessionStore.getState().guidance).toBeNull();
       expect(handle.isCurrent()).toBe(false);
+      // The stale 'ready' was cleared and a fresh solve is running; the scan store was reset, then refilled with all six.
+      expect(useCubeStore.getState().status).toBe('solving');
+      expect(Object.keys(useScanStore.getState().captured).sort()).toEqual(['B', 'D', 'F', 'L', 'R', 'U']);
+      expect(useScanStore.getState().condition).toBe('captured_flash');
       await waitFor(() => expect(useCubeStore.getState().status).toBe('ready'));
+      expect(useCubeStore.getState().solution).not.toBeNull();
+      expect(useCubeStore.getState().solution?.source).toBe('demo-fixture');
     }
   });
 
@@ -72,6 +80,20 @@ describe('LandingScreen entry points', () => {
     expect(useSessionStore.getState().mode).toBe('demo');
     expect(useSessionStore.getState().screen).toBe('scanning');
     expectCleared(handle);
+  });
+
+  it('makes no unmeasured performance claims (ms, fps, frame consensus, move averages)', () => {
+    const { container } = render(<LandingScreen />);
+    const text = container.textContent ?? '';
+    expect(text).not.toMatch(/\d\s*ms/i);
+    expect(text).not.toMatch(/\d\s*fps/i);
+    expect(text).not.toMatch(/consensus/i);
+    expect(text).not.toMatch(/\d+\s*\/\s*\d+\s*frame/i);
+    expect(text).not.toMatch(/≤\s*\d+\s*moves/i);
+    expect(text).not.toMatch(/moves average/i);
+    for (const metric of ['54 tiles · per-face detection', 'Frame-by-frame agreement check', 'Short, near-optimal solutions', 'Real-time PBR studio scene']) {
+      expect(text).toContain(metric);
+    }
   });
 
   it('shows no fabricated confidences and labels the hero as a simulation', () => {

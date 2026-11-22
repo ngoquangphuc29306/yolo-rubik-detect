@@ -37,7 +37,7 @@ import { applyMove, buildSnapshots } from '@/engine/move-engine';
 import { SOLVED } from '@/engine/cube-state';
 import { useCubeStore } from '@/stores/cube-store';
 import { useSessionStore } from '@/stores/session-store';
-import { useRubikStore } from '@/store/useRubikStore';
+import { startDemoScan } from '@/stores/demo-session';
 
 // ---- fake clock / rAF / visibility (same approach as tests/hooks/usePlayback.test.tsx) ----
 let now = 0;
@@ -395,7 +395,7 @@ describe('SolvingScreen: completion', () => {
     run(TOTAL + 16);
     expect(ringText()).toContain('Done');
     act(() => {
-      useRubikStore.getState().startFreshScan(true);
+      startDemoScan(true);
     });
     act(() => {
       vi.advanceTimersByTime(2000);

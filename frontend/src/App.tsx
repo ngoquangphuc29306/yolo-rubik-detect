@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { useRubikStore } from '@/store/useRubikStore';
+import { useSessionStore } from '@/stores/session-store';
 import { LandingScreen } from '@/features/landing/LandingScreen';
 import { ScanningScreen } from '@/features/scanner/ScanningScreen';
 import { ReconstructionScreen } from '@/features/review/ReconstructionScreen';
@@ -13,7 +13,7 @@ import { SolvingScreen } from '@/features/solver/SolvingScreen';
 import { CompletionScreen } from '@/features/solver/CompletionScreen';
 
 export default function App() {
-  const screen = useRubikStore((s) => s.screen);
+  const screen = useSessionStore((s) => s.screen);
 
   // Scroll to top when transitioning between screens
   React.useEffect(() => {

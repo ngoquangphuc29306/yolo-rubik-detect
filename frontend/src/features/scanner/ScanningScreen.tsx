@@ -6,9 +6,8 @@ import { COLOR_META } from '@/lib/colors';
 import { DEMO_CENTER_COLORS } from '@/demo/demo-fixtures';
 import { useBackendHealth } from '@/hooks/useBackendHealth';
 import { useCamera } from '@/hooks/useCamera';
-// TEMPORARY bridge — removed in T1.17 (legacy store: three demo actions + the demo target-grid mirror)
-import { useRubikStore } from '@/store/useRubikStore';
 import { useCubeStore } from '@/stores/cube-store';
+import { captureDemoFace, startDemoScan, startDemoShortcut } from '@/stores/demo-session';
 import { useScanStore, type ScanCondition } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 import { solveRequestGuard } from '@/stores/solve-guard';
@@ -68,8 +67,7 @@ function NoScanSession() {
         <p className="text-sm text-zinc-400 max-w-md">
           Start a scan from the home screen, or try the simulated demo scan.
         </p>
-        <Button size="sm" onClick={() => useRubikStore.getState().startFreshScan(false)}>
-          {/* TEMPORARY bridge — removed in T1.17 */}
+        <Button size="sm" onClick={() => startDemoScan(false)}>
           Start demo scan
         </Button>
       </main>
@@ -104,8 +102,6 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
   const capturedCount = SCAN_FACE_ORDER.filter((k) => faceStatuses[k] === 'captured').length;
   const allCaptured = SCAN_FACE_ORDER.every((k) => captured[k]);
 
-  // TEMPORARY bridge — removed in T1.17
-  const captureDemoFace = React.useCallback(() => useRubikStore.getState().captureCurrentFace(), []);
   useDemoScanScript(isDemo, captureDemoFace);
 
   // The camera never outlives the scan: leaving the screen or restarting the session stops every track.
@@ -131,7 +127,7 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
   const restartScan = () => {
     stopCamera();
     if (isDemo) {
-      useRubikStore.getState().startFreshScan(true); // TEMPORARY bridge — removed in T1.17
+      startDemoScan(true);
     } else {
       useSessionStore.getState().startSession('live', 'scanning');
       void refresh(); // a restarted live scan re-checks the vision service
@@ -268,7 +264,7 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
                     onClick={() => {
                       // Complete remaining faces immediately if user wants to jump ahead
                       if (capturedCount < 6) {
-                        useRubikStore.getState().startInteractiveDemo(); // TEMPORARY bridge — removed in T1.17
+                        startDemoShortcut();
                       } else {
                         useSessionStore.getState().setScreen('reconstructing');
                       }

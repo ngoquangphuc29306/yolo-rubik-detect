@@ -15,9 +15,8 @@ import { demoInvalidStateError } from '@/demo/demo-errors';
 import { toCubies } from '@/engine/cubie-adapter';
 import { colorNameToCode, type StickerCode } from '@/lib/colors';
 import { useSolveSession } from '@/hooks/useSolveSession';
-// TEMPORARY bridge (removed in T1.17): fresh demo scan still goes through the legacy store.
-import { useRubikStore } from '@/store/useRubikStore';
 import { useCubeStore } from '@/stores/cube-store';
+import { startDemoScan } from '@/stores/demo-session';
 import { buildSolveRequest, useScanStore } from '@/stores/scan-store';
 import { useSessionStore } from '@/stores/session-store';
 import { solveRequestGuard } from '@/stores/solve-guard';
@@ -60,7 +59,6 @@ export function ReconstructionScreen() {
   const mode = useSessionStore((s) => s.mode);
   const setScreen = useSessionStore((s) => s.setScreen);
   const startSession = useSessionStore((s) => s.startSession);
-  const startFreshScan = useRubikStore((s) => s.startFreshScan);
   const { status, error, solution, solve } = useSolveSession();
 
   const [revealed, setRevealed] = React.useState(0);
@@ -74,7 +72,7 @@ export function ReconstructionScreen() {
   const demo = mode === 'demo';
 
   // Start the solve once for a complete, structurally valid scan. A solve already in flight or finished
-  // (the temporary bridge may have started it) is never restarted.
+  // (the demo shortcut may have started it) is never restarted.
   React.useEffect(() => {
     if (!request || !structurallyValid) return;
     if (useCubeStore.getState().status !== 'idle') return;
@@ -144,7 +142,7 @@ export function ReconstructionScreen() {
   };
   const restartFullScan = () => {
     if (mode === 'live') startSession('live', 'scanning');
-    else startFreshScan(false);
+    else startDemoScan(false);
   };
 
   const moveCount = solution?.moves.length ?? 0;

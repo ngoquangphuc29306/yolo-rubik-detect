@@ -11,7 +11,7 @@ export const FLASH_MS = 950;
 export const TICK_MS = 140;
 export const TICK_STEP = 6;
 
-/** `capture` performs a scripted capture (bridge captureCurrentFace). Inert unless `enabled`. */
+/** `capture` performs a scripted capture (demo-session captureDemoFace). Inert unless `enabled`. */
 export function useDemoScanScript(enabled: boolean, capture: () => void) {
   const sessionId = useSessionStore((s) => s.sessionId);
   const autoCapture = useSessionStore((s) => s.settings.autoCaptureEnabled);

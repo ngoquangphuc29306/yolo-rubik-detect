@@ -12,9 +12,8 @@ import { RubiksCube3D } from '@/components/three/RubiksCube3D';
 import { Button } from '@/components/ui/button';
 import { toCubies } from '@/engine/cubie-adapter';
 import { playSuccessChime } from '@/lib/audio';
-// TEMPORARY bridge — removed in T1.14/T1.17 (only Scan Again / Solve Another Cube use it).
-import { useRubikStore } from '@/store/useRubikStore';
 import { useCubeStore, type SolutionData } from '@/stores/cube-store';
+import { startDemoScan } from '@/stores/demo-session';
 import { useSessionStore } from '@/stores/session-store';
 import { formatDuration } from '@/lib/utils';
 
@@ -83,7 +82,6 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
   const guidance = useSessionStore((s) => s.guidance);
   const soundEnabled = useSessionStore((s) => s.settings.soundEnabled);
   const setScreen = useSessionStore((s) => s.setScreen);
-  const startFreshScan = useRubikStore((s) => s.startFreshScan);
   const [userConfirmedSolved, setUserConfirmedSolved] = React.useState(false);
   const confettiTimer = React.useRef<number | null>(null);
   // Ref guard: state alone would let two clicks in one batch both pass.
@@ -236,7 +234,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                   <Button
                     size="lg"
                     variant="secondary"
-                    onClick={() => startFreshScan(true)}
+                    onClick={() => startDemoScan(true)}
                   >
                     <Camera className="h-4 w-4" />
                     Scan Again
@@ -257,7 +255,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => startFreshScan(true)}
+                    onClick={() => startDemoScan(true)}
                     className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
@@ -280,7 +278,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button size="lg" onClick={() => startFreshScan(true)}>
+                  <Button size="lg" onClick={() => startDemoScan(true)}>
                     <Camera className="h-4 w-4" />
                     Solve Another Cube
                   </Button>
@@ -291,7 +289,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                   <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => startFreshScan(false)}
+                    onClick={() => startDemoScan(false)}
                   >
                     Scan Again
                   </Button>

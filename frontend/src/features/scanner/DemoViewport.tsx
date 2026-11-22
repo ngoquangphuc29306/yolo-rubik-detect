@@ -12,11 +12,11 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { COLOR_META, codeToColorName, type StickerCode } from '@/lib/colors';
+import { COLOR_META, codeToColorName, colorNameToCode, type StickerCode } from '@/lib/colors';
 import { DEMO_CENTER_COLORS } from '@/demo/demo-fixtures';
-// TEMPORARY bridge — removed in T1.17
-import { useRubikStore } from '@/store/useRubikStore';
+import { demoFacesForSeed } from '@/stores/demo-session';
 import { useScanStore, type ScanCondition } from '@/stores/scan-store';
+import { useSessionStore } from '@/stores/session-store';
 import type { FaceId } from '@/types/cube';
 import webcamPreview from '@/assets/images/webcam_cube_hands_1795070971051.jpg';
 import { FACE_NAMES, type ScanGuide } from './scan-guide';
@@ -45,8 +45,11 @@ export function DemoViewport({
   onResumeDetection,
 }: DemoViewportProps) {
   const stabilityProgress = useScanStore((s) => s.stability);
-  // TEMPORARY bridge — removed in T1.17 (legacy mirror of the demo fixture grids)
-  const targetStickers = useRubikStore((s) => s.targetFaces)[activeFace];
+  const demoSeed = useSessionStore((s) => s.demoSeed);
+  const targetStickers = React.useMemo(
+    () => demoFacesForSeed(demoSeed)[activeFace].map(colorNameToCode),
+    [demoSeed, activeFace],
+  );
   const [imgFailed, setImgFailed] = React.useState(false);
   const expectedCenter = COLOR_META[DEMO_CENTER_COLORS[activeFace]];
   const expectedCenterCode = expectedCenter.code;
