@@ -346,6 +346,7 @@ describe('SolvingScreen: lost track dialog', () => {
 describe('SolvingScreen: empty solution', () => {
   it('shows "Already solved" with no NaN, no countdown, and Finish goes to completion', () => {
     loadSolution([]);
+    act(() => useSessionStore.getState().setGuidance(999));
     render(<SolvingScreen />);
     expect(screen.getByText('Already solved')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/NaN|undefined/);
@@ -356,7 +357,7 @@ describe('SolvingScreen: empty solution', () => {
     expect(queue.size).toBe(0);
     fireEvent.click(screen.getByRole('button', { name: /^finish$/i }));
     expect(useSessionStore.getState().screen).toBe('completion');
-    expect(useSessionStore.getState().guidance).toEqual({ playbackMs: 0 });
+    expect(useSessionStore.getState().guidance).toBeNull();
   });
 });
 

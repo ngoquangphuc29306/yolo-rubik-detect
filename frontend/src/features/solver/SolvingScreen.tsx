@@ -141,7 +141,7 @@ function SolvingSession({ solution }: { solution: SolutionData }) {
   };
 
   const finishEmpty = () => {
-    setGuidance(0);
+    setGuidance(null); // no guidance ran: Completion shows "—"
     setScreen('completion');
   };
 

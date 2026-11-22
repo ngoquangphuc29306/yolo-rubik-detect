@@ -84,8 +84,10 @@ describe('AlignmentScreen', () => {
     expect(screen.getByText(/Your cube is already solved/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Start AI Guidance/ })).toBeNull();
     expect(screen.queryByLabelText('Seconds between solving moves')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Pause or adjust speed anytime/);
     fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
     expect(useSessionStore.getState().screen).toBe('completion');
+    expect(useSessionStore.getState().guidance).toBeNull();
   });
 
   it('slider and presets write delayMs', () => {

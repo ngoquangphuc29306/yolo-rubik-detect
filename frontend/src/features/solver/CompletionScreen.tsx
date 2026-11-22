@@ -86,12 +86,19 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
   const startFreshScan = useRubikStore((s) => s.startFreshScan);
   const [userConfirmedSolved, setUserConfirmedSolved] = React.useState(false);
   const confettiTimer = React.useRef<number | null>(null);
+  // Ref guard: state alone would let two clicks in one batch both pass.
+  const confirmedRef = React.useRef(false);
+  const headingRef = React.useRef<HTMLHeadingElement>(null);
   React.useEffect(
     () => () => {
       if (confettiTimer.current !== null) window.clearTimeout(confettiTimer.current);
+      confetti.reset();
     },
     [],
   );
+  React.useEffect(() => {
+    if (userConfirmedSolved) headingRef.current?.focus();
+  }, [userConfirmedSolved]);
 
   const finalCubies = React.useMemo(
     () => toCubies(solution.snapshots[solution.snapshots.length - 1], solution.centers),
@@ -99,9 +106,11 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
   );
   const total = solution.moves.length;
   const isDemo = mode === 'demo';
+  const alreadySolved = total === 0;
 
   const handleConfirmSolved = () => {
-    if (userConfirmedSolved) return;
+    if (confirmedRef.current) return;
+    confirmedRef.current = true;
     setUserConfirmedSolved(true);
     playSuccessChime(soundEnabled);
     confettiTimer.current = fireRefinedConfetti(true);
@@ -115,7 +124,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
         activeStage="solve"
         rightSlot={
           <span className="font-mono text-xs text-emerald-400 tabular-nums">
-            100% Complete
+            {alreadySolved ? 'No moves needed' : '100% Complete'}
           </span>
         }
       />
@@ -137,7 +146,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
               <RubiksCube3D
                 cubies={finalCubies}
                 mode="solved"
-                cameraPosition={[5.8, 4.3, 6.3]}
+                cameraPosition={[5.16, 3.84, 5.64]}
                 className="relative z-10 w-full h-full"
               />
               <div className="absolute bottom-4 inset-x-4 z-20 flex items-center justify-between text-xs font-mono text-zinc-400">
@@ -153,14 +162,22 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
               <p className="font-mono text-xs text-emerald-400 uppercase tracking-wider">
                 {userConfirmedSolved
                   ? 'Solve Confirmed'
-                  : isDemo
+                  : alreadySolved
+                    ? 'Already solved'
+                    : isDemo
                     ? 'Demo guidance complete'
                     : 'Guidance Complete'}
               </p>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-50">
+              <h1
+                ref={headingRef}
+                tabIndex={-1}
+                className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-50 outline-none"
+              >
                 {userConfirmedSolved
                   ? 'You confirmed your cube is solved'
-                  : 'You’ve completed the guidance!'}
+                  : alreadySolved
+                    ? 'Your cube was already solved — no moves needed'
+                    : 'You’ve completed the guidance!'}
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
                 {userConfirmedSolved
@@ -189,6 +206,9 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
                 >
                   Guidance Time
                 </span>
+                <span className="sr-only">
+                  Time the on-screen guidance ran, not the time to solve a physical cube.
+                </span>
                 <span className="mt-1 block font-mono text-2xl font-semibold text-zinc-100 tabular-nums">
                   {displayTime}
                 </span>
@@ -196,7 +216,7 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
               <div>
                 <span className="text-xs text-zinc-500 block">Progress</span>
                 <span className="mt-1 block font-mono text-2xl font-semibold text-emerald-400 tabular-nums">
-                  100%
+                  {alreadySolved ? '—' : '100%'}
                 </span>
               </div>
             </div>
@@ -247,10 +267,15 @@ function CompletionSession({ solution }: { solution: SolutionData }) {
               </div>
             ) : (
               <div className="space-y-5">
-                <div className="rounded-xl bg-emerald-400/10 border border-emerald-400/35 p-4 flex items-center gap-3 text-sm text-emerald-200">
+                <div
+                  role="status"
+                  className="rounded-xl bg-emerald-400/10 border border-emerald-400/35 p-4 flex items-center gap-3 text-sm text-emerald-200"
+                >
                   <Sparkles className="h-5 w-5 text-emerald-400 shrink-0" />
                   <span>
-                    You confirmed all 54 stickers are solved after {total} moves.
+                    {alreadySolved
+                      ? 'You confirmed all 54 stickers are solved.'
+                      : `You confirmed all 54 stickers are solved after ${total} moves.`}
                   </span>
                 </div>
 

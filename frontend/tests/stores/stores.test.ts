@@ -53,6 +53,18 @@ describe('session-store guidance', () => {
     useSessionStore.getState().startSession('demo', 'scanning');
     expect(useSessionStore.getState().guidance).toBeNull();
   });
+
+  it.each([NaN, Infinity, -Infinity, -1])('setGuidance(%s) is rejected and leaves guidance unchanged', (bad) => {
+    useSessionStore.getState().setGuidance(4000);
+    useSessionStore.getState().setGuidance(bad);
+    expect(useSessionStore.getState().guidance).toEqual({ playbackMs: 4000 });
+  });
+
+  it('setGuidance(null) clears guidance', () => {
+    useSessionStore.getState().setGuidance(4000);
+    useSessionStore.getState().setGuidance(null);
+    expect(useSessionStore.getState().guidance).toBeNull();
+  });
 });
 
 describe('scan-store', () => {

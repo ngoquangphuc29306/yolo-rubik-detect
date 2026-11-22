@@ -13,7 +13,7 @@ vi.mock('@/components/three/RubiksCube3D', async () => {
     },
   };
 });
-vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
+vi.mock('canvas-confetti', () => ({ default: Object.assign(vi.fn(), { reset: vi.fn() }) }));
 vi.mock('@/lib/audio', () => ({
   playMoveSound: vi.fn(),
   playCaptureSound: vi.fn(),
@@ -73,38 +73,55 @@ describe('CompletionScreen', () => {
     expect(playSuccessChime).not.toHaveBeenCalled();
   });
 
-  it('fires confetti after confirm, not again on a repeat click; chime respects soundEnabled', () => {
+  it('fires exactly 1 confetti call on confirm and 3 after the 220 ms follow-up; chime respects soundEnabled', () => {
     vi.useFakeTimers();
     load(['R', 'U'], 12400);
     render(<CompletionScreen />);
     confirm();
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    const n = vi.mocked(confetti).mock.calls.length;
-    expect(n).toBeGreaterThan(0);
+    expect(confetti).toHaveBeenCalledTimes(1);
     expect(playSuccessChime).toHaveBeenCalledTimes(1);
     expect(playSuccessChime).toHaveBeenCalledWith(true);
-    // the confirm button is gone, so a repeat click is impossible
-    expect(screen.queryByRole('button', { name: /My Cube Is Solved/ })).toBeNull();
     act(() => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(220);
     });
-    expect(vi.mocked(confetti).mock.calls.length).toBe(n);
+    expect(confetti).toHaveBeenCalledTimes(3);
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(confetti).toHaveBeenCalledTimes(3);
     expect(playSuccessChime).toHaveBeenCalledTimes(1);
   });
 
-  it('a repeat confirm click cannot fire a second burst', () => {
+  it('a second confirm attempt in the same batch (stale button) fires nothing more', () => {
     vi.useFakeTimers();
     load(['R'], 5000);
     render(<CompletionScreen />);
     const btn = screen.getByRole('button', { name: /My Cube Is Solved/ });
-    fireEvent.click(btn);
-    fireEvent.click(btn);
+    act(() => {
+      btn.click();
+      btn.click();
+    });
+    expect(confetti).toHaveBeenCalledTimes(1);
+    expect(playSuccessChime).toHaveBeenCalledTimes(1);
+    act(() => {
+      vi.advanceTimersByTime(220);
+    });
+    expect(confetti).toHaveBeenCalledTimes(3);
+    expect(playSuccessChime).toHaveBeenCalledTimes(1);
+  });
+
+  it('unmounting before 220 ms cancels the follow-up bursts and resets confetti', () => {
+    vi.useFakeTimers();
+    load(['R'], 5000);
+    const { unmount } = render(<CompletionScreen />);
+    confirm();
+    expect(confetti).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(confetti.reset).toHaveBeenCalled();
     act(() => {
       vi.advanceTimersByTime(1000);
     });
-    expect(playSuccessChime).toHaveBeenCalledTimes(1);
+    expect(confetti).toHaveBeenCalledTimes(1);
   });
 
   it('respects soundEnabled=false', () => {
@@ -150,7 +167,7 @@ describe('CompletionScreen', () => {
   });
 
   it('shows an em dash when guidance is null', () => {
-    load([], null);
+    load(['R'], null);
     render(<CompletionScreen />);
     expect(screen.getByText('—')).toBeTruthy();
   });
@@ -182,5 +199,38 @@ describe('CompletionScreen', () => {
     render(<CompletionScreen />);
     expect(screen.getByText(/No solution available/)).toBeTruthy();
     expect(cube.props).toBeNull();
+  });
+
+  it('0 moves: already-solved copy, no claim that guidance ran', () => {
+    load([], null);
+    render(<CompletionScreen />);
+    expect(screen.getByText('Already solved')).toBeTruthy();
+    expect(screen.getByText('Your cube was already solved — no moves needed')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/completed the guidance|Guidance Complete|100%/i);
+    expect(screen.getByText('Total Moves').nextSibling?.textContent).toBe('0');
+    expect(screen.getByText('Guidance Time').parentElement?.textContent).toMatch(/—$/);
+  });
+
+  it('confirmation message is a status region and focus moves to the heading', () => {
+    load(['R', 'U'], 5000);
+    render(<CompletionScreen />);
+    confirm();
+    expect(screen.getByRole('status').textContent).toMatch(/You confirmed all 54 stickers/);
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1.getAttribute('tabindex')).toBe('-1');
+    expect(document.activeElement).toBe(h1);
+  });
+
+  it('Guidance Time has a screen-reader disclaimer beside it', () => {
+    load(['R'], 5000);
+    render(<CompletionScreen />);
+    const sr = screen.getByText(/Time the on-screen guidance ran, not the time to solve a physical cube/);
+    expect(sr.className).toMatch(/sr-only/);
+  });
+
+  it('rounds playbackMs to whole seconds (59.5 s shows 1:00)', () => {
+    load(['R'], 59500);
+    render(<CompletionScreen />);
+    expect(screen.getByText('1:00')).toBeTruthy();
   });
 });

@@ -59,6 +59,11 @@ function AlignmentSession({ solution }: { solution: SolutionData }) {
   const frontMeta = COLOR_META[frontColor];
   const rightMeta = COLOR_META[rightColor];
 
+  const finish = () => {
+    setGuidance(null); // no guidance ran: Completion shows "—"
+    setScreen('completion');
+  };
+
   const start = () => {
     setGuidance(null);
     setScreen('solving');
@@ -119,7 +124,7 @@ function AlignmentSession({ solution }: { solution: SolutionData }) {
               <RubiksCube3D
                 cubies={cubies}
                 mode="interactive"
-                cameraPosition={[4.3, 3.3, 4.9]}
+                cameraPosition={[5.16, 3.96, 5.88]}
                 className="w-full h-full"
               />
 
@@ -256,16 +261,18 @@ function AlignmentSession({ solution }: { solution: SolutionData }) {
                 </>
               )}
 
+              {!alreadySolved && (
               <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 text-xs text-zinc-400">
                 <CameraOff className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
                 <span>Camera stays off while solving. Pause or adjust speed anytime.</span>
               </div>
+              )}
 
               {alreadySolved ? (
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-zinc-200">Your cube is already solved</p>
                   <p className="text-xs text-zinc-400">There are no moves to perform.</p>
-                  <Button size="lg" className="w-full" onClick={() => setScreen('completion')}>
+                  <Button size="lg" className="w-full" onClick={finish}>
                     Finish
                   </Button>
                 </div>

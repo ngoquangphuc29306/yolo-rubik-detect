@@ -51,7 +51,13 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
     set((s) => ({ mode, screen, sessionId: s.sessionId + 1, guidance: null }));
   },
   setScreen: (screen) => set({ screen }),
-  setGuidance: (playbackMs) => set({ guidance: playbackMs === null ? null : { playbackMs } }),
+  setGuidance: (playbackMs) =>
+    set((s) => {
+      if (playbackMs === null) return { guidance: null };
+      // Reject NaN, +/-Infinity and negatives: keep the previous value.
+      if (!Number.isFinite(playbackMs) || playbackMs < 0) return s;
+      return { guidance: { playbackMs } };
+    }),
   setDelayMs: (ms) =>
     set((s) => {
       if (!Number.isFinite(ms)) return s;
