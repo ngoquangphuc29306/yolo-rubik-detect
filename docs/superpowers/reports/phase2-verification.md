@@ -137,4 +137,25 @@ Live client check (backend and `npm run dev` running, from `frontend/`): set `RU
 
 ## 8. Final gate (Task 11)
 
-NOT RUN. Task 11 fills this section: full backend and frontend suites, the slow check, live client integration, port cleanup and the whole-branch review.
+Run by the controller on 2026-11-23 at HEAD `47d7c88` (branch `feat/phase-2-backend`). Every result below comes from a command run in this gate.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Backend lockfile | `uv sync --locked` (from `backend/`) | PASS: exit 0, 36 packages checked |
+| Backend tests incl. slow | `uv run pytest -m "slow or not slow"` | PASS: 154 passed in 26.40 s (153 regular + the 300-state slow cross-check) |
+| Backend lint | `uv run ruff check .` | PASS: "All checks passed!" |
+| Backend types | `uv run mypy app` | PASS: "no issues found in 19 source files" (strict) |
+| Frontend clean install | `npm ci` (from `frontend/`) | PASS: exit 0, 0 vulnerabilities |
+| Frontend strict TS | `npm run lint` | PASS: exit 0 |
+| Frontend tests | `npm run test` | PASS: 39 files, 806 passed, 4 skipped (the live block without `RUBIK_LIVE_BASE_URL`), exit 0 |
+| Frontend build | `npm run build` | PASS: 2278 modules, exit 0 (known chunk-size warning only) |
+| Live client integration | backend `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` + `npm run dev`; `RUBIK_LIVE_BASE_URL=http://127.0.0.1:5173 npx vitest run tests/crosscheck/backend-solutions.test.ts` | PASS: 47 passed (47), 0 skipped; `/health` through the proxy returned the Phase 2 body |
+| Server cleanup | servers stopped by PID (process trees) | PASS: ports 8000 and 5173 closed |
+| Scope | `git diff --stat main..HEAD` over `frontend/src`, `frontend/package*.json`, existing `fixtures/solve` and `fixtures/health` files | PASS: no changes |
+| Artifacts | `git ls-files backend` for solver cache, `.npz`, `.venv` | PASS: none tracked |
+| Git | `git status --short`; `git remote -v`; `git log --oneline main..HEAD` | PASS: only the user's `.claude/` and `skills-lock.json` untracked; no remotes; 11 commits `dac19a9..47d7c88` on the branch; nothing merged or pushed |
+| Whole-branch review | independent reviewer over `cae4df6..47d7c88` | PASS: Critical 0, Important 0, 5 Minor (all optional, listed below); verdict "ready to merge" |
+
+Whole-branch review minors (not fixed, recorded as follow-ups): `_import_library()` (with `warnings.catch_warnings`) is called before the adapter lock in `cube_solver_adapter.py`; `faces_from_state` raises a bare `KeyError` on a bad character (tests/recorder only); `.gitignore` lacks a blank line before `# Backend`; no request-body size cap (loopback only; Phase 3 owns frame limits); `/health` hard-codes `solverReady=true`, correct while startup fails without tables.
+
+**Gate verdict: PASS.** Not verified (out of scope or impossible here): vision and YOLO inference, WebSocket scanning, and any physical-cube solve. Phase 2 stops here for the user's approval; nothing is merged, and Phase 3 has not started.
