@@ -3,6 +3,7 @@ name = "backend"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "cube-solver==1.1.4",
     "fastapi>=0.165.0",
     "pydantic>=2.14.4",
     "uvicorn>=0.54.0",
@@ -27,3 +28,7 @@ dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.6",
 ]
+
+[[tool.mypy.overrides]]
+module = ["cube_solver", "cube_solver.*"]
+ignore_missing_imports = true
