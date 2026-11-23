@@ -105,7 +105,14 @@ export function useLiveScan(options: UseLiveScanOptions): UseLiveScanResult {
         timers.add(id);
       });
     const clock = () => (optsRef.current.now ?? (() => performance.now()))();
-    const transport = optsRef.current.createTransport();
+    let transport: ScanTransport;
+    try {
+      transport = optsRef.current.createTransport();
+    } catch {
+      setConnection('error');
+      setErrorMessage('The live scan could not start. Try again.');
+      return;
+    }
     setConnection('connecting');
     setErrorMessage(null);
 
@@ -190,7 +197,7 @@ export function useLiveScan(options: UseLiveScanOptions): UseLiveScanResult {
         if (cancelled) return;
         if (r.ok) {
           frameErrors = 0;
-          setLastResult(r.result);
+          if (epoch === stateRef.current!.epoch) setLastResult(r.result); // a superseded frame never reaches the overlay
           dispatch({ type: 'RESULT', epoch, result: r.result, at: clock() });
           handleCapture();
         } else if (r.error.kind === 'api' && FRAME_ERROR_CODES.includes(r.error.code)) {
@@ -205,7 +212,12 @@ export function useLiveScan(options: UseLiveScanOptions): UseLiveScanResult {
         }
       }
     };
-    void run();
+    // A throwing grabFrame is deliberately treated as "no frame" (null blob); anything else is fatal.
+    run().catch((e: unknown) => {
+      if (cancelled) return;
+      console.warn('useLiveScan stopped:', e instanceof Error ? e.name : 'Error'); // name only: never frame data
+      stop('The live scan stopped unexpectedly. Try again.');
+    });
 
     return () => {
       cancelled = true;

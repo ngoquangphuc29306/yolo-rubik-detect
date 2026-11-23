@@ -218,7 +218,7 @@ describe('useLiveScan loop', () => {
     await advance(400);
     expect(t.sends).toHaveLength(2);
     expect(t.sendTimes[1]! - start).toBeGreaterThanOrEqual(300);
-    expect(Math.max(...[0, 1].map((i) => t.sends.slice(0, i + 1).filter((s) => !s.settled).length))).toBeLessThanOrEqual(1);
+    expect(t.inFlight).toBe(1); // the second send is the only one pending
   });
 
   it('stable valid results call onCapture exactly once with the face and grid, then rotate', async () => {
@@ -250,10 +250,12 @@ describe('useLiveScan loop', () => {
 
   it('test_capture_failure_keeps_stage (onCapture returns false)', async () => {
     const results = [false, true];
-    const { result, onCapture } = setup({ onCapture: vi.fn(() => results.shift() ?? true) });
+    const cap = vi.fn(() => results.shift() ?? true);
+    const { result } = setup({ onCapture: cap });
     await advance(10);
     const t = transports[0]!;
     await stableFace(t, 'F');
+    expect(cap).toHaveBeenCalledTimes(1);
     const s = result.current.state;
     expect(s.stage).toBe('F');
     expect(s.phase).toBe('aligning');
@@ -264,7 +266,7 @@ describe('useLiveScan loop', () => {
     await stableFace(t, 'F');
     expect(result.current.state.phase).toBe('rotating');
     expect(result.current.state.capturedCenters.F).toBe('green');
-    expect(onCapture).not.toBeUndefined();
+    expect(cap).toHaveBeenCalledTimes(2);
   });
 
   it('test_capture_failure_keeps_stage (onCapture throws)', async () => {
@@ -299,6 +301,82 @@ describe('useLiveScan loop', () => {
     await act(async () => { t.sends[0]!.resolve(good('F')); await vi.advanceTimersByTimeAsync(0); });
     expect(result.current.state.streak).toBeNull();
     expect(result.current.state.phase).toBe('aligning');
+    expect(result.current.lastResult).toBeNull(); // a stale frame never reaches the overlay
+  });
+
+  it('a stale result does not undo reset() clearing lastResult', async () => {
+    const { result } = setup();
+    await advance(10);
+    const t = transports[0]!;
+    await answer(t, good('F'));
+    expect(result.current.lastResult).not.toBeNull();
+    await advance(300);
+    expect(t.inFlight).toBe(1);
+    act(() => result.current.reset());
+    expect(result.current.lastResult).toBeNull();
+    await act(async () => { t.sends[1]!.resolve(good('F')); await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.lastResult).toBeNull();
+  });
+
+  it('a slow send (longer than minIntervalMs) lets the next send start immediately', async () => {
+    setup({ minIntervalMs: 300 });
+    await advance(10);
+    const t = transports[0]!;
+    await advance(1000);
+    expect(t.sends).toHaveLength(1);
+    await act(async () => { t.sends[0]!.resolve(good('F')); await vi.advanceTimersByTimeAsync(0); });
+    expect(t.sends).toHaveLength(2);
+  });
+
+  it('disable then re-enable while rotating resumes the pause', async () => {
+    const { result, rerender, props } = setup();
+    await advance(10);
+    await stableFace(transports[0]!, 'F');
+    expect(result.current.state.phase).toBe('rotating');
+    rerender({ ...props, enabled: false });
+    await advance(ROTATION_MS * 2);
+    expect(result.current.state.phase).toBe('rotating'); // timer was cleared with the connection
+    rerender({ ...props, enabled: true });
+    await advance(ROTATION_MS + 50);
+    expect(result.current.state.phase).toBe('aligning');
+    expect(transports[1]!.sends.length).toBeGreaterThan(0);
+  });
+
+  it('an unexpected throw in the loop ends in error with a closed transport', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let thrown = false;
+    const { result } = setup({
+      now: () => {
+        if (!thrown) {
+          thrown = true;
+          throw new TypeError('boom');
+        }
+        return Date.now();
+      },
+    });
+    await advance(300);
+    expect(thrown).toBe(true);
+    expect(result.current.connection).toBe('error');
+    expect(result.current.errorMessage).toBe('The live scan stopped unexpectedly. Try again.');
+    expect(transports[0]!.closed).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(warn.mock.calls)).toContain('TypeError');
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('boom');
+    const sent = transports[0]!.sends.length;
+    await advance(2000);
+    expect(transports[0]!.sends).toHaveLength(sent);
+    warn.mockRestore();
+  });
+
+  it('createTransport throwing ends in error instead of crashing the tree', async () => {
+    const { result } = setup({
+      createTransport: () => {
+        throw new Error('nope');
+      },
+    });
+    await advance(100);
+    expect(result.current.connection).toBe('error');
+    expect(result.current.errorMessage).toBe('The live scan could not start. Try again.');
   });
 
   it('rescan and reset clear a pending rotation timer', async () => {
@@ -306,12 +384,19 @@ describe('useLiveScan loop', () => {
     await advance(10);
     await stableFace(transports[0]!, 'F');
     expect(result.current.state.phase).toBe('rotating');
+    const withRotation = vi.getTimerCount();
     act(() => result.current.rescan('F', 'green'));
+    expect(vi.getTimerCount()).toBe(withRotation - 1); // the rotation timer is gone
     expect(result.current.state.phase).toBe('aligning');
     const epoch = result.current.state.epoch;
     await advance(ROTATION_MS + 50);
     expect(result.current.state.epoch).toBe(epoch); // no ROTATION_DONE fired
+    await stableFace(transports[0]!, 'F');
+    await answer(transports[0]!, good('F')); // the first answer after rescan was the dropped in-flight frame
+    expect(result.current.state.phase).toBe('rotating');
+    const withRotation2 = vi.getTimerCount();
     act(() => result.current.reset());
+    expect(vi.getTimerCount()).toBe(withRotation2 - 1);
     expect(result.current.state.capturedCenters).toEqual({});
     expect(result.current.lastResult).toBeNull();
   });
