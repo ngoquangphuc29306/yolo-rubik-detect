@@ -35,7 +35,7 @@ export function RotationCue({ guide, nextFace }: RotationCueProps) {
       <div className="space-y-1.5 min-w-0">
         <p className="text-[11px] uppercase tracking-wider text-emerald-400">Rotate the whole cube</p>
         <p className="font-display font-semibold text-base">{guide.rotationHint}</p>
-        <p className="text-sm text-zinc-300">{guide.instruction}</p>
+        {!guide.steps && <p className="text-sm text-zinc-300">{guide.instruction}</p>}
         {guide.steps && (
           <ol className="list-decimal pl-5 text-sm text-zinc-200 space-y-0.5">
             <li>{guide.steps[0]}</li>

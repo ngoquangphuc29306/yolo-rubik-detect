@@ -15,7 +15,6 @@ describe('RotationCue', () => {
     const cue = screen.getByRole('status');
     expect(cue.textContent).toContain('Rotate the whole cube');
     expect(cue.textContent).toContain(g.rotationHint);
-    expect(cue.textContent).toContain(g.instruction);
     expect(cue.textContent).toContain('Follow the diagram — the app checks colours, not how you hold the cube.');
     expect(cue.textContent).not.toMatch(/verified|detects? (your )?orientation/i);
     const arrow = screen.getByTestId('rotation-arrow');
@@ -23,17 +22,21 @@ describe('RotationCue', () => {
     expect(arrow.className).toMatch(/motion-reduce:animate-none/);
     const items = screen.queryAllByRole('listitem');
     if (face === 'U' || face === 'D') {
+      expect(cue.textContent).not.toContain(g.instruction);
       expect(items).toHaveLength(2);
       expect(items[0]!.textContent).toBe(g.steps![0]);
       expect(items[1]!.textContent).toBe(g.steps![1]);
       expect(items[0]!.textContent).toMatch(/green face looks at the camera/);
     } else {
+      expect(cue.textContent).toContain(g.instruction);
       expect(items).toHaveLength(0);
     }
   });
 
   it('none direction shows a hold steady pulse', () => {
     render(<RotationCue guide={scanGuide('F', KNOWN)} nextFace="F" />);
-    expect(screen.getByTestId('rotation-arrow').getAttribute('data-direction')).toBe('none');
+    const arrow = screen.getByTestId('rotation-arrow');
+    expect(arrow.getAttribute('data-direction')).toBe('none');
+    expect(arrow.className).toMatch(/animate-arrow-pulse/);
   });
 });

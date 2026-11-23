@@ -35,6 +35,7 @@ describe('scanGuide', () => {
     });
   });
 
+  // U and D entries were updated deliberately in Phase 3 (design 13.7); the rest is the frozen legacy text.
   it.each(SCAN_FACE_ORDER)('all six known: %s equals the frozen legacy FACE_META text', (stage) => {
     const g = scanGuide(stage, ALL);
     const m = legacyScanGuide.faces[stage];

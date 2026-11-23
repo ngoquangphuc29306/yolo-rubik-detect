@@ -1,6 +1,6 @@
 // Pure presentational 3x3 scanning guide: props in, markup out. No timers, no store, no claims of verification.
 import { Check } from 'lucide-react';
-import { COLOR_META } from '@/lib/colors';
+import { COLOR_META, colorNameToCode } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 import type { LivePhase } from '@/lib/live-scan-machine';
 import type { FrameCell } from '@/types/api';
@@ -32,6 +32,7 @@ function rgba(hex: string, alpha: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
+const LETTER = 'text-[11px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]';
 const EMPTY: FrameCell = { color: null, confidence: null, status: 'missing' };
 
 export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, capturedGrid }: LiveScanGuideProps) {
@@ -61,11 +62,12 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
       <div
         data-testid="guide-square"
         className={cn(
-          'absolute grid grid-cols-3 grid-rows-3 gap-px rounded-lg border-2 p-px',
+          'absolute rounded-lg border-2 p-px shadow-[0_0_0_1px_rgba(0,0,0,0.6)]',
           full ? 'border-emerald-400' : 'border-white/70',
         )}
         style={{ left: square.x, top: square.y, width: square.w, height: square.h }}
       >
+       <div role="group" aria-label="Scan grid, 3 by 3" className="w-full h-full grid grid-cols-3 grid-rows-3 gap-px">
         {Array.from({ length: 9 }, (_, i) => {
           const label = `Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}`;
           const solidColor = solid?.[i];
@@ -79,6 +81,9 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
                 style={{ backgroundColor: COLOR_META[solidColor].hex }}
               >
                 <Check data-check aria-hidden="true" className="w-4 h-4 text-white drop-shadow" />
+                <span aria-hidden="true" className={LETTER}>
+                  {colorNameToCode(solidColor)}
+                </span>
               </div>
             );
           }
@@ -89,9 +94,13 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
                 key={i}
                 role="img"
                 aria-label={`${label}: ${cell.color}`}
-                className="border border-white/60"
+                className="flex items-center justify-center border border-white/60"
                 style={{ backgroundColor: rgba(COLOR_META[cell.color].hex, 0.75) }}
-              />
+              >
+                <span aria-hidden="true" className={LETTER}>
+                  {colorNameToCode(cell.color)}
+                </span>
+              </div>
             );
           }
           if (cell.status === 'ambiguous') {
@@ -100,21 +109,33 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
                 key={i}
                 role="img"
                 aria-label={`${label}: unclear`}
-                className="flex items-center justify-center border-2 border-amber-400 text-amber-300 font-bold text-lg"
+                className="flex items-center justify-center border-2 border-amber-400 bg-black/50 text-amber-300 font-bold text-lg"
               >
-                ?
+                <span aria-hidden="true" className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">?</span>
               </div>
             );
           }
           if (cell.status === 'misaligned') {
             return (
-              <div key={i} role="img" aria-label={`${label}: out of position`} className="border-2 border-amber-400" />
+              <div
+                key={i}
+                role="img"
+                aria-label={`${label}: out of position`}
+                className="flex items-center justify-center border-2 border-amber-400 bg-black/30"
+              >
+                {cell.color && (
+                  <span aria-hidden="true" className={LETTER}>
+                    {colorNameToCode(cell.color)}
+                  </span>
+                )}
+              </div>
             );
           }
           return (
-            <div key={i} role="img" aria-label={`${label}: not detected`} className="border border-dashed border-white/40" />
+            <div key={i} role="img" aria-label={`${label}: not detected`} className="border border-dashed border-white/60 shadow-[0_0_0_1px_rgba(0,0,0,0.5)]" />
           );
         })}
+       </div>
       </div>
 
       <div
@@ -132,7 +153,7 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
           <div className="h-full bg-emerald-400 transition-[width] duration-150" style={{ width: `${pct}%` }} />
         </div>
         {hint && (
-          <p role="status" aria-live="polite" className="text-xs text-amber-300 text-center">
+          <p role="status" aria-live="polite" className="text-xs text-amber-300 text-center bg-black/60 rounded px-2 py-0.5">
             {hint}
           </p>
         )}

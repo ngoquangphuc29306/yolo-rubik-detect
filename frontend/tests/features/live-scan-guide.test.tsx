@@ -48,11 +48,29 @@ describe('LiveScanGuide', () => {
   it('fills ok cells with the colour hex, shows ? for ambiguous', () => {
     r();
     const cell = screen.getByRole('img', { name: 'Row 1, column 1: green' });
-    expect(cell.getAttribute('style')).toMatch(/22, 163, 74|#16a34a/i);
     expect(COLOR_META.green.hex).toBe('#16A34A');
+    expect(cell.style.backgroundColor).toBe('rgba(22, 163, 74, 0.75)');
+    expect(cell.textContent).toBe('G');
+    expect(cell.querySelector('[aria-hidden="true"]')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Row 2, column 3: out of position' }).textContent).toBe('R');
     expect(screen.getByRole('img', { name: 'Row 2, column 1: unclear' }).textContent).toContain('?');
     expect(screen.getByRole('img', { name: 'Row 1, column 3: not detected' }).className).toMatch(/border-dashed/);
     expect(screen.getByRole('img', { name: 'Row 2, column 1: unclear' }).className).toMatch(/border-amber/);
+  });
+
+  it('groups the nine cells', () => {
+    r();
+    const g = screen.getByRole('group', { name: 'Scan grid, 3 by 3' });
+    expect(within(g).getAllByRole('img')).toHaveLength(9);
+  });
+
+  it('backs overlay text and shows letters on captured cells', () => {
+    r({ hint: 'Hold the cube steadier' });
+    expect(screen.getByRole('status').className).toMatch(/bg-black\/60/);
+    cleanup();
+    const grid = Array(9).fill('white') as LiveScanGuideProps['capturedGrid'];
+    r({ phase: 'rotating', capturedGrid: grid });
+    expect(screen.getByRole('img', { name: 'Row 1, column 1: white' }).textContent).toBe('W');
   });
 
   it('null cells give nine not detected', () => {
@@ -92,9 +110,11 @@ describe('LiveScanGuide', () => {
     expect(container.textContent).not.toMatch(/88|0\.8/);
   });
 
-  it('never claims verification', () => {
-    const { container } = r({ hint: 'Hold the cube steadier' });
-    expect(container.textContent).not.toMatch(/verified|orientation/i);
-    expect(within(container).queryByText(/verified/i)).toBeNull();
+  it('never claims verification in any phase', () => {
+    for (const phase of ['aligning', 'stabilizing', 'captured', 'rotating', 'done'] as const) {
+      const { container } = r({ phase, hint: 'Hold the cube steadier', capturedGrid: Array(9).fill('green') as LiveScanGuideProps['capturedGrid'] });
+      expect(container.textContent).not.toMatch(/verified|orientation/i);
+      cleanup();
+    }
   });
 });
