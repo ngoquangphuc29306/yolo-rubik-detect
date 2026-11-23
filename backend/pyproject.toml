@@ -6,14 +6,20 @@ dependencies = [
     "cube-solver==1.1.4",
     "fastapi>=0.165.0",
     "pydantic>=2.14.4",
+    "torch==2.14.1",
+    "torchvision>=0.29.2",
+    "ultralytics==8.4.216",
     "uvicorn>=0.54.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-markers = ["slow: hundreds of real solves"]
-addopts = "-m 'not slow'"
+markers = [
+    "slow: hundreds of real solves",
+    "model: real YOLO checkpoint; run explicitly with -m model",
+]
+addopts = "-m 'not slow and not model'"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 
 [tool.mypy]
@@ -33,3 +39,16 @@ dev = [
 [[tool.mypy.overrides]]
 module = ["cube_solver", "cube_solver.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["ultralytics", "ultralytics.*", "cv2", "cv2.*"]
+ignore_missing_imports = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }

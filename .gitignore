@@ -48,3 +48,10 @@ backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.ruff_cache/
 backend/.solver-cache/
+
+# Phase 3 training artifacts (notebooks stay tracked)
+training/datasets/
+training/runs/
+training/exports/
+training/*.zip
+backend/.ultralytics/
