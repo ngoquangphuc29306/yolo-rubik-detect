@@ -89,6 +89,7 @@ export function useLiveScan(options: UseLiveScanOptions): UseLiveScanResult {
 
   useEffect(() => {
     if (!enabled || !video) {
+      dispatch({ type: 'CLEAR_STREAK' });
       setConnection('idle');
       setLastResult(null);
       setErrorMessage(null);
@@ -105,6 +106,9 @@ export function useLiveScan(options: UseLiveScanOptions): UseLiveScanResult {
         timers.add(id);
       });
     const clock = () => (optsRef.current.now ?? (() => performance.now()))();
+    // A new connection attempt never inherits the overlay or the stability progress of the previous one.
+    dispatch({ type: 'CLEAR_STREAK' });
+    setLastResult(null);
     let transport: ScanTransport;
     try {
       transport = optsRef.current.createTransport();
@@ -119,6 +123,8 @@ export function useLiveScan(options: UseLiveScanOptions): UseLiveScanResult {
     const stop = (message: string) => {
       if (cancelled) return;
       cancelled = true;
+      dispatch({ type: 'CLEAR_STREAK' });
+      setLastResult(null);
       setConnection('error');
       setErrorMessage(message);
       transport.close();

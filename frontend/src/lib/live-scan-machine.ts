@@ -29,6 +29,8 @@ export type LiveScanEvent =
   | { type: 'CAPTURE_STORED'; epoch: number }
   | { type: 'CAPTURE_FAILED'; epoch: number }
   | { type: 'ROTATION_DONE'; epoch: number }
+  /** The result stream was interrupted (error, reconnect, disable): forget stability progress. No epoch bump. */
+  | { type: 'CLEAR_STREAK' }
   | { type: 'RESCAN'; face: FaceId; previousCenter: ColorName }
   | { type: 'RESET'; centers?: Centers };
 
@@ -159,6 +161,10 @@ export function liveScanReducer(state: LiveScanState, event: LiveScanEvent): Liv
     case 'ROTATION_DONE':
       if (event.epoch !== state.epoch || state.phase !== 'rotating') return state;
       return { ...state, phase: 'aligning', hint: null, gateRejected: null, epoch: state.epoch + 1 };
+    case 'CLEAR_STREAK':
+      // Rotation timers and a pending capture must be unaffected.
+      if (state.phase !== 'aligning' && state.phase !== 'stabilizing') return state;
+      return { ...state, phase: 'aligning', streak: null, hint: null, gateRejected: null };
     case 'RESCAN': {
       const rest: Centers = { ...state.capturedCenters };
       delete rest[event.face];

@@ -339,3 +339,59 @@ describe('hintForReason', () => {
     expect(hintForReason('WHAT')).toBe('Hold the face steady inside the square.');
   });
 });
+
+describe('CLEAR_STREAK', () => {
+  const clear = (s: LiveScanState) => liveScanReducer(s, { type: 'CLEAR_STREAK' } as LiveScanEvent);
+
+  it('clears streak, hint and gate latch while stabilizing; keeps stage, epoch and centres', () => {
+    let s = initialLiveScanState({ F: 'green' }); // stage R
+    s = R(s, mk('red'), 0);
+    s = R(s, mk('red'), 10);
+    expect(s.phase).toBe('stabilizing');
+    expect(s.streak?.count).toBe(2);
+    const c = clear(s);
+    expect(c.streak).toBeNull();
+    expect(c.phase).toBe('aligning');
+    expect(c.hint).toBeNull();
+    expect(c.gateRejected).toBeNull();
+    expect(c.stage).toBe('R');
+    expect(c.epoch).toBe(s.epoch);
+    expect(c.capturedCenters).toEqual({ F: 'green' });
+  });
+
+  it('clears a latched gate rejection and its hint', () => {
+    let s = initialLiveScanState();
+    s = stabilize(s, mk('red')); // stage F needs green: gate rejects
+    expect(s.gateRejected).toBe('red');
+    expect(s.hint).not.toBeNull();
+    const c = clear(s);
+    expect(c.gateRejected).toBeNull();
+    expect(c.hint).toBeNull();
+    expect(c.phase).toBe('aligning');
+  });
+
+  it('after CLEAR_STREAK one fresh valid result does not capture; 5 results over 1000 ms do again', () => {
+    let s = initialLiveScanState();
+    s = R(s, mk('green'), 0);
+    s = R(s, mk('green'), 10);
+    s = clear(s);
+    s = R(s, mk('green'), 5000); // stale `since` would have allowed an instant capture
+    expect(s.phase).toBe('stabilizing');
+    expect(s.pendingCapture).toBeNull();
+    expect(s.streak?.count).toBe(1);
+    s = stabilize(clear(s), mk('green'), 6000);
+    expect(s.phase).toBe('captured');
+  });
+
+  it('leaves captured, rotating and done untouched (no epoch bump, pendingCapture kept)', () => {
+    const captured = stabilize(initialLiveScanState(), mk('green'));
+    expect(captured.phase).toBe('captured');
+    expect(clear(captured)).toEqual(captured);
+    const rotating = store(captured);
+    expect(rotating.phase).toBe('rotating');
+    expect(clear(rotating)).toEqual(rotating);
+    const done = initialLiveScanState(ALL);
+    expect(done.phase).toBe('done');
+    expect(clear(done)).toEqual(done);
+  });
+});

@@ -98,7 +98,7 @@ afterEach(() => {
 });
 
 describe('complete live scan of a real solvable cube', () => {
-  it('captures F,R,B,L,U,D, hands off, solves through the real binding, supports a one-face rescan', async () => {
+  it('captures F,R,B,L,U,D with exact grids and hands off to reconstruction', async () => {
     useSessionStore.getState().startSession('live', 'scanning');
     const order: Array<{ face: FaceId; source: string; grid: ColorName[] }> = [];
     const unsubCapture = useScanStore.subscribe((s, p) => {
@@ -131,6 +131,7 @@ describe('complete live scan of a real solvable cube', () => {
     await advance(1300);
     expect(useSessionStore.getState().screen).toBe('reconstructing');
     expect(screens).toEqual(['reconstructing']);
+    expect(h.urls.length).toBeGreaterThan(0); // positive control: live mode does open a transport
     scan.unmount();
 
     // (d) the REAL Reconstruction -> runSolve -> bindSolveResponse path accepts the live-captured grids

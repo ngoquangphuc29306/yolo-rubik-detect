@@ -368,6 +368,41 @@ describe('useLiveScan loop', () => {
     warn.mockRestore();
   });
 
+  it('an error clears the overlay result and the stability streak; retry() needs a fresh full streak', async () => {
+    const { result, onCapture } = setup();
+    await advance(10);
+    const t = transports[0]!;
+    for (let i = 0; i < 4; i++) await answer(t, good('F'));
+    expect(result.current.state.streak?.count).toBe(4);
+    expect(result.current.lastResult).not.toBeNull();
+    await answer(t, { ok: false, error: clientError('NETWORK', 'dropped', true) });
+    expect(result.current.connection).toBe('error');
+    expect(result.current.lastResult).toBeNull();
+    expect(result.current.state.streak).toBeNull();
+    act(() => result.current.retry());
+    await advance(10);
+    await answer(transports[1]!, good('F'));
+    expect(onCapture).not.toHaveBeenCalled();
+    expect(result.current.state.streak?.count).toBe(1);
+    expect(result.current.state.phase).toBe('stabilizing');
+  });
+
+  it('a stale streak is not reused after disable then re-enable', async () => {
+    const { result, rerender, props, onCapture } = setup();
+    await advance(10);
+    for (let i = 0; i < 4; i++) await answer(transports[0]!, good('F'));
+    expect(result.current.state.streak?.count).toBe(4);
+    rerender({ ...props, enabled: false });
+    await advance(10);
+    expect(result.current.lastResult).toBeNull();
+    rerender({ ...props, enabled: true });
+    await advance(10);
+    expect(result.current.state.streak).toBeNull();
+    await answer(transports[1]!, good('F'));
+    expect(onCapture).not.toHaveBeenCalled();
+    expect(result.current.state.streak?.count).toBe(1);
+  });
+
   it('createTransport throwing ends in error instead of crashing the tree', async () => {
     const { result } = setup({
       createTransport: () => {
