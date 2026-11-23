@@ -1,0 +1,542 @@
+{
+  "schema": "ws-messages/1",
+  "generatedBy": "backend/tests/crosscheck/record_ws_messages.py",
+  "messages": [
+    {
+      "id": "ready",
+      "message": {
+        "type": "ready",
+        "schemaVersion": 1,
+        "scanId": "fixture-scan",
+        "modelVersion": "fixture-double@0",
+        "imgsz": 640,
+        "maxFrameBytes": 1048576,
+        "maxFrameEdge": 1280
+      }
+    },
+    {
+      "id": "frame_result_valid",
+      "message": {
+        "type": "frame_result",
+        "schemaVersion": 1,
+        "scanId": "fixture-scan",
+        "frameSeq": 1,
+        "width": 192,
+        "height": 192,
+        "detections": [
+          {
+            "classId": 0,
+            "color": "white",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              12.0,
+              52.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 1,
+            "color": "yellow",
+            "confidence": 0.9,
+            "xyxy": [
+              76.0,
+              12.0,
+              116.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 2,
+            "color": "red",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              12.0,
+              180.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 3,
+            "color": "orange",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              76.0,
+              52.0,
+              116.0
+            ]
+          },
+          {
+            "classId": 4,
+            "color": "blue",
+            "confidence": 0.9,
+            "xyxy": [
+              76.0,
+              76.0,
+              116.0,
+              116.0
+            ]
+          },
+          {
+            "classId": 5,
+            "color": "green",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              76.0,
+              180.0,
+              116.0
+            ]
+          },
+          {
+            "classId": 0,
+            "color": "white",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              140.0,
+              52.0,
+              180.0
+            ]
+          },
+          {
+            "classId": 1,
+            "color": "red",
+            "confidence": 0.9,
+            "xyxy": [
+              76.0,
+              140.0,
+              116.0,
+              180.0
+            ]
+          },
+          {
+            "classId": 2,
+            "color": "blue",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              140.0,
+              180.0,
+              180.0
+            ]
+          }
+        ],
+        "cells": [
+          {
+            "color": "white",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "yellow",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "red",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "orange",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "blue",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "green",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "white",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "red",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "blue",
+            "confidence": 0.9,
+            "status": "ok"
+          }
+        ],
+        "grid": [
+          "white",
+          "yellow",
+          "red",
+          "orange",
+          "blue",
+          "green",
+          "white",
+          "red",
+          "blue"
+        ],
+        "quality": {
+          "valid": true
+        },
+        "inferenceMs": 0
+      }
+    },
+    {
+      "id": "frame_result_missing_cell",
+      "message": {
+        "type": "frame_result",
+        "schemaVersion": 1,
+        "scanId": "fixture-scan",
+        "frameSeq": 2,
+        "width": 192,
+        "height": 192,
+        "detections": [
+          {
+            "classId": 0,
+            "color": "white",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              12.0,
+              52.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 1,
+            "color": "yellow",
+            "confidence": 0.9,
+            "xyxy": [
+              76.0,
+              12.0,
+              116.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 2,
+            "color": "red",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              12.0,
+              180.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 3,
+            "color": "orange",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              76.0,
+              52.0,
+              116.0
+            ]
+          },
+          {
+            "classId": 5,
+            "color": "green",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              76.0,
+              180.0,
+              116.0
+            ]
+          },
+          {
+            "classId": 0,
+            "color": "white",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              140.0,
+              52.0,
+              180.0
+            ]
+          },
+          {
+            "classId": 1,
+            "color": "red",
+            "confidence": 0.9,
+            "xyxy": [
+              76.0,
+              140.0,
+              116.0,
+              180.0
+            ]
+          },
+          {
+            "classId": 2,
+            "color": "blue",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              140.0,
+              180.0,
+              180.0
+            ]
+          }
+        ],
+        "cells": [
+          {
+            "color": "white",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "yellow",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "red",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "orange",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": null,
+            "confidence": null,
+            "status": "missing"
+          },
+          {
+            "color": "green",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "white",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "red",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "blue",
+            "confidence": 0.9,
+            "status": "ok"
+          }
+        ],
+        "grid": null,
+        "quality": {
+          "valid": false,
+          "reason": "INCOMPLETE"
+        },
+        "inferenceMs": 0
+      }
+    },
+    {
+      "id": "frame_result_ambiguous_cell",
+      "message": {
+        "type": "frame_result",
+        "schemaVersion": 1,
+        "scanId": "fixture-scan",
+        "frameSeq": 3,
+        "width": 192,
+        "height": 192,
+        "detections": [
+          {
+            "classId": 0,
+            "color": "white",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              12.0,
+              52.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 1,
+            "color": "yellow",
+            "confidence": 0.9,
+            "xyxy": [
+              76.0,
+              12.0,
+              116.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 2,
+            "color": "red",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              12.0,
+              180.0,
+              52.0
+            ]
+          },
+          {
+            "classId": 3,
+            "color": "orange",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              76.0,
+              52.0,
+              116.0
+            ]
+          },
+          {
+            "classId": 4,
+            "color": "blue",
+            "confidence": 0.9,
+            "xyxy": [
+              76.0,
+              76.0,
+              116.0,
+              116.0
+            ]
+          },
+          {
+            "classId": 5,
+            "color": "green",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              76.0,
+              180.0,
+              116.0
+            ]
+          },
+          {
+            "classId": 0,
+            "color": "white",
+            "confidence": 0.9,
+            "xyxy": [
+              12.0,
+              140.0,
+              52.0,
+              180.0
+            ]
+          },
+          {
+            "classId": 1,
+            "color": "red",
+            "confidence": 0.9,
+            "xyxy": [
+              76.0,
+              140.0,
+              116.0,
+              180.0
+            ]
+          },
+          {
+            "classId": 2,
+            "color": "blue",
+            "confidence": 0.9,
+            "xyxy": [
+              140.0,
+              140.0,
+              180.0,
+              180.0
+            ]
+          },
+          {
+            "classId": 2,
+            "color": "red",
+            "confidence": 0.85,
+            "xyxy": [
+              76.0,
+              76.0,
+              116.0,
+              116.0
+            ]
+          }
+        ],
+        "cells": [
+          {
+            "color": "white",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "yellow",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "red",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "orange",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": null,
+            "confidence": null,
+            "status": "ambiguous"
+          },
+          {
+            "color": "green",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "white",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "red",
+            "confidence": 0.9,
+            "status": "ok"
+          },
+          {
+            "color": "blue",
+            "confidence": 0.9,
+            "status": "ok"
+          }
+        ],
+        "grid": null,
+        "quality": {
+          "valid": false,
+          "reason": "AMBIGUOUS"
+        },
+        "inferenceMs": 0
+      }
+    },
+    {
+      "id": "error_invalid_frame",
+      "message": {
+        "type": "error",
+        "schemaVersion": 1,
+        "code": "INVALID_FRAME",
+        "message": "Frame is not a JPEG image.",
+        "retryable": true
+      }
+    },
+    {
+      "id": "error_frame_too_large",
+      "message": {
+        "type": "error",
+        "schemaVersion": 1,
+        "code": "FRAME_TOO_LARGE",
+        "message": "Frame exceeds the size limit.",
+        "retryable": true
+      }
+    }
+  ]
+}
