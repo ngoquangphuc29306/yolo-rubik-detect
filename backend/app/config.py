@@ -58,7 +58,14 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
         raise ConfigError("RUBIK_SOLVER_TIMEOUT_S must be a positive integer")
 
     model = env.get("RUBIK_MODEL_PATH")
-    model_path = DEFAULT_MODEL_PATH if model is None else BACKEND_DIR / Path(model)
+    if model is None:
+        model_path = DEFAULT_MODEL_PATH
+    else:
+        if not model.strip():
+            raise ConfigError("RUBIK_MODEL_PATH must not be empty")
+        model_path = BACKEND_DIR / Path(model)
+        if not model_path.is_absolute():
+            raise ConfigError("RUBIK_MODEL_PATH must be a plain relative or absolute path")
 
     raw_conf = env.get("RUBIK_CONFIDENCE")
     confidence = 0.5

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -139,3 +140,15 @@ def test_vision_overrides() -> None:
 def test_invalid_vision_values(name: str, value: str) -> None:
     with pytest.raises(ConfigError):
         load_settings({name: value})
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_empty_model_path_rejected(value: str) -> None:
+    with pytest.raises(ConfigError):
+        load_settings({"RUBIK_MODEL_PATH": value})
+
+
+@pytest.mark.skipif(os.name != "nt", reason="drive-relative paths are Windows-only")
+def test_drive_relative_model_path_rejected() -> None:
+    with pytest.raises(ConfigError):
+        load_settings({"RUBIK_MODEL_PATH": "C:foo"})
