@@ -2,13 +2,22 @@
 
 | Field | Value |
 | --- | --- |
-| Version | 1.1 — model-last amendments and Phase 1 decisions |
-| Date | 2026-11-22 (v1.0: 2026-11-19) |
+| Version | 1.2 — Phase 2 backend (health, validation, solver) |
+| Date | 2026-11-23 (v1.1: 2026-11-22; v1.0: 2026-11-19) |
 | Product | AI-powered interactive 3×3 Rubik's Cube coach |
 | Target | Local-first browser application; approximately one-week MVP for a Computer Vision sharing session |
-| Status | Phase 0 (baseline) and Phase 1 (frontend, deterministic engine, timed coach, explicit demo, typed clients) are implemented on branch `refactor/phase-1-frontend`, pending the user's approval. The backend, the WebSocket transport, the trained YOLO model and the Python `kociemba` cross-check do **not** exist yet. Contracts for those parts below remain proposed. Nothing has been verified against a physical cube. |
+| Status | Phase 0 and Phase 1 are complete; Phase 1 is merged into `main`. Phase 2 (FastAPI `GET /health` and `POST /api/solve`, canonical reconstruction, legality validation, `cube-solver` two-phase solving, shared fixtures and the Python cross-check) is implemented on branch `feat/phase-2-backend`, pending the user's approval. The `/ws/scan` WebSocket, the detector, the trained YOLO model and `backend/weights/` do **not** exist yet. Contracts for those parts below remain proposed. Nothing has been verified against a physical cube. |
 
 ### Changelog
+
+**v1.2 (2026-11-23)** — Phase 2 backend (design `docs/superpowers/specs/2026-11-22-phase-2-backend-design.md`, evidence `docs/superpowers/reports/phase2-verification.md`):
+
+- Solver is `cube-solver` 1.1.4 (MIT), chosen by measurement, behind a `Solver` protocol; the GPL `kociemba` package is not used. Resource costs (one-time table build, about 1.6 GB disk and RAM) are recorded in sections 2 and 11.
+- Own backend validation (facelets, cubie legality) and a server-side replay of every solution; the response is never trusted from the library alone (section 6.5).
+- `GET /health` and `POST /api/solve` exist; `/ws/scan` does not (section 8.1). HTTP status and error-code map for the solve endpoint (section 8.3). The wire contract is unchanged; internal faults are a bare 500.
+- Section 10 shows the actual `backend/` tree (no `vision/`, no `weights/` yet). Section 11 gains solver licence, resources and configuration.
+- Section 12.1: the Python cross-check is done (TypeScript-generated fixtures, backend-recorded responses bound by the frontend, 300-state slow check).
+- Sections 13 and 14: Phase 1 complete and merged, Phase 2 implemented awaiting approval; design risks R1 to R8 recorded; the user's separately trained YOLO26s model is noted for Phase 6.
 
 **v1.1 (2026-11-22)** — model-last amendments from the Phase 0/1 plan (section 11) and decisions made while executing Phase 1:
 
@@ -67,7 +76,7 @@ The core separation is intentional: **YOLO perceives; geometry reconstructs; Koc
 | Data | Roboflow Universe, Google Colab GPU | Obtain and inspect existing bounding-box labels; training environment. |
 | Vision | OpenCV, NumPy | Image decode, ROI/geometry checks, facelet center assignment, optional perspective correction. |
 | Backend | FastAPI, Uvicorn, Pydantic | WebSocket inference endpoint, REST solver API, validation and error contracts. |
-| Solver | Python `kociemba` | Validate legal cube structure and find a sequence of face turns. |
+| Solver | Python `cube-solver` 1.1.4 (MIT), Kociemba two-phase algorithm; own validator and replay | Find a sequence of face turns after the backend's own legality check. Costs: one-time table build (282.8 s measured), `pruning_kociemba.npz` 1634.2 MB plus `transition.npz` 2.0 MB on disk, about 1.6 GB resident while serving. Python pinned to 3.12 (no cp314 wheel). |
 | Frontend | React, TypeScript, Vite | Scanner, alignment screen, solving coach, settings, recovery UX. |
 | UI | Tailwind CSS, shadcn/ui, Motion | Layout, UI components and non-cube UI transitions. |
 | Browser camera | MediaDevices `getUserMedia`, Canvas 2D | Capture frames and draw bounding boxes and scan-direction arrows. |
@@ -76,7 +85,7 @@ The core separation is intentional: **YOLO perceives; geometry reconstructs; Koc
 | Communication | WebSocket (binary JPEG / JSON), REST (JSON) | Live inference during scan; one solver request per reconstructed state. |
 | Test and source | pytest, Vitest, Git/GitHub | Unit, contract, integration and regression testing. |
 
-Pin tested Python/Node dependencies in lockfiles. Validate PyTorch/CUDA compatibility and the `kociemba` package on the target machine before fixing versions. Use Colab for training if the local GPU is constrained. Local CPU inference is a supported fallback; performance must be measured. ONNX Runtime is an optional later optimization, not a dependency of P0.
+Pin tested Python/Node dependencies in lockfiles. Validate PyTorch/CUDA compatibility on the target machine before fixing versions. The backend dependencies are pinned in `backend/uv.lock` (`uv`, Python 3.12). Use Colab for training if the local GPU is constrained. Local CPU inference is a supported fallback; performance must be measured. ONNX Runtime is an optional later optimization, not a dependency of P0.
 
 ## 3. System context and containers
 
@@ -301,9 +310,9 @@ For a facelet at row `r`, column `c` in `{0,1,2}`, its cubie position is `p = n 
 
 ### 6.5 Validation and solver adapter
 
-Before calling solver: ensure six grids with nine entries each; six distinct center colors; every color occurs exactly nine times; fixed center positions map to their own letters; legal edge/corner identities occur exactly once, edge flips sum to 0 mod 2, corner twists sum to 0 mod 3, and permutation parity of edges and corners matches. Use a tested cube validator or the Kociemba library's legality checks, not a second ad hoc solver. Catch invalid-state failures; provide clear generic rescan guidance if the library doesn't expose the precise problem. Neither color counts nor physical legality alone proves the photographed cube was reconstructed accurately.
+Before calling solver: ensure six grids with nine entries each; six distinct center colors; every color occurs exactly nine times; fixed center positions map to their own letters; legal edge/corner identities occur exactly once, edge flips sum to 0 mod 2, corner twists sum to 0 mod 3, and permutation parity of edges and corners matches. The backend has its own validator (`backend/app/cube/legality.py`, independent of the solver library): it derives corner and edge identities from the section 6.4 geometry and checks identity, twist, flip and parity with a separate test per check. The solver library's own rejection is not relied on. Catch invalid-state failures; provide clear generic rescan guidance if the library doesn't expose the precise problem. Neither color counts nor physical legality alone proves the photographed cube was reconstructed accurately.
 
-Pass normalized facelet string to `kociemba.solve`; handle an already-solved cube with an empty move list, and handle solver exceptions/timeouts without starting playback. Parse only `U R F D L B` with optional `'` or `2` (18 tokens). No `x/y/z`, slice turns, wide turns, or regrips are part of the solver's output contract. Kociemba finds a valid solution, not necessarily a globally shortest solution.
+Pass the normalized facelet string to the solver adapter (`cube-solver`, see section 2). An already-solved cube returns an empty move list without calling the library. Every solution the library returns is replayed server-side with the backend's own move engine and must reach solved before it is returned; an unknown token or replay mismatch is an internal fault, never a response. Solver timeouts and faults never start playback. Parse only `U R F D L B` with optional `'` or `2` (18 tokens). No `x/y/z`, slice turns, wide turns, or regrips are part of the solver's output contract. Kociemba finds a valid solution, not necessarily a globally shortest solution.
 
 ## 7. Digital twin and deterministic move engine
 
@@ -381,7 +390,7 @@ Use monotonic time, a single active animation/countdown, cancellation and a sess
 | `/ws/scan` | WebSocket | Binary JPEG frame in, JSON detections and per-frame grid analysis out. |
 | `/api/solve` | POST | Validate six captured color grids, return canonical state, center mapping and solution. |
 
-**Status:** none of these endpoints exists yet. The frontend has typed, runtime-validated clients for `/health` and `/api/solve` (`frontend/src/services/health-client.ts`, `solver-client.ts`) tested against shared JSON in `fixtures/`; `/ws/scan` has no client (see 8.2). All payload examples are proposed v1 contracts.
+**Status (v1.2):** `GET /health` and `POST /api/solve` are implemented in `backend/` (branch `feat/phase-2-backend`) and verified against the frontend clients through the Vite proxy; `/ws/scan` does **not** exist. In Phase 2 `RUBIK_DETECTOR_MODE` accepts only `yolo`, and `/health` reports `status: degraded`, `detectorMode: yolo`, `visionReady: false`, `solverReady: true` with the error text "Vision is not available in this build." (`solverReady` is always true while the process serves: with missing solver tables the process does not start). The frontend has typed, runtime-validated clients for `/health` and `/api/solve` (`frontend/src/services/health-client.ts`, `solver-client.ts`) tested against shared JSON in `fixtures/`; `/ws/scan` has no client (see 8.2). The `/ws/scan` examples are proposed v1 contracts.
 
 Detector mode and health (additive fields; WebSocket and REST stay schema v1): the backend reads `RUBIK_DETECTOR_MODE=fixture|yolo` (default `yolo`) and starts without weights. `/health` returns `schemaVersion`, `status` (`ok|degraded|error`), `detectorMode`, `visionReady`, `solverReady`, optional `modelVersion` and `device`, and an optional safe `error`. It reports process and solver readiness independently of vision. In `yolo` mode with missing or invalid weights vision answers `MODEL_UNAVAILABLE`: scanning is blocked while the solver stays usable. `fixture` mode is opt-in, visible in `/health` and in the UI, never treats arbitrary webcam pixels as detections and is never a fallback from `yolo`; fixture readiness is distinct from real readiness and never enables unlabelled live capture.
 
@@ -460,6 +469,20 @@ Frontend precomputes and verifies all snapshots before proceeding. Treat timeout
 
 Potential codes: `INVALID_FACE_SHAPE`, `DUPLICATE_CENTER`, `COLOR_COUNT_MISMATCH`, `INVALID_CUBE_STATE`, `SOLVER_TIMEOUT`, `MODEL_UNAVAILABLE`, `FRAME_TOO_LARGE`, `INVALID_FRAME`. Do not assert an exact erroneous face unless evidence supports it. The client cancels/ignores stale solve results after rescan. Solve is called once per full state (again on recovery), not once per move.
 
+**HTTP and status map as implemented (Phase 2).** The frontend parses an error envelope only on 422 and 503, so the map is fixed by the existing client. Envelope bodies are exactly `{"error":{"code","message","retryable"}}`; FastAPI's default validation body is replaced.
+
+| Condition | HTTP | Code | retryable |
+| --- | --- | --- | --- |
+| Body not JSON, wrong types, missing or extra keys, `schemaVersion` other than 1 (`true`, `1.0`, `"1"`, `2` rejected), face shape, unknown colour | 422 | `INVALID_FACE_SHAPE` | false |
+| Two faces share a centre colour | 422 | `DUPLICATE_CENTER` | true |
+| A colour does not occur exactly 9 times | 422 | `COLOR_COUNT_MISMATCH` | true |
+| Corner or edge identity, twist, flip or parity failure | 422 | `INVALID_CUBE_STATE` | true |
+| Solver stopped by its time limit with no solution | 503 | `SOLVER_TIMEOUT` | true |
+| Internal fault (library returned nothing without a timeout, unknown token, replay mismatch, unexpected exception) | 500 | none (bare body `{"detail":"Internal solver error"}`); the client shows `BACKEND_UNAVAILABLE` | n/a |
+| Unknown path or wrong method | 404 / 405 | FastAPI default | n/a |
+
+The specific legality reason is logged, not returned. `MODEL_UNAVAILABLE`, `FRAME_TOO_LARGE` and `INVALID_FRAME` are unused until Phase 3. No wire field or code was added in Phase 2.
+
 ### 8.4 Interaction sequence
 
 ```mermaid
@@ -527,8 +550,9 @@ rubik-solver-yolo/
 │   ├── legacy/                            # archived AI Studio metadata
 │   └── superpowers/{plans,reports}/
 ├── fixtures/                              # shared JSON for API contracts
+│   ├── engine/                            # TypeScript-generated move sequences (Phase 2)
 │   ├── health/
-│   └── solve/
+│   └── solve/                             # incl. backend-recorded solutions (Phase 2)
 ├── frontend/                              # React 19, Vite, Vitest, npm
 │   ├── src/
 │   │   ├── types/                         # cube and wire types
@@ -543,24 +567,29 @@ rubik-solver-yolo/
 │   │   └── lib/                           # contain-transform, request-guard, colors, audio, utils
 │   ├── tests/{architecture,components,config,demo,engine,features,golden,hooks,lib,reference,services,stores}/
 │   ├── package.json, package-lock.json, vite.config.ts, vitest.config.ts, .env.example
-├── backend/                               # PLANNED, not created (Phase 2+)
-│   ├── app/{api,schemas,vision,cube}/     #   vision/ holds fixture_detector.py and yolo_detector.py
-│   ├── weights/                           #   best.pt supplied externally; git-ignored
-│   └── tests/
+├── backend/                               # Python 3.12, uv (pyproject.toml, uv.lock); Phase 2
+│   ├── app/
+│   │   ├── main.py, config.py, errors.py, schemas.py   # factory, env settings, error envelope, Pydantic models
+│   │   ├── api/                           # health.py, solve.py
+│   │   ├── cube/                          # pure: constants, facelets, geometry, moves, legality
+│   │   └── solver/                        # base (protocol), cube_solver_adapter, service, prepare
+│   ├── tests/{api,cube,solver,crosscheck}/  # pytest; conftest.py, test_config.py
+│   └── .solver-cache/                     # git-ignored solver tables (built by app.solver.prepare)
+│   #   Not yet created: app/vision/ (Phase 3+), weights/ (best.pt, Phase 6)
 ├── training/                              # PLANNED, not created (Phase 5)
 └── datasets/                              # local, git-ignored
 ```
 
-The `frontend/` and `fixtures/` parts are the actual tree; `backend/` and `training/` are the planned layout and may be simplified while preserving boundaries. `features/cube/` is intentionally absent: the cube state lives in `engine/` and the renderer in `components/three/`. The `engine/`, `demo/`, `types/` and `services/` layers must not import React, three, zustand, stores, hooks, features, components or DOM globals; `frontend/tests/architecture/boundaries.test.ts` enforces this. Do not commit credentials, large datasets, raw personal videos or unapproved model weights. Keep training separate from runtime; the API must not train on startup.
+The `frontend/`, `fixtures/` and `backend/` parts are the actual tree (the `backend/` vision and weights parts are not created yet); `training/` is the planned layout and may be simplified while preserving boundaries. `features/cube/` is intentionally absent: the cube state lives in `engine/` and the renderer in `components/three/`. The `engine/`, `demo/`, `types/` and `services/` layers must not import React, three, zustand, stores, hooks, features, components or DOM globals; `frontend/tests/architecture/boundaries.test.ts` enforces this. Do not commit credentials, large datasets, raw personal videos or unapproved model weights. Keep training separate from runtime; the API must not train on startup.
 
 ## 11. Local operation, robustness and privacy
 
-- Dev addresses: the Vite dev server listens only on loopback, `http://127.0.0.1:5173` (`strictPort`), and proxies `/api`, `/health` and `/ws` (WebSocket) to the planned backend at `127.0.0.1:8000` (`frontend/vite.config.ts`; the backend does not exist yet, so proxied requests fail). Use the proxy or an explicitly configured allowed local origin; configure WebSocket upgrade and validate origin separately from REST CORS. For a production-like local build, use one origin or approved proxy. Do not expose a development GPU server on the public network by default.
+- Dev addresses: the Vite dev server listens only on loopback, `http://127.0.0.1:5173` (`strictPort`), and proxies `/api`, `/health` and `/ws` (WebSocket) to the backend at `127.0.0.1:8000` (`frontend/vite.config.ts`; `/ws` has no server yet). The backend adds no CORS middleware: the browser reaches it only through this same-origin proxy. Use the proxy or an explicitly configured allowed local origin; configure WebSocket upgrade and validate origin separately from REST CORS. For a production-like local build, use one origin or approved proxy. Do not expose a development GPU server on the public network by default.
 - Browser webcam requires a secure context (localhost is generally supported; remote clients need HTTPS); use `wss` with HTTPS. Respect camera permissions and offer retry. Release camera media tracks on solve, navigation, errors and unmount. No background scanning during solving.
-- Environment examples: `RUBIK_DETECTOR_MODE`, `RUBIK_MODEL_PATH`, `RUBIK_DEVICE=auto`, `RUBIK_CONFIDENCE`, `RUBIK_MAX_FRAME_BYTES`, `RUBIK_ALLOWED_ORIGINS`. Never require API credentials for normal local runtime. Keep server config distinct from browser public env variables.
+- Implemented in Phase 2: `RUBIK_DETECTOR_MODE` (only `yolo`), `RUBIK_SOLVER_CACHE_DIR` (default `backend/.solver-cache/`; tables at `<dir>/tables/`) and `RUBIK_SOLVER_TIMEOUT_S` (default 10). Start: `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` from `backend/` (the only form; no module-level `app`). Planned examples: `RUBIK_MODEL_PATH`, `RUBIK_DEVICE=auto`, `RUBIK_CONFIDENCE`, `RUBIK_MAX_FRAME_BYTES`, `RUBIK_ALLOWED_ORIGINS`. Never require API credentials for normal local runtime. Keep server config distinct from browser public env variables.
 - Bounded frame queues (drop stale frames), request/camera timeout, serialized inference, and solver timeout; avoid freezing the async loop or browser. If a server task cannot be interrupted immediately, ignore stale results and cap concurrency. Frontend stops playback on unexpected data/state inconsistency.
 - Log metadata (frame count, quality reason, latency, model ID, solve outcome) rather than image content. Do not transmit frames to third-party cloud services in runtime. Capture test footage only with permission. Keep sessions ephemeral. No webcam frame is stored or transmitted by the Phase 1 frontend. The page loads fonts from Google Fonts, a third-party request made by the browser at runtime; self-hosting the fonts is a tracked follow-up.
-- Check dataset license and dependency/model licenses before public distribution. Ultralytics YOLO26 is offered under AGPL-3.0 and Enterprise licensing; review applicable obligations. Verify Kociemba and all other dependency licenses; preserve dataset attribution and model provenance.
+- Check dataset license and dependency/model licenses before public distribution. Ultralytics YOLO26 is offered under AGPL-3.0 and Enterprise licensing; review applicable obligations. Solver licence: `cube-solver` 1.1.4 is MIT (verified from the GitHub licence API and package metadata). The `kociemba` 1.2.1 and `RubikTwoPhase` packages are GPL and were not selected. Resource costs: the solver tables are built once by `uv run python -m app.solver.prepare` (282.8 s measured), take 1634.2 MB plus 2.0 MB on disk, are git-ignored and never committed, and the serving process holds about 1.6 GB of RAM (RSS 1616 MB measured, startup 4.17 s). Verify all other dependency licenses; preserve dataset attribution and model provenance.
 
 ## 12. Verification strategy and acceptance criteria
 
@@ -581,7 +610,7 @@ A successful mAP score alone cannot demonstrate that the full cube solver works.
 
 Release criteria are split into two gates.
 
-**Software-ready** (Phase 4 exit, no trained weights): frontend and backend tests pass; the solver, reconstruction and validation work from shared fixtures; the Python `kociemba` cross-check agrees with the TypeScript engine; the WebSocket protocol and `FixtureDetector` work end to end with the fixture mode visibly labelled; the `YoloDetector` adapter passes tests with a test double; with no weights the backend starts, `/health` reports `MODEL_UNAVAILABLE` for vision, scanning is blocked and the solver still works. Fixtures and the demo never establish detector accuracy.
+**Software-ready** (Phase 4 exit, no trained weights): frontend and backend tests pass; the solver, reconstruction and validation work from shared fixtures; the Python cross-check agrees with the TypeScript engine (done in Phase 2, see 12.1); the WebSocket protocol and `FixtureDetector` work end to end with the fixture mode visibly labelled; the `YoloDetector` adapter passes tests with a test double; with no weights the backend starts, `/health` reports `MODEL_UNAVAILABLE` for vision, scanning is blocked and the solver still works. Fixtures and the demo never establish detector accuracy.
 
 **Model-ready** (Phase 6 exit): `backend/weights/best.pt` is loaded with `RUBIK_DETECTOR_MODE=yolo`, the six class names are verified, and the real-webcam and physical end-to-end checks below are recorded.
 
@@ -589,7 +618,7 @@ P0 (model-ready) criteria: custom trained weights are loaded; user can scan all 
 
 ### 12.1 Independent engine verification
 
-The move engine must not be checked only against itself. `frontend/tests/reference/` holds a cubie-level reference transcribed from upstream `ldez/cubejs` (MIT) at the pinned commit `6b3da493894d9aed54f4c8aafccadbe676e745b5`, with `PROVENANCE.md` recording source URLs, hashes, licence and what was transcribed. Only the numeric move tables were vendored; no upstream code is executed. The engine is checked against it by a seeded 500-sequence differential test (all 18 tokens, compared after every move), by hand-derived physical goldens (including D, U' and D' on asymmetric states), and by renderer-adapter invariants. Both reference and engine use the published Kociemba facelet convention, so a shared conceptual error is still possible. The Python `kociemba` cross-check is a **Phase 2 gate and has not been done**; the direction table on the running 3D cube was checked in a desktop browser by reading live sticker positions (all 18 steps of the demo scramble; U, L2 and B' did not occur in it and were not run there), and `docs/superpowers/reports/phase1-verification.md` section 8 records the per-step results and the method.
+The move engine must not be checked only against itself. `frontend/tests/reference/` holds a cubie-level reference transcribed from upstream `ldez/cubejs` (MIT) at the pinned commit `6b3da493894d9aed54f4c8aafccadbe676e745b5`, with `PROVENANCE.md` recording source URLs, hashes, licence and what was transcribed. Only the numeric move tables were vendored; no upstream code is executed. The engine is checked against it by a seeded 500-sequence differential test (all 18 tokens, compared after every move), by hand-derived physical goldens (including D, U' and D' on asymmetric states), and by renderer-adapter invariants. Both reference and engine use the published Kociemba facelet convention, so a shared conceptual error is still possible. **Python cross-check (Phase 2, done).** The backend has its own cube core (geometry table and 18 integer moves derived from section 6.4 and 7.2, not copied from the TypeScript code). It is checked against: (1) `fixtures/engine/move-sequences.json`, generated by the TypeScript engine (40 seeded 25-move sequences with every intermediate state, plus all 18 single moves on the `scramble-a` state) and compared after every move; (2) the published solved and superflip facelet strings; (3) the solver library's solutions, replayed to solved in Python and, through 42 recorded backend responses (`fixtures/solve/backend-solutions.json`), bound by the frontend's `parseSolveResponse` and `bindSolveResponse`; plus a 300-state seeded slow check (300 of 300 replay to solved; p50 0.039 s, p95 0.232 s, max 0.561 s). The frontend's unmodified `getHealth()` and `solve()` were also run against the live backend through the Vite proxy (47 passed, 0 skipped). All of these share the published Kociemba facelet convention, so a shared conceptual error is still possible, and **nothing has been verified on a physical cube**. The direction table on the running 3D cube was checked in a desktop browser by reading live sticker positions (all 18 steps of the demo scramble; U, L2 and B' did not occur in it and were not run there), and `docs/superpowers/reports/phase1-verification.md` section 8 records the per-step results and the method.
 
 ### 12.2 Phase 1 scope decisions
 
@@ -604,14 +633,14 @@ The software is built first against deterministic fixtures; the trained model co
 | Phase | Deliverable / exit condition | Status |
 | --- | --- | --- |
 | 0 | Baseline, reproducible setup, actual build/typecheck and browser observations | Complete |
-| 1 | Frontend migration/refactor, deterministic engine and timed coach, explicit demo, typed clients | Implemented on `refactor/phase-1-frontend`; awaiting user approval |
-| 2 | FastAPI health and solve, Pydantic, canonical reconstruction and validation, real Kociemba, shared fixtures, Python `kociemba` cross-check of the engine | Not started (needs its own design and plan) |
+| 1 | Frontend migration/refactor, deterministic engine and timed coach, explicit demo, typed clients | Complete; merged into `main` |
+| 2 | FastAPI health and solve, Pydantic, canonical reconstruction and validation, real two-phase solver, shared fixtures, Python cross-check of the engine | Implemented on `feat/phase-2-backend`; awaiting user approval |
 | 3 | Detector interface, `FixtureDetector`, geometry, WebSocket protocol v1 | Not started |
 | 4 | Full-stack fixture integration and `YoloDetector` adapter with a test double: the **software-ready** gate | Not started |
 | 5 | Dataset audit, six-colour label mapping, training and evaluation | Deferred |
 | 6 | Drop in `backend/weights/best.pt`, set `RUBIK_DETECTOR_MODE=yolo`, restart, benchmark a real webcam and recover from a physical cube end to end: the **model-ready** gate | Deferred |
 
-Current state: Phases 0 and 1 are done in the frontend only. There is no backend, no WebSocket transport, no trained model and no physical-cube verification. A task-level plan is written and approved per phase; a plan is not approval to implement it.
+Current state: Phases 0 and 1 are done and merged. Phase 2 (HTTP backend: `/health`, `/api/solve`, validation, solver, cross-checks) is implemented and awaits approval. There is no WebSocket transport, no detector, no trained model and no physical-cube verification. A task-level plan is written and approved per phase; a plan is not approval to implement it.
 
 ## 14. Risks, assumptions and open validation
 
@@ -630,16 +659,25 @@ Current state: Phases 0 and 1 are done in the frontend only. There is no backend
 | Landing marketing prose still describes the intended solver (for example that it validates "all 54 detected stickers") | It is a product description of the planned system, not a measured result; no model or solver service exists yet. |
 | Vitest on Windows can fail with a drive-letter error (`reading 'config'`) | Run from a path whose drive-letter case matches the working directory (see README). |
 | `fixture-only` readiness handling was specified before the backend exists | Pure function tested against fixtures; the UI only labels and blocks. Revisit in Phase 3. |
-| Reference and engine share the published facelet convention | Hand-derived goldens now; Python `kociemba` cross-check is a Phase 2 gate. |
+| Reference and engine share the published facelet convention | Hand-derived goldens, the Python cross-check (done in Phase 2) and published strings; a shared conceptual error is still possible and no physical cube was used. |
+| R1 (Phase 2). Missing orientation information: the solve request carries no evidence of face roll, so a face scanned rotated, or U/D captured in the wrong tilt, changes the facelet string. Most such errors become illegal (422), but a legal wrong state is possible | Accept and disclose; the backend never rotates faces or repairs a cube; legality is not correctness. Phase 3+ scan UX reduces it. |
+| R2. Solver library immaturity (2 stars) or abandonment | Exact pin in `uv.lock`; own validation and server-side replay; `Solver` protocol with a documented fallback (`rubik-solver-py`, which has no legality check and no timeout). |
+| R3. 1.6 GB tables and RAM, 282.8 s first build | Explicit prepare step, git-ignored directory, fail-fast startup message; revisit at Phase 6 with YOLO loaded. |
+| R4. The library's table path is relative to the working directory | Isolated in the adapter; changed only during startup and prepare; tested. |
+| R5. Shared convention error between the Python and TypeScript engines | Third oracle (library solutions replayed in both engines) and published strings. |
+| R6. `cube-solver` has no cp314 wheel | Backend pinned to Python 3.12 (`.python-version`, `requires-python >=3.12,<3.13`). |
+| R7. Wire-code gaps (no code for internal faults or "solver not ready") | Bare 500 and fail-fast startup map to the client's existing `BACKEND_UNAVAILABLE`; adding a code is a contract change needing approval. |
+| R8. Document drift: this file named YOLO26n while the user reports a separately trained YOLO26s model | Status lines fixed in v1.2. The user reports a YOLO26s model trained separately; sections 1 and 2 still name YOLO26n and are left unchanged. Reconcile the model choice at Phase 5/6 (class names, task and weights are validated at load); vision scope is unchanged. |
 
-Accepted product decisions come from the design discussion: YOLO Object Detection, guided scan, hybrid camera-off solving, timed automatic guidance, recovery by rescan and selected local web stack. Architecture-author choices that remain to be verified: exact API schema, coordinate implementation, fixed initial white/green pair, scan gate thresholds, frame cap, default durations, timeout policies, metric targets, test setup and library versions. These are explicit proposed defaults; builder may tune them without changing the core product behavior. Dataset remains unselected and model untrained. The Phase 1 frontend is implemented and unit-tested, but no backend exists, no runtime benchmark has been performed and nothing has been verified against a physical cube.
+Accepted product decisions come from the design discussion: YOLO Object Detection, guided scan, hybrid camera-off solving, timed automatic guidance, recovery by rescan and selected local web stack. Architecture-author choices that remain to be verified: exact API schema, coordinate implementation, fixed initial white/green pair, scan gate thresholds, frame cap, default durations, timeout policies, metric targets, test setup and library versions. These are explicit proposed defaults; builder may tune them without changing the core product behavior. Dataset remains unselected and model untrained. The Phase 1 frontend and the Phase 2 backend are implemented and tested, but no vision runtime benchmark has been performed and nothing has been verified against a physical cube.
 
 ## 15. References
 
 - Inspiration: https://youtu.be/uLl0EFAlyX0 (video description supplied by the user; original demo uses RF-DETR segmentation, not the chosen architecture).
 - YOLO26 model documentation and licensing: https://docs.ultralytics.com/models/yolo26
 - YOLO object detection: https://docs.ultralytics.com/tasks/detect/
-- Kociemba Python adapter and facelet convention: https://github.com/muodov/kociemba
+- Kociemba Python adapter and facelet convention (reference only; not a dependency): https://github.com/muodov/kociemba
+- `cube-solver` (the solver dependency, MIT): https://pypi.org/project/cube-solver/
 - Kociemba facelet/cubie reference: https://github.com/hkociemba/RubiksCube-TwophaseSolver
 - WCA face-turn notation: https://www.worldcubeassociation.org/regulations/#article-12-notation
 - FastAPI WebSockets: https://fastapi.tiangolo.com/advanced/websockets/
@@ -649,4 +687,4 @@ Accepted product decisions come from the design discussion: YOLO Object Detectio
 
 ---
 
-**Design review gate:** each phase after Phase 1 needs its own approved design and plan. Validate the canonical facelet mapping against the Python `kociemba` package early in Phase 2. Except where a section says "implemented" or "as built", this document describes intended behavior; it does not establish that the system already works.
+**Design review gate:** each phase after Phase 1 needs its own approved design and plan. The Phase 2 design gate is recorded in `docs/superpowers/specs/2026-11-22-phase-2-backend-design.md`. Except where a section says "implemented" or "as built", this document describes intended behavior; it does not establish that the system already works.
