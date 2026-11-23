@@ -35,3 +35,18 @@ def test_bad_mode(mode: str) -> None:
 def test_bad_timeout(t: str) -> None:
     with pytest.raises(ConfigError):
         load_settings({"RUBIK_SOLVER_TIMEOUT_S": t})
+
+
+def test_create_app_fails_startup_when_tables_missing(tmp_path: Path) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.config import Settings
+    from app.main import create_app
+    from app.solver.base import SolverTablesMissing
+
+    app = create_app(Settings("yolo", tmp_path, 10))
+    with (
+        pytest.raises(SolverTablesMissing, match=r"python -m app\.solver\.prepare"),
+        TestClient(app),
+    ):
+        pass

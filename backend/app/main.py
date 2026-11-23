@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.health import router as health_router
 from app.api.solve import router as solve_router
 from app.config import Settings, load_settings
 from app.errors import install_error_handlers
@@ -25,6 +26,8 @@ def create_app(settings: Settings | None = None, solver: Solver | None = None) -
     app = FastAPI(lifespan=lifespan)
     if solver is not None:
         app.state.solve_service = SolveService(solver, cfg.solver_timeout_s)
+    app.state.settings = cfg
     install_error_handlers(app)
+    app.include_router(health_router)
     app.include_router(solve_router)
     return app

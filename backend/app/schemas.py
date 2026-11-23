@@ -66,3 +66,16 @@ class ErrorEnvelope(BaseModel):
     model_config = _STRICT
 
     error: ErrorBody
+
+
+class HealthResponse(BaseModel):
+    model_config = _STRICT
+
+    schemaVersion: Literal[1] = 1
+    status: Literal["ok", "degraded"]
+    detectorMode: Literal["yolo"]
+    visionReady: bool
+    solverReady: bool
+    modelVersion: str | None = None
+    device: str | None = None
+    error: str | None = None
