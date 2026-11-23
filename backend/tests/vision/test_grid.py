@@ -271,8 +271,13 @@ def test_irregular_pitch_is_not_valid() -> None:
     assert not a.valid and a.grid is None  # no regular lattice: any rejection reason
 
 
+def test_far_face_inside_the_zone_is_accepted() -> None:
+    a = analyze(nine(face=0.20), SIZE)
+    assert a.valid and a.grid == tuple(COLORS)
+
+
 def test_face_too_small_is_not_valid() -> None:
-    a = analyze(nine(face=0.25), SIZE)
+    a = analyze(nine(face=0.08), SIZE)
     assert not a.valid and a.grid is None and a.reason == "NO_FACE"
     assert a.face is not None
 
@@ -283,7 +288,7 @@ def test_face_too_large_is_not_valid() -> None:
 
 
 def test_face_boundaries_accepted() -> None:
-    assert analyze(nine(face=0.32), SIZE).valid
+    assert analyze(nine(face=0.13), SIZE).valid
     assert analyze(nine(face=0.94), SIZE).valid
 
 

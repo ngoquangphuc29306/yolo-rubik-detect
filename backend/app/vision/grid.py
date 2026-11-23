@@ -34,7 +34,7 @@ class GridRules:
     min_side_ratio: float = 0.5  # candidate side / median candidate side
     max_side_ratio: float = 2.0
     pitch_tolerance: float = 0.30  # neighbouring pitch vs median pitch
-    min_face: float = 0.30  # face extent / crop side
+    min_face: float = 0.12  # face extent / crop side (a far cube is fine inside the zone)
     max_face: float = 0.95
 
 

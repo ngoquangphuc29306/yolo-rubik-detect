@@ -71,6 +71,15 @@ describe('rotation arrow on the mirrored overlay', () => {
     expect(arrowOf().innerHTML).toMatch(/animate-arrow-down/);
   });
 
+  it('is small and thin like the solve-screen move arrow', () => {
+    render(<LiveScanGuide {...base} arrow="right" square={{ x: 0, y: 0, w: 900, h: 900 }} />);
+    expect(parseFloat(arrowOf().style.width)).toBeLessThanOrEqual(72);
+    const stroke = arrowOf().querySelector('[data-part="arc"]')!;
+    expect(stroke.getAttribute('stroke')).toBe('#34D399');
+    expect(stroke.getAttribute('fill')).toBe('none');
+    expect(arrowOf().querySelector('[data-part="head"]')).not.toBeNull();
+  });
+
   it('contains no text, so nothing can render mirrored', () => {
     render(<LiveScanGuide {...base} arrow="up" />);
     expect(arrowOf().textContent).toBe('');
