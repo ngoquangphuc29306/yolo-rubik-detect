@@ -17,6 +17,8 @@ export interface LiveScanState {
   epoch: number;
   streak: { grid: ColorName[]; count: number; since: number } | null;
   hint: string | null;
+  /** Centre colour whose gate-rejection hint stays latched while it keeps showing. */
+  gateRejected: ColorName | null;
   capturedCenters: Centers;
   rescan: { face: FaceId; previousCenter: ColorName } | null;
   pendingCapture: { face: FaceId; grid: FaceGrid } | null;
@@ -41,6 +43,7 @@ function build(centers: Centers, epoch: number): LiveScanState {
     epoch,
     streak: null,
     hint: null,
+    gateRejected: null,
     capturedCenters: { ...centers },
     rescan: null,
     pendingCapture: null,
@@ -80,6 +83,9 @@ function gateHint(state: LiveScanState, c: ColorName): string | null {
   if (state.stage === 'U' && c !== 'white') {
     return 'The top face centre should be white. Return to the green face, then tilt the top toward you.';
   }
+  if ((state.stage === 'R' || state.stage === 'B' || state.stage === 'L') && c === 'white') {
+    return 'That is the white (top) face. Keep white on top and turn the whole cube left.';
+  }
   if (Object.values(state.capturedCenters).includes(c)) {
     return `We still see the ${c} face. Follow the arrow and turn the whole cube.`;
   }
@@ -91,17 +97,24 @@ function gateHint(state: LiveScanState, c: ColorName): string | null {
 
 function onResult(state: LiveScanState, result: FrameResult, at: number): LiveScanState {
   if (!result.quality.valid || result.grid === null) {
-    return { ...state, streak: null, phase: 'aligning', hint: hintForReason(result.quality.reason) };
+    return { ...state, streak: null, phase: 'aligning', gateRejected: null, hint: hintForReason(result.quality.reason) };
   }
   const grid = result.grid;
   const streak =
     state.streak && sameGrid(state.streak.grid, grid)
       ? { ...state.streak, count: state.streak.count + 1 }
       : { grid: [...grid], count: 1, since: at };
-  const next: LiveScanState = { ...state, streak, phase: 'stabilizing', hint: null };
-  if (streak.count < STABLE_RESULTS || at - streak.since < STABLE_MS) return next;
+  const latched = state.gateRejected !== null && state.gateRejected === grid[4] && state.hint !== null;
+  const next: LiveScanState = {
+    ...state,
+    streak,
+    phase: 'stabilizing',
+    hint: latched ? state.hint : null,
+    gateRejected: latched ? state.gateRejected : null,
+  };
+  if (streak.count < STABLE_RESULTS || !(at - streak.since >= STABLE_MS)) return next;
   const hint = gateHint(state, grid[4]!);
-  if (hint) return { ...next, streak: null, phase: 'aligning', hint };
+  if (hint) return { ...next, streak: null, phase: 'aligning', hint, gateRejected: grid[4]! };
   return {
     ...next,
     phase: 'captured',
@@ -112,7 +125,7 @@ function onResult(state: LiveScanState, result: FrameResult, at: number): LiveSc
 export function liveScanReducer(state: LiveScanState, event: LiveScanEvent): LiveScanState {
   switch (event.type) {
     case 'RESULT':
-      if (event.epoch !== state.epoch) return state;
+      if (event.epoch !== state.epoch || !Number.isFinite(event.at)) return state;
       if (state.phase === 'captured' || state.phase === 'rotating' || state.phase === 'done') return state;
       return onResult(state, event.result, event.at);
     case 'CAPTURE_STORED': {
@@ -128,6 +141,7 @@ export function liveScanReducer(state: LiveScanState, event: LiveScanEvent): Liv
         rescan: null,
         streak: null,
         hint: null,
+        gateRejected: null,
         epoch: state.epoch + 1,
       };
     }
@@ -139,10 +153,12 @@ export function liveScanReducer(state: LiveScanState, event: LiveScanEvent): Liv
         streak: null,
         pendingCapture: null,
         hint: 'Could not save this face — hold steady to try again.',
+        gateRejected: null,
+        epoch: state.epoch + 1,
       };
     case 'ROTATION_DONE':
       if (event.epoch !== state.epoch || state.phase !== 'rotating') return state;
-      return { ...state, phase: 'aligning', hint: null, epoch: state.epoch + 1 };
+      return { ...state, phase: 'aligning', hint: null, gateRejected: null, epoch: state.epoch + 1 };
     case 'RESCAN': {
       const rest: Centers = { ...state.capturedCenters };
       delete rest[event.face];
@@ -155,6 +171,7 @@ export function liveScanReducer(state: LiveScanState, event: LiveScanEvent): Liv
         streak: null,
         pendingCapture: null,
         hint: null,
+        gateRejected: null,
         epoch: state.epoch + 1,
       };
     }

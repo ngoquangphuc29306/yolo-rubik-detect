@@ -134,6 +134,7 @@ describe('capture gate', () => {
     const s = stabilize(s0, mk('green'));
     expect(s.phase).toBe('aligning');
     expect(s.pendingCapture).toBeNull();
+    expect(s.hint).toBe('We still see the green face. Follow the arrow and turn the whole cube.');
   });
   it('rescan accepts only the previous centre', () => {
     let s = initialLiveScanState(ALL);
@@ -142,19 +143,20 @@ describe('capture gate', () => {
     expect(s.capturedCenters.R).toBeUndefined();
     const bad = stabilize(s, mk('yellow'));
     expect(bad.phase).toBe('aligning');
+    expect(bad.hint).toBe('We still see the yellow face. Follow the arrow and turn the whole cube.');
     const unseen = stabilize(s, mk('blue'));
-    expect(unseen.phase).toBe('aligning');
+    expect(unseen.hint).toBe('We still see the blue face. Follow the arrow and turn the whole cube.');
     const ok = stabilize(s, mk('red', 'blue'));
     expect(ok.phase).toBe('captured');
     expect(ok.pendingCapture?.face).toBe('R');
   });
-  it('rescan mismatch with an uncaptured colour gives the same-face hint', () => {
+  it('rescan mismatch (uncaptured, wrong colour) gives the same-face hint', () => {
     // R rescanned; the cube shows a face whose centre is not captured and not red.
     const centers = { F: 'green', B: 'blue', L: 'orange', U: 'white', D: 'yellow' } as const;
     let s = initialLiveScanState(centers);
     s = liveScanReducer(s, { type: 'RESCAN', face: 'R', previousCenter: 'red' });
     const bad = stabilize(s, mk('blue', 'red'));
-    expect(bad.hint).toContain('blue');
+    expect(bad.hint).toBe('We still see the blue face. Follow the arrow and turn the whole cube.');
     const wrong = liveScanReducer(
       initialLiveScanState({ F: 'green', B: 'blue', L: 'orange', U: 'white' }),
       { type: 'RESCAN', face: 'R', previousCenter: 'red' },
@@ -204,7 +206,7 @@ describe('transitions', () => {
   it('CAPTURE_FAILED stays on the stage, then a fresh streak can capture', () => {
     const c = stabilize(initialLiveScanState(), mk('green'));
     const f = liveScanReducer(c, { type: 'CAPTURE_FAILED', epoch: c.epoch });
-    expect(f).toMatchObject({ stage: 'F', phase: 'aligning', streak: null, pendingCapture: null, epoch: c.epoch });
+    expect(f).toMatchObject({ stage: 'F', phase: 'aligning', streak: null, pendingCapture: null, epoch: c.epoch + 1 });
     expect(f.hint).toBe('Could not save this face — hold steady to try again.');
     expect(stabilize(f, mk('green'), 10_000).phase).toBe('captured');
   });
@@ -247,6 +249,64 @@ describe('transitions', () => {
     const r = liveScanReducer(s, { type: 'RESET' });
     expect(r).toMatchObject({ stage: 'F', phase: 'aligning', epoch: s.epoch + 1, capturedCenters: {} });
     expect(liveScanReducer(s, { type: 'RESET', centers: { F: 'green' } }).stage).toBe('R');
+  });
+});
+
+describe('hardening', () => {
+  it('stale STORED after CAPTURE_FAILED and recapture is ignored', () => {
+    const c = stabilize(initialLiveScanState(), mk('green'));
+    const f = liveScanReducer(c, { type: 'CAPTURE_FAILED', epoch: c.epoch });
+    expect(f.epoch).toBe(c.epoch + 1);
+    expect(f.stage).toBe('F');
+    const c2 = stabilize(f, mk('green'), 10_000);
+    expect(c2.phase).toBe('captured');
+    expect(liveScanReducer(c2, { type: 'CAPTURE_STORED', epoch: c.epoch })).toBe(c2);
+    expect(R(f, mk('green'), 10_000, undefined, c.epoch)).toBe(f);
+  });
+  it('non-finite at is ignored', () => {
+    const s = initialLiveScanState();
+    expect(R(s, mk('green'), NaN)).toBe(s);
+    expect(R(s, mk('green'), Infinity)).toBe(s);
+  });
+  it('at going backwards or equal delays capture', () => {
+    let s = initialLiveScanState();
+    s = R(s, mk('green'), 5000);
+    for (const at of [4000, 3000, 2000, 1000]) s = R(s, mk('green'), at);
+    expect(s.phase).toBe('stabilizing');
+    let e = initialLiveScanState();
+    for (let i = 0; i < 6; i++) e = R(e, mk('green'), 100);
+    expect(e.phase).toBe('stabilizing');
+  });
+  it('gate hint stays latched for the same centre and clears on a different one', () => {
+    let s = stabilize(initialLiveScanState(), mk('red', 'blue'));
+    const hint = s.hint;
+    expect(hint).not.toBeNull();
+    for (let i = 0; i < 4; i++) {
+      s = R(s, mk('red', 'blue'), 2000 + i);
+      expect(s.hint).toBe(hint);
+    }
+    expect(R(s, mk('green'), 3000).hint).toBeNull();
+    expect(R(s, null, 3000, 'TILTED').hint).toBe('Hold the face straight toward the camera.');
+    expect(stabilize(s, mk('red', 'blue'), 5000).hint).toBe(hint);
+  });
+  it.each(['R', 'B', 'L'] as const)('white centre is rejected at stage %s', (stage) => {
+    const pre = { F: 'green', R: 'red', B: 'blue', L: 'orange' } as const;
+    const order = ['F', 'R', 'B', 'L'] as const;
+    const centers = Object.fromEntries(order.slice(0, order.indexOf(stage)).map((f) => [f, pre[f]]));
+    const s0 = initialLiveScanState(centers);
+    expect(s0.stage).toBe(stage);
+    const s = stabilize(s0, mk('white', 'blue'));
+    expect(s.phase).toBe('aligning');
+    expect(s.hint).toBe('That is the white (top) face. Keep white on top and turn the whole cube left.');
+  });
+  it('does not alias the event grid', () => {
+    const grid = mk('green');
+    const s = R(initialLiveScanState(), grid, 0);
+    grid[0] = 'blue';
+    expect(s.streak!.grid[0]).toBe('red');
+    const c = stabilize(initialLiveScanState(), grid.map(() => 'green') as ColorName[]);
+    const src = c.pendingCapture!.grid;
+    expect(src).toEqual(Array(9).fill('green'));
   });
 });
 
