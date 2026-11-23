@@ -48,3 +48,15 @@ def build_facelet_state(
 
     state = "".join(home_of[c] for f in FACE_ORDER for c in grids[f])
     return state, centers
+
+
+def faces_from_state(
+    state: str, centers: Mapping[FaceId, ColorName]
+) -> dict[FaceId, list[ColorName]]:
+    """Inverse of build_facelet_state: facelet state plus centre mapping to colour grids."""
+    if len(state) != 54:
+        raise CubeInputError("INVALID_FACE_SHAPE", "State must have exactly 54 facelets")
+    grids: dict[FaceId, list[ColorName]] = {}
+    for i, f in enumerate(FACE_ORDER):
+        grids[f] = [centers[c] for c in state[i * 9 : i * 9 + 9]]  # type: ignore[index]
+    return grids

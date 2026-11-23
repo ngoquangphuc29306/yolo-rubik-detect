@@ -99,3 +99,11 @@ def test_errors(faces: dict[str, Any], code: str) -> None:
     with pytest.raises(CubeInputError) as exc:
         build_facelet_state(faces)
     assert exc.value.code == code
+
+
+def test_faces_from_state_round_trips() -> None:
+    from app.cube.facelets import faces_from_state
+
+    request = load_fixture("fixtures/solve/scramble-a.request.json")
+    state, centers = build_facelet_state(request["faces"])
+    assert faces_from_state(state, centers) == request["faces"]

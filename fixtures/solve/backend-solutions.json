@@ -1,0 +1,4680 @@
+{
+  "schema": "backend-solutions/1",
+  "generatedBy": "backend/tests/crosscheck/record_backend_solutions.py",
+  "solver": "cube-solver 1.1.4",
+  "cases": [
+    {
+      "id": "engine-seq-00",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "green",
+            "yellow",
+            "yellow",
+            "white",
+            "blue",
+            "red",
+            "blue",
+            "white"
+          ],
+          "R": [
+            "orange",
+            "white",
+            "red",
+            "red",
+            "red",
+            "yellow",
+            "red",
+            "red",
+            "green"
+          ],
+          "F": [
+            "white",
+            "yellow",
+            "blue",
+            "white",
+            "green",
+            "green",
+            "yellow",
+            "white",
+            "white"
+          ],
+          "D": [
+            "orange",
+            "green",
+            "green",
+            "blue",
+            "yellow",
+            "white",
+            "yellow",
+            "orange",
+            "white"
+          ],
+          "L": [
+            "blue",
+            "red",
+            "blue",
+            "red",
+            "orange",
+            "orange",
+            "orange",
+            "orange",
+            "green"
+          ],
+          "B": [
+            "green",
+            "yellow",
+            "yellow",
+            "orange",
+            "blue",
+            "blue",
+            "orange",
+            "green",
+            "blue"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RFDDUBRBULURRRDRRFUDBUFFDUULFFBDUDLUBRBRLLLLFFDDLBBLFB",
+        "moves": [
+          "U",
+          "L'",
+          "B",
+          "U'",
+          "D2",
+          "R",
+          "B",
+          "R2",
+          "B2",
+          "R",
+          "F2",
+          "U2",
+          "B2",
+          "U",
+          "D2",
+          "L2",
+          "U'",
+          "F2",
+          "D",
+          "L2",
+          "D",
+          "F2",
+          "R2",
+          "D2",
+          "R2"
+        ],
+        "moveCount": 25
+      }
+    },
+    {
+      "id": "engine-seq-01",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "blue",
+            "blue",
+            "blue",
+            "white",
+            "red",
+            "green",
+            "green",
+            "red"
+          ],
+          "R": [
+            "yellow",
+            "yellow",
+            "orange",
+            "white",
+            "red",
+            "white",
+            "yellow",
+            "orange",
+            "red"
+          ],
+          "F": [
+            "white",
+            "red",
+            "green",
+            "green",
+            "green",
+            "blue",
+            "red",
+            "blue",
+            "orange"
+          ],
+          "D": [
+            "white",
+            "red",
+            "blue",
+            "orange",
+            "yellow",
+            "white",
+            "white",
+            "green",
+            "yellow"
+          ],
+          "L": [
+            "yellow",
+            "yellow",
+            "red",
+            "orange",
+            "orange",
+            "white",
+            "orange",
+            "yellow",
+            "blue"
+          ],
+          "B": [
+            "white",
+            "orange",
+            "orange",
+            "red",
+            "blue",
+            "green",
+            "blue",
+            "yellow",
+            "green"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FBBBURFFRDDLURUDLRURFFFBRBLURBLDUUFDDDRLLULDBULLRBFBDF",
+        "moves": [
+          "U",
+          "L2",
+          "D2",
+          "L",
+          "F'",
+          "L'",
+          "B'",
+          "R",
+          "U2",
+          "L2",
+          "F2",
+          "U'",
+          "B2",
+          "L2",
+          "U2",
+          "R2",
+          "U'",
+          "F2",
+          "D'",
+          "R2",
+          "B2",
+          "R2"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-02",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "blue",
+            "white",
+            "blue",
+            "blue",
+            "white",
+            "orange",
+            "red",
+            "yellow",
+            "green"
+          ],
+          "R": [
+            "white",
+            "green",
+            "orange",
+            "yellow",
+            "red",
+            "white",
+            "orange",
+            "red",
+            "blue"
+          ],
+          "F": [
+            "yellow",
+            "green",
+            "red",
+            "white",
+            "green",
+            "blue",
+            "white",
+            "red",
+            "blue"
+          ],
+          "D": [
+            "green",
+            "green",
+            "yellow",
+            "white",
+            "yellow",
+            "yellow",
+            "yellow",
+            "yellow",
+            "white"
+          ],
+          "L": [
+            "yellow",
+            "orange",
+            "green",
+            "blue",
+            "orange",
+            "blue",
+            "green",
+            "red",
+            "orange"
+          ],
+          "B": [
+            "white",
+            "green",
+            "red",
+            "orange",
+            "blue",
+            "red",
+            "red",
+            "orange",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "BUBBULRDFUFLDRULRBDFRUFBURBFFDUDDDDUDLFBLBFRLUFRLBRRLL",
+        "moves": [
+          "F2",
+          "L",
+          "F'",
+          "U",
+          "L",
+          "F",
+          "D'",
+          "B",
+          "U",
+          "F2",
+          "U'",
+          "F2",
+          "U2",
+          "R2",
+          "U",
+          "L2",
+          "U'",
+          "F2",
+          "U2",
+          "B2",
+          "L2",
+          "B2",
+          "R2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-03",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "orange",
+            "yellow",
+            "blue",
+            "green",
+            "white",
+            "red",
+            "orange",
+            "yellow",
+            "yellow"
+          ],
+          "R": [
+            "red",
+            "white",
+            "orange",
+            "red",
+            "red",
+            "white",
+            "blue",
+            "blue",
+            "red"
+          ],
+          "F": [
+            "white",
+            "orange",
+            "blue",
+            "white",
+            "green",
+            "blue",
+            "yellow",
+            "white",
+            "white"
+          ],
+          "D": [
+            "green",
+            "orange",
+            "red",
+            "green",
+            "yellow",
+            "orange",
+            "blue",
+            "red",
+            "white"
+          ],
+          "L": [
+            "green",
+            "yellow",
+            "green",
+            "orange",
+            "orange",
+            "blue",
+            "yellow",
+            "red",
+            "red"
+          ],
+          "B": [
+            "white",
+            "blue",
+            "yellow",
+            "green",
+            "blue",
+            "green",
+            "green",
+            "yellow",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "LDBFURLDDRULRRUBBRULBUFBDUUFLRFDLBRUFDFLLBDRRUBDFBFFDL",
+        "moves": [
+          "D",
+          "B",
+          "L'",
+          "F'",
+          "D'",
+          "R",
+          "F'",
+          "U'",
+          "B",
+          "R",
+          "U2",
+          "B2",
+          "R2",
+          "U2",
+          "B2",
+          "R2",
+          "U'",
+          "R2",
+          "U",
+          "B2",
+          "L2",
+          "U",
+          "B2",
+          "D'"
+        ],
+        "moveCount": 24
+      }
+    },
+    {
+      "id": "engine-seq-04",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "blue",
+            "white",
+            "yellow",
+            "white",
+            "green",
+            "yellow",
+            "blue",
+            "orange"
+          ],
+          "R": [
+            "blue",
+            "orange",
+            "green",
+            "red",
+            "red",
+            "yellow",
+            "red",
+            "orange",
+            "blue"
+          ],
+          "F": [
+            "blue",
+            "white",
+            "white",
+            "orange",
+            "green",
+            "white",
+            "orange",
+            "green",
+            "blue"
+          ],
+          "D": [
+            "white",
+            "white",
+            "white",
+            "red",
+            "yellow",
+            "blue",
+            "yellow",
+            "orange",
+            "red"
+          ],
+          "L": [
+            "red",
+            "green",
+            "orange",
+            "yellow",
+            "orange",
+            "white",
+            "green",
+            "green",
+            "green"
+          ],
+          "B": [
+            "red",
+            "red",
+            "yellow",
+            "red",
+            "blue",
+            "blue",
+            "yellow",
+            "yellow",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FBUDUFDBLBLFRRDRLBBUULFULFBUUURDBDLRRFLDLUFFFRRDRBBDDL",
+        "moves": [
+          "U",
+          "R'",
+          "U'",
+          "B2",
+          "D'",
+          "F",
+          "B'",
+          "R",
+          "U2",
+          "F",
+          "U",
+          "R2",
+          "L2",
+          "F2",
+          "U'",
+          "L2",
+          "U",
+          "F2",
+          "D",
+          "R2",
+          "B2",
+          "D2",
+          "R2",
+          "F2",
+          "U'",
+          "B2"
+        ],
+        "moveCount": 26
+      }
+    },
+    {
+      "id": "engine-seq-05",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "green",
+            "blue",
+            "green",
+            "white",
+            "yellow",
+            "blue",
+            "white",
+            "blue"
+          ],
+          "R": [
+            "red",
+            "orange",
+            "yellow",
+            "white",
+            "red",
+            "green",
+            "yellow",
+            "blue",
+            "yellow"
+          ],
+          "F": [
+            "white",
+            "red",
+            "white",
+            "white",
+            "green",
+            "orange",
+            "orange",
+            "yellow",
+            "red"
+          ],
+          "D": [
+            "green",
+            "red",
+            "green",
+            "blue",
+            "yellow",
+            "yellow",
+            "green",
+            "orange",
+            "blue"
+          ],
+          "L": [
+            "white",
+            "orange",
+            "orange",
+            "red",
+            "orange",
+            "blue",
+            "white",
+            "red",
+            "yellow"
+          ],
+          "B": [
+            "orange",
+            "yellow",
+            "red",
+            "white",
+            "blue",
+            "green",
+            "red",
+            "blue",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FFBFUDBUBRLDURFDBDURUUFLLDRFRFBDDFLBULLRLBURDLDRUBFRBL",
+        "moves": [
+          "U",
+          "F2",
+          "R'",
+          "U",
+          "F2",
+          "U'",
+          "D2",
+          "F",
+          "U",
+          "R",
+          "U",
+          "B2",
+          "D2",
+          "L2",
+          "F2",
+          "U",
+          "B2",
+          "U",
+          "F2",
+          "U'",
+          "R2",
+          "U'",
+          "L2",
+          "F2",
+          "L2"
+        ],
+        "moveCount": 25
+      }
+    },
+    {
+      "id": "engine-seq-06",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "orange",
+            "orange",
+            "red",
+            "green",
+            "white",
+            "red",
+            "red",
+            "white",
+            "orange"
+          ],
+          "R": [
+            "blue",
+            "green",
+            "white",
+            "white",
+            "red",
+            "white",
+            "blue",
+            "white",
+            "red"
+          ],
+          "F": [
+            "white",
+            "red",
+            "white",
+            "red",
+            "green",
+            "orange",
+            "yellow",
+            "blue",
+            "red"
+          ],
+          "D": [
+            "orange",
+            "red",
+            "yellow",
+            "yellow",
+            "yellow",
+            "green",
+            "blue",
+            "orange",
+            "green"
+          ],
+          "L": [
+            "white",
+            "orange",
+            "blue",
+            "green",
+            "orange",
+            "yellow",
+            "yellow",
+            "blue",
+            "green"
+          ],
+          "B": [
+            "green",
+            "yellow",
+            "green",
+            "blue",
+            "blue",
+            "yellow",
+            "yellow",
+            "blue",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "LLRFURRULBFUURUBURURURFLDBRLRDDDFBLFULBFLDDBFFDFBBDDBL",
+        "moves": [
+          "B",
+          "U",
+          "F'",
+          "B2",
+          "R2",
+          "D'",
+          "B'",
+          "R",
+          "B",
+          "U'",
+          "F2",
+          "U",
+          "L2",
+          "U'",
+          "R2",
+          "U'",
+          "L2",
+          "D'",
+          "F2",
+          "U",
+          "F2",
+          "D2",
+          "R2",
+          "D'"
+        ],
+        "moveCount": 24
+      }
+    },
+    {
+      "id": "engine-seq-07",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "green",
+            "orange",
+            "green",
+            "white",
+            "white",
+            "green",
+            "orange",
+            "yellow"
+          ],
+          "R": [
+            "orange",
+            "blue",
+            "white",
+            "green",
+            "red",
+            "white",
+            "orange",
+            "red",
+            "green"
+          ],
+          "F": [
+            "red",
+            "blue",
+            "green",
+            "green",
+            "green",
+            "yellow",
+            "blue",
+            "yellow",
+            "blue"
+          ],
+          "D": [
+            "red",
+            "orange",
+            "yellow",
+            "blue",
+            "yellow",
+            "yellow",
+            "red",
+            "blue",
+            "white"
+          ],
+          "L": [
+            "green",
+            "red",
+            "yellow",
+            "white",
+            "orange",
+            "orange",
+            "yellow",
+            "red",
+            "white"
+          ],
+          "B": [
+            "blue",
+            "white",
+            "white",
+            "red",
+            "blue",
+            "orange",
+            "orange",
+            "yellow",
+            "blue"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RFLFUUFLDLBUFRULRFRBFFFDBDBRLDBDDRBUFRDULLDRUBUURBLLDB",
+        "moves": [
+          "U",
+          "F'",
+          "U'",
+          "B",
+          "R'",
+          "F",
+          "R2",
+          "F2",
+          "L",
+          "U",
+          "D",
+          "L2",
+          "B2",
+          "U2",
+          "L2",
+          "F2",
+          "D",
+          "F2",
+          "U'",
+          "B2",
+          "D",
+          "L2",
+          "F2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-08",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "yellow",
+            "red",
+            "white",
+            "white",
+            "white",
+            "red",
+            "green",
+            "orange"
+          ],
+          "R": [
+            "green",
+            "red",
+            "yellow",
+            "green",
+            "red",
+            "blue",
+            "blue",
+            "yellow",
+            "orange"
+          ],
+          "F": [
+            "yellow",
+            "red",
+            "yellow",
+            "yellow",
+            "green",
+            "yellow",
+            "green",
+            "white",
+            "white"
+          ],
+          "D": [
+            "orange",
+            "blue",
+            "red",
+            "orange",
+            "yellow",
+            "blue",
+            "yellow",
+            "green",
+            "white"
+          ],
+          "L": [
+            "green",
+            "orange",
+            "green",
+            "green",
+            "orange",
+            "orange",
+            "orange",
+            "blue",
+            "white"
+          ],
+          "B": [
+            "blue",
+            "red",
+            "white",
+            "red",
+            "blue",
+            "white",
+            "blue",
+            "orange",
+            "blue"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RDRUUURFLFRDFRBBDLDRDDFDFUULBRLDBDFUFLFFLLLBUBRURBUBLB",
+        "moves": [
+          "U",
+          "R",
+          "L'",
+          "B2",
+          "D",
+          "L'",
+          "U'",
+          "D2",
+          "L'",
+          "F'",
+          "D",
+          "F2",
+          "R2",
+          "L2",
+          "D",
+          "R2",
+          "U'",
+          "L2",
+          "D'",
+          "R2",
+          "L2",
+          "D2",
+          "B2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-09",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "blue",
+            "green",
+            "green",
+            "yellow",
+            "white",
+            "yellow",
+            "red",
+            "white",
+            "red"
+          ],
+          "R": [
+            "blue",
+            "blue",
+            "orange",
+            "green",
+            "red",
+            "orange",
+            "orange",
+            "red",
+            "white"
+          ],
+          "F": [
+            "yellow",
+            "red",
+            "yellow",
+            "white",
+            "green",
+            "white",
+            "white",
+            "orange",
+            "green"
+          ],
+          "D": [
+            "red",
+            "yellow",
+            "white",
+            "blue",
+            "yellow",
+            "green",
+            "white",
+            "blue",
+            "red"
+          ],
+          "L": [
+            "orange",
+            "red",
+            "green",
+            "white",
+            "orange",
+            "orange",
+            "blue",
+            "red",
+            "green"
+          ],
+          "B": [
+            "yellow",
+            "yellow",
+            "yellow",
+            "green",
+            "blue",
+            "blue",
+            "blue",
+            "orange",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "BFFDUDRURBBLFRLLRUDRDUFUULFRDUBDFUBRLRFULLBRFDDDFBBBLL",
+        "moves": [
+          "F2",
+          "B2",
+          "U'",
+          "B2",
+          "L",
+          "U",
+          "B'",
+          "R",
+          "B",
+          "U2",
+          "B2",
+          "U",
+          "B2",
+          "D",
+          "B2",
+          "R2",
+          "L2",
+          "D",
+          "L2",
+          "U'",
+          "R2",
+          "U",
+          "L2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-10",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "yellow",
+            "white",
+            "orange",
+            "yellow",
+            "white",
+            "orange",
+            "white",
+            "blue",
+            "red"
+          ],
+          "R": [
+            "blue",
+            "green",
+            "green",
+            "orange",
+            "red",
+            "blue",
+            "red",
+            "yellow",
+            "blue"
+          ],
+          "F": [
+            "red",
+            "white",
+            "yellow",
+            "green",
+            "green",
+            "blue",
+            "blue",
+            "orange",
+            "blue"
+          ],
+          "D": [
+            "orange",
+            "white",
+            "white",
+            "blue",
+            "yellow",
+            "red",
+            "yellow",
+            "white",
+            "orange"
+          ],
+          "L": [
+            "green",
+            "orange",
+            "green",
+            "yellow",
+            "orange",
+            "red",
+            "green",
+            "yellow",
+            "yellow"
+          ],
+          "B": [
+            "white",
+            "green",
+            "red",
+            "red",
+            "blue",
+            "green",
+            "white",
+            "red",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "DULDULUBRBFFLRBRDBRUDFFBBLBLUUBDRDULFLFDLRFDDUFRRBFURL",
+        "moves": [
+          "R",
+          "D'",
+          "F",
+          "U2",
+          "F2",
+          "B'",
+          "R2",
+          "D",
+          "L",
+          "U",
+          "L2",
+          "U",
+          "B2",
+          "U2",
+          "F2",
+          "R2",
+          "F2",
+          "R2",
+          "B2",
+          "D'",
+          "L2",
+          "F2",
+          "D'"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-11",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "white",
+            "red",
+            "red",
+            "red",
+            "white",
+            "yellow",
+            "green",
+            "orange",
+            "yellow"
+          ],
+          "R": [
+            "blue",
+            "orange",
+            "green",
+            "yellow",
+            "red",
+            "white",
+            "green",
+            "yellow",
+            "blue"
+          ],
+          "F": [
+            "yellow",
+            "blue",
+            "orange",
+            "green",
+            "green",
+            "green",
+            "red",
+            "yellow",
+            "white"
+          ],
+          "D": [
+            "white",
+            "blue",
+            "orange",
+            "orange",
+            "yellow",
+            "red",
+            "blue",
+            "blue",
+            "orange"
+          ],
+          "L": [
+            "red",
+            "green",
+            "orange",
+            "red",
+            "orange",
+            "white",
+            "red",
+            "green",
+            "blue"
+          ],
+          "B": [
+            "yellow",
+            "white",
+            "green",
+            "orange",
+            "blue",
+            "blue",
+            "white",
+            "white",
+            "yellow"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "URRRUDFLDBLFDRUFDBDBLFFFRDUUBLLDRBBLRFLRLURFBDUFLBBUUD",
+        "moves": [
+          "U2",
+          "F",
+          "L'",
+          "U'",
+          "B'",
+          "L'",
+          "B'",
+          "U",
+          "R'",
+          "B",
+          "F2",
+          "U",
+          "B2",
+          "U2",
+          "B2",
+          "U",
+          "F2",
+          "U2",
+          "F2",
+          "U",
+          "L2",
+          "U",
+          "R2",
+          "D"
+        ],
+        "moveCount": 24
+      }
+    },
+    {
+      "id": "engine-seq-12",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "yellow",
+            "blue",
+            "blue",
+            "white",
+            "white",
+            "orange",
+            "green",
+            "blue",
+            "blue"
+          ],
+          "R": [
+            "red",
+            "white",
+            "yellow",
+            "yellow",
+            "red",
+            "green",
+            "red",
+            "yellow",
+            "blue"
+          ],
+          "F": [
+            "yellow",
+            "white",
+            "white",
+            "green",
+            "green",
+            "green",
+            "white",
+            "orange",
+            "white"
+          ],
+          "D": [
+            "green",
+            "green",
+            "green",
+            "red",
+            "yellow",
+            "orange",
+            "green",
+            "yellow",
+            "orange"
+          ],
+          "L": [
+            "red",
+            "red",
+            "orange",
+            "yellow",
+            "orange",
+            "red",
+            "yellow",
+            "blue",
+            "orange"
+          ],
+          "B": [
+            "orange",
+            "orange",
+            "blue",
+            "white",
+            "blue",
+            "blue",
+            "white",
+            "red",
+            "red"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "DBBUULFBBRUDDRFRDBDUUFFFULUFFFRDLFDLRRLDLRDBLLLBUBBURR",
+        "moves": [
+          "D",
+          "F",
+          "R'",
+          "L2",
+          "D2",
+          "F",
+          "L'",
+          "U'",
+          "L",
+          "U",
+          "F2",
+          "U'",
+          "F2",
+          "L2",
+          "U'",
+          "F2",
+          "U'",
+          "F2",
+          "D2",
+          "L2",
+          "B2",
+          "U2",
+          "L2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-13",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "white",
+            "orange",
+            "white",
+            "white",
+            "white",
+            "red",
+            "yellow",
+            "red",
+            "green"
+          ],
+          "R": [
+            "white",
+            "white",
+            "orange",
+            "blue",
+            "red",
+            "red",
+            "orange",
+            "green",
+            "blue"
+          ],
+          "F": [
+            "green",
+            "blue",
+            "red",
+            "yellow",
+            "green",
+            "yellow",
+            "blue",
+            "orange",
+            "yellow"
+          ],
+          "D": [
+            "yellow",
+            "blue",
+            "green",
+            "green",
+            "yellow",
+            "white",
+            "blue",
+            "orange",
+            "yellow"
+          ],
+          "L": [
+            "blue",
+            "orange",
+            "red",
+            "blue",
+            "orange",
+            "green",
+            "orange",
+            "red",
+            "red"
+          ],
+          "B": [
+            "green",
+            "yellow",
+            "red",
+            "yellow",
+            "blue",
+            "white",
+            "orange",
+            "green",
+            "white"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "ULUUURDRFUULBRRLFBFBRDFDBLDDBFFDUBLDBLRBLFLRRFDRDBULFU",
+        "moves": [
+          "F",
+          "R'",
+          "U'",
+          "F",
+          "L'",
+          "U'",
+          "R2",
+          "B'",
+          "R",
+          "L2",
+          "U'",
+          "B2",
+          "U2",
+          "L2",
+          "U",
+          "L2",
+          "F2",
+          "B2",
+          "U'",
+          "L2",
+          "D",
+          "F2",
+          "D2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-14",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "white",
+            "green",
+            "blue",
+            "white",
+            "white",
+            "blue",
+            "blue",
+            "blue",
+            "yellow"
+          ],
+          "R": [
+            "green",
+            "red",
+            "red",
+            "orange",
+            "red",
+            "white",
+            "orange",
+            "yellow",
+            "green"
+          ],
+          "F": [
+            "white",
+            "orange",
+            "red",
+            "white",
+            "green",
+            "yellow",
+            "yellow",
+            "red",
+            "blue"
+          ],
+          "D": [
+            "orange",
+            "green",
+            "yellow",
+            "orange",
+            "yellow",
+            "blue",
+            "white",
+            "yellow",
+            "red"
+          ],
+          "L": [
+            "green",
+            "orange",
+            "orange",
+            "red",
+            "orange",
+            "blue",
+            "red",
+            "green",
+            "green"
+          ],
+          "B": [
+            "yellow",
+            "white",
+            "orange",
+            "red",
+            "blue",
+            "yellow",
+            "white",
+            "green",
+            "blue"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "UFBUUBBBDFRRLRULDFULRUFDDRBLFDLDBUDRFLLRLBRFFDULRBDUFB",
+        "moves": [
+          "U2",
+          "R",
+          "F'",
+          "U",
+          "R",
+          "U'",
+          "D'",
+          "R2",
+          "L",
+          "B",
+          "U",
+          "R2",
+          "U",
+          "D2",
+          "B2",
+          "R2",
+          "U",
+          "B2",
+          "R2",
+          "D2",
+          "R2",
+          "L2",
+          "B2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-15",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "blue",
+            "orange",
+            "red",
+            "white",
+            "white",
+            "white",
+            "red",
+            "red"
+          ],
+          "R": [
+            "green",
+            "green",
+            "green",
+            "blue",
+            "red",
+            "orange",
+            "orange",
+            "white",
+            "yellow"
+          ],
+          "F": [
+            "blue",
+            "white",
+            "white",
+            "green",
+            "green",
+            "yellow",
+            "blue",
+            "blue",
+            "blue"
+          ],
+          "D": [
+            "white",
+            "red",
+            "yellow",
+            "orange",
+            "yellow",
+            "orange",
+            "green",
+            "green",
+            "blue"
+          ],
+          "L": [
+            "yellow",
+            "yellow",
+            "red",
+            "blue",
+            "orange",
+            "yellow",
+            "orange",
+            "yellow",
+            "orange"
+          ],
+          "B": [
+            "white",
+            "orange",
+            "green",
+            "green",
+            "blue",
+            "white",
+            "red",
+            "red",
+            "yellow"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RBLRUUURRFFFBRLLUDBUUFFDBBBURDLDLFFBDDRBLDLDLULFFBURRD",
+        "moves": [
+          "U'",
+          "R",
+          "L'",
+          "F",
+          "R",
+          "U2",
+          "D'",
+          "F'",
+          "R'",
+          "F",
+          "U2",
+          "F2",
+          "U",
+          "F2",
+          "B2",
+          "L2",
+          "D",
+          "F2",
+          "U'",
+          "B2",
+          "R2",
+          "D'",
+          "R2",
+          "U"
+        ],
+        "moveCount": 24
+      }
+    },
+    {
+      "id": "engine-seq-16",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "red",
+            "yellow",
+            "white",
+            "white",
+            "yellow",
+            "red",
+            "blue",
+            "white"
+          ],
+          "R": [
+            "blue",
+            "orange",
+            "green",
+            "white",
+            "red",
+            "green",
+            "orange",
+            "blue",
+            "yellow"
+          ],
+          "F": [
+            "yellow",
+            "yellow",
+            "red",
+            "green",
+            "green",
+            "blue",
+            "red",
+            "white",
+            "white"
+          ],
+          "D": [
+            "green",
+            "red",
+            "blue",
+            "orange",
+            "yellow",
+            "orange",
+            "white",
+            "yellow",
+            "orange"
+          ],
+          "L": [
+            "blue",
+            "green",
+            "green",
+            "orange",
+            "orange",
+            "yellow",
+            "orange",
+            "white",
+            "white"
+          ],
+          "B": [
+            "orange",
+            "blue",
+            "yellow",
+            "red",
+            "blue",
+            "green",
+            "blue",
+            "red",
+            "green"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RRDUUDRBUBLFURFLBDDDRFFBRUUFRBLDLUDLBFFLLDLUULBDRBFBRF",
+        "moves": [
+          "D2",
+          "F2",
+          "B",
+          "U",
+          "F'",
+          "R'",
+          "L2",
+          "U",
+          "B",
+          "F2",
+          "U'",
+          "R2",
+          "D",
+          "L2",
+          "U2",
+          "B2",
+          "D'",
+          "L2",
+          "D",
+          "R2",
+          "B2",
+          "L2",
+          "B2",
+          "D2"
+        ],
+        "moveCount": 24
+      }
+    },
+    {
+      "id": "engine-seq-17",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "yellow",
+            "green",
+            "green",
+            "red",
+            "white",
+            "green",
+            "blue",
+            "white",
+            "white"
+          ],
+          "R": [
+            "red",
+            "white",
+            "white",
+            "green",
+            "red",
+            "red",
+            "green",
+            "white",
+            "blue"
+          ],
+          "F": [
+            "white",
+            "orange",
+            "green",
+            "orange",
+            "green",
+            "red",
+            "orange",
+            "blue",
+            "yellow"
+          ],
+          "D": [
+            "green",
+            "yellow",
+            "red",
+            "yellow",
+            "yellow",
+            "blue",
+            "blue",
+            "yellow",
+            "white"
+          ],
+          "L": [
+            "blue",
+            "yellow",
+            "orange",
+            "white",
+            "orange",
+            "blue",
+            "red",
+            "green",
+            "yellow"
+          ],
+          "B": [
+            "orange",
+            "orange",
+            "orange",
+            "blue",
+            "blue",
+            "red",
+            "red",
+            "orange",
+            "yellow"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "DFFRUFBUURUUFRRFUBULFLFRLBDFDRDDBBDUBDLULBRFDLLLBBRRLD",
+        "moves": [
+          "D2",
+          "L'",
+          "D2",
+          "B'",
+          "R",
+          "F2",
+          "U'",
+          "B'",
+          "D'",
+          "F",
+          "U",
+          "B2",
+          "L2",
+          "U2",
+          "B2",
+          "U",
+          "R2",
+          "F2",
+          "D'",
+          "B2",
+          "D",
+          "F2",
+          "U'",
+          "F2",
+          "U2"
+        ],
+        "moveCount": 25
+      }
+    },
+    {
+      "id": "engine-seq-18",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "blue",
+            "orange",
+            "yellow",
+            "yellow",
+            "white",
+            "white",
+            "blue",
+            "yellow",
+            "blue"
+          ],
+          "R": [
+            "white",
+            "green",
+            "green",
+            "yellow",
+            "red",
+            "white",
+            "red",
+            "green",
+            "white"
+          ],
+          "F": [
+            "yellow",
+            "orange",
+            "orange",
+            "white",
+            "green",
+            "red",
+            "yellow",
+            "orange",
+            "green"
+          ],
+          "D": [
+            "blue",
+            "green",
+            "yellow",
+            "orange",
+            "yellow",
+            "red",
+            "red",
+            "red",
+            "orange"
+          ],
+          "L": [
+            "red",
+            "blue",
+            "red",
+            "green",
+            "orange",
+            "red",
+            "white",
+            "blue",
+            "orange"
+          ],
+          "B": [
+            "orange",
+            "white",
+            "white",
+            "blue",
+            "blue",
+            "yellow",
+            "green",
+            "blue",
+            "green"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "BLDDUUBDBUFFDRURFUDLLUFRDLFBFDLDRRRLRBRFLRUBLLUUBBDFBF",
+        "moves": [
+          "B'",
+          "D'",
+          "R2",
+          "L'",
+          "U'",
+          "F2",
+          "L'",
+          "U2",
+          "B",
+          "U",
+          "F2",
+          "U'",
+          "F2",
+          "B2",
+          "L2",
+          "D2",
+          "R2",
+          "D",
+          "L2",
+          "U",
+          "R2",
+          "F2",
+          "D'",
+          "R2"
+        ],
+        "moveCount": 24
+      }
+    },
+    {
+      "id": "engine-seq-19",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "blue",
+            "blue",
+            "yellow",
+            "red",
+            "white",
+            "white",
+            "orange",
+            "orange",
+            "white"
+          ],
+          "R": [
+            "red",
+            "orange",
+            "red",
+            "yellow",
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "orange"
+          ],
+          "F": [
+            "yellow",
+            "blue",
+            "green",
+            "green",
+            "green",
+            "green",
+            "white",
+            "red",
+            "green"
+          ],
+          "D": [
+            "green",
+            "white",
+            "orange",
+            "blue",
+            "yellow",
+            "white",
+            "red",
+            "red",
+            "white"
+          ],
+          "L": [
+            "red",
+            "blue",
+            "blue",
+            "red",
+            "orange",
+            "orange",
+            "yellow",
+            "white",
+            "orange"
+          ],
+          "B": [
+            "green",
+            "yellow",
+            "white",
+            "yellow",
+            "blue",
+            "green",
+            "blue",
+            "yellow",
+            "blue"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "BBDRUULLURLRDRLDFLDBFFFFURFFULBDURRURBBRLLDULFDUDBFBDB",
+        "moves": [
+          "U",
+          "D'",
+          "F'",
+          "B2",
+          "R",
+          "U",
+          "F",
+          "B2",
+          "R",
+          "B",
+          "U2",
+          "F2",
+          "L2",
+          "F2",
+          "B2",
+          "U",
+          "F2",
+          "R2",
+          "U2",
+          "L2",
+          "D",
+          "B2",
+          "U'",
+          "L2",
+          "D'"
+        ],
+        "moveCount": 25
+      }
+    },
+    {
+      "id": "engine-seq-20",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "orange",
+            "blue",
+            "blue",
+            "white",
+            "blue",
+            "yellow",
+            "yellow",
+            "yellow"
+          ],
+          "R": [
+            "green",
+            "white",
+            "orange",
+            "orange",
+            "red",
+            "white",
+            "green",
+            "green",
+            "blue"
+          ],
+          "F": [
+            "red",
+            "green",
+            "red",
+            "white",
+            "green",
+            "blue",
+            "green",
+            "blue",
+            "orange"
+          ],
+          "D": [
+            "orange",
+            "yellow",
+            "yellow",
+            "orange",
+            "yellow",
+            "orange",
+            "white",
+            "green",
+            "yellow"
+          ],
+          "L": [
+            "white",
+            "red",
+            "blue",
+            "yellow",
+            "orange",
+            "red",
+            "red",
+            "white",
+            "white"
+          ],
+          "B": [
+            "white",
+            "yellow",
+            "red",
+            "green",
+            "blue",
+            "red",
+            "orange",
+            "red",
+            "blue"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FLBBUBDDDFULLRUFFBRFRUFBFBLLDDLDLUFDURBDLRRUUUDRFBRLRB",
+        "moves": [
+          "F2",
+          "D'",
+          "R'",
+          "L2",
+          "U2",
+          "F'",
+          "B'",
+          "L'",
+          "B'",
+          "U'",
+          "R2",
+          "U",
+          "F2",
+          "U2",
+          "B2",
+          "L2",
+          "U'",
+          "B2",
+          "U",
+          "D",
+          "B2",
+          "R2"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-21",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "orange",
+            "blue",
+            "red",
+            "orange",
+            "white",
+            "white",
+            "red",
+            "yellow",
+            "blue"
+          ],
+          "R": [
+            "orange",
+            "orange",
+            "yellow",
+            "red",
+            "red",
+            "white",
+            "green",
+            "green",
+            "yellow"
+          ],
+          "F": [
+            "green",
+            "blue",
+            "yellow",
+            "orange",
+            "green",
+            "green",
+            "red",
+            "blue",
+            "orange"
+          ],
+          "D": [
+            "white",
+            "red",
+            "yellow",
+            "yellow",
+            "yellow",
+            "yellow",
+            "white",
+            "white",
+            "red"
+          ],
+          "L": [
+            "blue",
+            "yellow",
+            "white",
+            "green",
+            "orange",
+            "blue",
+            "orange",
+            "red",
+            "blue"
+          ],
+          "B": [
+            "blue",
+            "white",
+            "white",
+            "red",
+            "blue",
+            "orange",
+            "green",
+            "green",
+            "green"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "LBRLUURDBLLDRRUFFDFBDLFFRBLURDDDDUURBDUFLBLRBBUURBLFFF",
+        "moves": [
+          "B'",
+          "L'",
+          "U",
+          "R",
+          "L'",
+          "U2",
+          "F2",
+          "L'",
+          "F",
+          "B2",
+          "L2",
+          "D",
+          "B2",
+          "L2",
+          "B2",
+          "R2",
+          "D",
+          "F2",
+          "L2",
+          "U",
+          "L2",
+          "D'"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-22",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "orange",
+            "red",
+            "red",
+            "orange",
+            "white",
+            "yellow",
+            "red",
+            "green",
+            "green"
+          ],
+          "R": [
+            "orange",
+            "orange",
+            "yellow",
+            "red",
+            "red",
+            "orange",
+            "red",
+            "red",
+            "blue"
+          ],
+          "F": [
+            "green",
+            "white",
+            "white",
+            "blue",
+            "green",
+            "white",
+            "orange",
+            "blue",
+            "green"
+          ],
+          "D": [
+            "yellow",
+            "white",
+            "yellow",
+            "orange",
+            "yellow",
+            "yellow",
+            "blue",
+            "red",
+            "white"
+          ],
+          "L": [
+            "green",
+            "green",
+            "white",
+            "green",
+            "orange",
+            "yellow",
+            "orange",
+            "white",
+            "blue"
+          ],
+          "B": [
+            "blue",
+            "blue",
+            "yellow",
+            "blue",
+            "blue",
+            "yellow",
+            "red",
+            "green",
+            "white"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "LRRLUDRFFLLDRRLRRBFUUBFULBFDUDLDDBRUFFUFLDLUBBBDBBDRFU",
+        "moves": [
+          "L2",
+          "D'",
+          "F",
+          "U2",
+          "R'",
+          "F'",
+          "B'",
+          "D'",
+          "R",
+          "L2",
+          "U2",
+          "B2",
+          "U'",
+          "B2",
+          "L2",
+          "D'",
+          "L2",
+          "U'",
+          "B2"
+        ],
+        "moveCount": 19
+      }
+    },
+    {
+      "id": "engine-seq-23",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "green",
+            "green",
+            "green",
+            "white",
+            "green",
+            "orange",
+            "blue",
+            "red"
+          ],
+          "R": [
+            "white",
+            "orange",
+            "red",
+            "white",
+            "red",
+            "red",
+            "orange",
+            "blue",
+            "yellow"
+          ],
+          "F": [
+            "blue",
+            "orange",
+            "blue",
+            "yellow",
+            "green",
+            "blue",
+            "yellow",
+            "white",
+            "blue"
+          ],
+          "D": [
+            "orange",
+            "red",
+            "yellow",
+            "orange",
+            "yellow",
+            "red",
+            "white",
+            "yellow",
+            "red"
+          ],
+          "L": [
+            "blue",
+            "red",
+            "white",
+            "white",
+            "orange",
+            "blue",
+            "orange",
+            "white",
+            "green"
+          ],
+          "B": [
+            "white",
+            "yellow",
+            "yellow",
+            "yellow",
+            "blue",
+            "green",
+            "green",
+            "orange",
+            "green"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RFFFUFLBRULRURRLBDBLBDFBDUBLRDLDRUDRBRUULBLUFUDDDBFFLF",
+        "moves": [
+          "U",
+          "B",
+          "L2",
+          "U'",
+          "D'",
+          "L",
+          "F",
+          "D'",
+          "B'",
+          "R",
+          "F2",
+          "R2",
+          "L2",
+          "U'",
+          "R2",
+          "D",
+          "R2",
+          "U2",
+          "L2",
+          "D2",
+          "L2",
+          "F2"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-24",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "orange",
+            "red",
+            "red",
+            "green",
+            "white",
+            "white",
+            "blue",
+            "blue",
+            "yellow"
+          ],
+          "R": [
+            "orange",
+            "red",
+            "blue",
+            "yellow",
+            "red",
+            "blue",
+            "yellow",
+            "red",
+            "yellow"
+          ],
+          "F": [
+            "white",
+            "yellow",
+            "green",
+            "orange",
+            "green",
+            "orange",
+            "white",
+            "blue",
+            "blue"
+          ],
+          "D": [
+            "green",
+            "orange",
+            "red",
+            "yellow",
+            "yellow",
+            "green",
+            "green",
+            "yellow",
+            "red"
+          ],
+          "L": [
+            "yellow",
+            "orange",
+            "orange",
+            "white",
+            "orange",
+            "white",
+            "red",
+            "red",
+            "orange"
+          ],
+          "B": [
+            "white",
+            "blue",
+            "blue",
+            "white",
+            "blue",
+            "green",
+            "green",
+            "green",
+            "white"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "LRRFUUBBDLRBDRBDRDUDFLFLUBBFLRDDFFDRDLLULURRLUBBUBFFFU",
+        "moves": [
+          "B",
+          "U2",
+          "L2",
+          "B'",
+          "L2",
+          "F",
+          "R",
+          "U",
+          "D",
+          "B2",
+          "U",
+          "F2",
+          "U",
+          "F2",
+          "L2",
+          "B2",
+          "U",
+          "B2",
+          "D2"
+        ],
+        "moveCount": 19
+      }
+    },
+    {
+      "id": "engine-seq-25",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "yellow",
+            "orange",
+            "yellow",
+            "red",
+            "white",
+            "orange",
+            "white",
+            "blue",
+            "blue"
+          ],
+          "R": [
+            "yellow",
+            "blue",
+            "green",
+            "orange",
+            "red",
+            "white",
+            "orange",
+            "white",
+            "white"
+          ],
+          "F": [
+            "orange",
+            "red",
+            "red",
+            "yellow",
+            "green",
+            "green",
+            "green",
+            "green",
+            "green"
+          ],
+          "D": [
+            "white",
+            "red",
+            "white",
+            "yellow",
+            "yellow",
+            "green",
+            "red",
+            "yellow",
+            "red"
+          ],
+          "L": [
+            "blue",
+            "white",
+            "blue",
+            "green",
+            "orange",
+            "blue",
+            "green",
+            "orange",
+            "red"
+          ],
+          "B": [
+            "orange",
+            "white",
+            "orange",
+            "blue",
+            "blue",
+            "yellow",
+            "blue",
+            "red",
+            "yellow"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "DLDRULUBBDBFLRULUULRRDFFFFFURUDDFRDRBUBFLBFLRLULBBDBRD",
+        "moves": [
+          "L",
+          "B'",
+          "U2",
+          "F",
+          "U",
+          "R'",
+          "D2",
+          "B",
+          "F2",
+          "U'",
+          "B2",
+          "L2",
+          "U",
+          "L2",
+          "B2",
+          "D",
+          "F2",
+          "R2",
+          "U",
+          "F2",
+          "U2"
+        ],
+        "moveCount": 21
+      }
+    },
+    {
+      "id": "engine-seq-26",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "blue",
+            "yellow",
+            "yellow",
+            "white",
+            "white",
+            "yellow",
+            "yellow",
+            "green"
+          ],
+          "R": [
+            "red",
+            "orange",
+            "blue",
+            "orange",
+            "red",
+            "yellow",
+            "orange",
+            "red",
+            "blue"
+          ],
+          "F": [
+            "orange",
+            "orange",
+            "yellow",
+            "green",
+            "green",
+            "blue",
+            "white",
+            "red",
+            "green"
+          ],
+          "D": [
+            "orange",
+            "blue",
+            "white",
+            "yellow",
+            "yellow",
+            "white",
+            "red",
+            "red",
+            "yellow"
+          ],
+          "L": [
+            "white",
+            "green",
+            "green",
+            "orange",
+            "orange",
+            "white",
+            "blue",
+            "red",
+            "blue"
+          ],
+          "B": [
+            "red",
+            "white",
+            "red",
+            "blue",
+            "blue",
+            "green",
+            "orange",
+            "green",
+            "white"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FBDDUUDDFRLBLRDLRBLLDFFBURFLBUDDURRDUFFLLUBRBRURBBFLFU",
+        "moves": [
+          "U",
+          "F2",
+          "R'",
+          "U",
+          "D2",
+          "L'",
+          "F",
+          "U2",
+          "D2",
+          "R",
+          "L2",
+          "D'",
+          "R2",
+          "L2",
+          "D'",
+          "R2",
+          "D",
+          "B2",
+          "D2",
+          "F2",
+          "R2",
+          "D'",
+          "R2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-27",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "yellow",
+            "green",
+            "orange",
+            "white",
+            "blue",
+            "blue",
+            "white",
+            "white"
+          ],
+          "R": [
+            "orange",
+            "red",
+            "white",
+            "orange",
+            "red",
+            "orange",
+            "red",
+            "white",
+            "yellow"
+          ],
+          "F": [
+            "orange",
+            "blue",
+            "blue",
+            "green",
+            "green",
+            "white",
+            "blue",
+            "green",
+            "yellow"
+          ],
+          "D": [
+            "red",
+            "orange",
+            "blue",
+            "green",
+            "yellow",
+            "green",
+            "yellow",
+            "red",
+            "red"
+          ],
+          "L": [
+            "green",
+            "blue",
+            "yellow",
+            "white",
+            "orange",
+            "yellow",
+            "green",
+            "red",
+            "white"
+          ],
+          "B": [
+            "orange",
+            "blue",
+            "white",
+            "yellow",
+            "blue",
+            "red",
+            "green",
+            "yellow",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RDFLUBBUULRULRLRUDLBBFFUBFDRLBFDFDRRFBDULDFRULBUDBRFDL",
+        "moves": [
+          "F2",
+          "L2",
+          "D",
+          "F'",
+          "R",
+          "B'",
+          "L",
+          "B'",
+          "D2",
+          "R",
+          "D'",
+          "B2",
+          "U",
+          "F2",
+          "D'",
+          "L2",
+          "U2",
+          "L2",
+          "F2",
+          "U'",
+          "F2"
+        ],
+        "moveCount": 21
+      }
+    },
+    {
+      "id": "engine-seq-28",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "green",
+            "yellow",
+            "red",
+            "white",
+            "yellow",
+            "orange",
+            "white",
+            "red"
+          ],
+          "R": [
+            "blue",
+            "red",
+            "green",
+            "yellow",
+            "red",
+            "green",
+            "white",
+            "red",
+            "orange"
+          ],
+          "F": [
+            "blue",
+            "blue",
+            "yellow",
+            "orange",
+            "green",
+            "orange",
+            "red",
+            "yellow",
+            "red"
+          ],
+          "D": [
+            "yellow",
+            "blue",
+            "blue",
+            "orange",
+            "yellow",
+            "green",
+            "blue",
+            "red",
+            "green"
+          ],
+          "L": [
+            "green",
+            "blue",
+            "white",
+            "green",
+            "orange",
+            "white",
+            "yellow",
+            "blue",
+            "green"
+          ],
+          "B": [
+            "orange",
+            "orange",
+            "white",
+            "yellow",
+            "blue",
+            "white",
+            "white",
+            "white",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RFDRUDLURBRFDRFURLBBDLFLRDRDBBLDFBRFFBUFLUDBFLLUDBUUUL",
+        "moves": [
+          "U",
+          "F",
+          "R2",
+          "L",
+          "B",
+          "R",
+          "U",
+          "L",
+          "D",
+          "L",
+          "F2",
+          "U'",
+          "B2",
+          "U'",
+          "F2",
+          "U2",
+          "R2",
+          "U",
+          "B2",
+          "U",
+          "F2",
+          "R2",
+          "L2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-29",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "blue",
+            "orange",
+            "green",
+            "green",
+            "white",
+            "red",
+            "blue",
+            "orange",
+            "white"
+          ],
+          "R": [
+            "blue",
+            "yellow",
+            "white",
+            "green",
+            "red",
+            "blue",
+            "yellow",
+            "yellow",
+            "white"
+          ],
+          "F": [
+            "yellow",
+            "white",
+            "red",
+            "white",
+            "green",
+            "yellow",
+            "orange",
+            "red",
+            "red"
+          ],
+          "D": [
+            "green",
+            "white",
+            "green",
+            "orange",
+            "yellow",
+            "blue",
+            "white",
+            "red",
+            "blue"
+          ],
+          "L": [
+            "orange",
+            "orange",
+            "red",
+            "red",
+            "orange",
+            "green",
+            "green",
+            "yellow",
+            "yellow"
+          ],
+          "B": [
+            "orange",
+            "blue",
+            "yellow",
+            "white",
+            "blue",
+            "green",
+            "orange",
+            "blue",
+            "red"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "BLFFURBLUBDUFRBDDUDURUFDLRRFUFLDBURBLLRRLFFDDLBDUBFLBR",
+        "moves": [
+          "R'",
+          "L",
+          "F2",
+          "L",
+          "F",
+          "L",
+          "F",
+          "B",
+          "L2",
+          "U'",
+          "B2",
+          "U",
+          "F2",
+          "R2",
+          "U",
+          "F2",
+          "L2",
+          "U",
+          "L2",
+          "U2",
+          "B2"
+        ],
+        "moveCount": 21
+      }
+    },
+    {
+      "id": "engine-seq-30",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "blue",
+            "green",
+            "red",
+            "white",
+            "yellow",
+            "red",
+            "green",
+            "red"
+          ],
+          "R": [
+            "white",
+            "orange",
+            "orange",
+            "white",
+            "red",
+            "yellow",
+            "red",
+            "white",
+            "blue"
+          ],
+          "F": [
+            "green",
+            "white",
+            "blue",
+            "blue",
+            "green",
+            "orange",
+            "red",
+            "yellow",
+            "yellow"
+          ],
+          "D": [
+            "yellow",
+            "blue",
+            "blue",
+            "blue",
+            "yellow",
+            "red",
+            "yellow",
+            "orange",
+            "orange"
+          ],
+          "L": [
+            "orange",
+            "green",
+            "white",
+            "red",
+            "orange",
+            "white",
+            "orange",
+            "orange",
+            "green"
+          ],
+          "B": [
+            "yellow",
+            "red",
+            "white",
+            "green",
+            "blue",
+            "yellow",
+            "white",
+            "green",
+            "blue"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FBFRUDRFRULLURDRUBFUBBFLRDDDBBBDRDLLLFURLULLFDRUFBDUFB",
+        "moves": [
+          "U",
+          "F",
+          "L'",
+          "B",
+          "D",
+          "R",
+          "B",
+          "R",
+          "B",
+          "R2",
+          "U'",
+          "F2",
+          "D2",
+          "B2",
+          "U'",
+          "F2",
+          "U'",
+          "R2",
+          "U",
+          "L2",
+          "D'",
+          "R2"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-31",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "blue",
+            "blue",
+            "blue",
+            "red",
+            "white",
+            "orange",
+            "orange",
+            "red",
+            "yellow"
+          ],
+          "R": [
+            "green",
+            "green",
+            "orange",
+            "green",
+            "red",
+            "red",
+            "white",
+            "red",
+            "white"
+          ],
+          "F": [
+            "green",
+            "yellow",
+            "red",
+            "green",
+            "green",
+            "yellow",
+            "blue",
+            "blue",
+            "green"
+          ],
+          "D": [
+            "red",
+            "orange",
+            "red",
+            "white",
+            "yellow",
+            "blue",
+            "orange",
+            "yellow",
+            "orange"
+          ],
+          "L": [
+            "yellow",
+            "white",
+            "yellow",
+            "blue",
+            "orange",
+            "white",
+            "blue",
+            "orange",
+            "white"
+          ],
+          "B": [
+            "white",
+            "yellow",
+            "red",
+            "green",
+            "blue",
+            "white",
+            "green",
+            "orange",
+            "yellow"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "BBBRULLRDFFLFRRURUFDRFFDBBFRLRUDBLDLDUDBLUBLUUDRFBUFLD",
+        "moves": [
+          "U",
+          "F",
+          "B2",
+          "R'",
+          "F",
+          "D'",
+          "L",
+          "D'",
+          "F",
+          "L",
+          "U",
+          "D'",
+          "L2",
+          "U'",
+          "D'",
+          "F2",
+          "L2",
+          "D'",
+          "F2",
+          "L2",
+          "U'",
+          "L2"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-32",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "orange",
+            "red",
+            "green",
+            "yellow",
+            "white",
+            "red",
+            "yellow",
+            "green",
+            "blue"
+          ],
+          "R": [
+            "white",
+            "blue",
+            "orange",
+            "blue",
+            "red",
+            "yellow",
+            "red",
+            "orange",
+            "yellow"
+          ],
+          "F": [
+            "red",
+            "white",
+            "orange",
+            "green",
+            "green",
+            "white",
+            "orange",
+            "orange",
+            "white"
+          ],
+          "D": [
+            "yellow",
+            "yellow",
+            "green",
+            "orange",
+            "yellow",
+            "blue",
+            "red",
+            "red",
+            "red"
+          ],
+          "L": [
+            "white",
+            "blue",
+            "blue",
+            "orange",
+            "orange",
+            "red",
+            "blue",
+            "white",
+            "blue"
+          ],
+          "B": [
+            "yellow",
+            "white",
+            "green",
+            "green",
+            "blue",
+            "green",
+            "green",
+            "yellow",
+            "white"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "LRFDURDFBUBLBRDRLDRULFFULLUDDFLDBRRRUBBLLRBUBDUFFBFFDU",
+        "moves": [
+          "U",
+          "R2",
+          "F2",
+          "R",
+          "U'",
+          "F'",
+          "U'",
+          "B'",
+          "L",
+          "B",
+          "U'",
+          "L2",
+          "U",
+          "B2",
+          "U",
+          "B2",
+          "R2",
+          "U",
+          "R2",
+          "B2",
+          "U",
+          "R2",
+          "U"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-33",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "red",
+            "orange",
+            "green",
+            "white",
+            "orange",
+            "blue",
+            "red",
+            "yellow"
+          ],
+          "R": [
+            "green",
+            "white",
+            "white",
+            "red",
+            "red",
+            "green",
+            "green",
+            "red",
+            "blue"
+          ],
+          "F": [
+            "red",
+            "white",
+            "red",
+            "green",
+            "green",
+            "blue",
+            "red",
+            "orange",
+            "red"
+          ],
+          "D": [
+            "blue",
+            "yellow",
+            "white",
+            "yellow",
+            "yellow",
+            "green",
+            "white",
+            "white",
+            "yellow"
+          ],
+          "L": [
+            "yellow",
+            "white",
+            "white",
+            "orange",
+            "orange",
+            "orange",
+            "orange",
+            "blue",
+            "yellow"
+          ],
+          "B": [
+            "blue",
+            "yellow",
+            "orange",
+            "yellow",
+            "blue",
+            "blue",
+            "orange",
+            "blue",
+            "green"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FRLFULBRDFUURRFFRBRURFFBRLRBDUDDFUUDDUULLLLBDBDLDBBLBF",
+        "moves": [
+          "F",
+          "R",
+          "L'",
+          "B",
+          "U",
+          "R2",
+          "U'",
+          "L",
+          "F'",
+          "U",
+          "B2",
+          "U2",
+          "R2",
+          "D'",
+          "F2",
+          "U2",
+          "F2",
+          "L2",
+          "U",
+          "F2",
+          "U'",
+          "L2"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-34",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "blue",
+            "white",
+            "orange",
+            "white",
+            "blue",
+            "red",
+            "yellow",
+            "orange"
+          ],
+          "R": [
+            "green",
+            "orange",
+            "red",
+            "red",
+            "red",
+            "yellow",
+            "yellow",
+            "orange",
+            "green"
+          ],
+          "F": [
+            "blue",
+            "blue",
+            "yellow",
+            "blue",
+            "green",
+            "white",
+            "red",
+            "green",
+            "orange"
+          ],
+          "D": [
+            "green",
+            "yellow",
+            "blue",
+            "white",
+            "yellow",
+            "yellow",
+            "white",
+            "green",
+            "yellow"
+          ],
+          "L": [
+            "orange",
+            "white",
+            "yellow",
+            "green",
+            "orange",
+            "white",
+            "blue",
+            "green",
+            "white"
+          ],
+          "B": [
+            "blue",
+            "red",
+            "white",
+            "red",
+            "blue",
+            "orange",
+            "red",
+            "red",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FBULUBRDLFLRRRDDLFBBDBFURFLFDBUDDUFDLUDFLUBFUBRURBLRRL",
+        "moves": [
+          "R2",
+          "U2",
+          "L'",
+          "U",
+          "F'",
+          "R2",
+          "D'",
+          "L",
+          "B'",
+          "R'",
+          "U'",
+          "B2",
+          "U2",
+          "R2",
+          "F2",
+          "D'",
+          "L2",
+          "F2",
+          "D",
+          "L2",
+          "B2",
+          "D"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-35",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "green",
+            "red",
+            "yellow",
+            "white",
+            "white",
+            "orange",
+            "yellow",
+            "red",
+            "blue"
+          ],
+          "R": [
+            "red",
+            "green",
+            "orange",
+            "blue",
+            "red",
+            "white",
+            "yellow",
+            "yellow",
+            "red"
+          ],
+          "F": [
+            "orange",
+            "green",
+            "white",
+            "green",
+            "green",
+            "orange",
+            "green",
+            "blue",
+            "red"
+          ],
+          "D": [
+            "white",
+            "yellow",
+            "green",
+            "red",
+            "yellow",
+            "green",
+            "white",
+            "red",
+            "yellow"
+          ],
+          "L": [
+            "orange",
+            "orange",
+            "green",
+            "yellow",
+            "orange",
+            "white",
+            "blue",
+            "yellow",
+            "red"
+          ],
+          "B": [
+            "blue",
+            "blue",
+            "white",
+            "blue",
+            "blue",
+            "orange",
+            "blue",
+            "white",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "FRDUULDRBRFLBRUDDRLFUFFLFBRUDFRDFURDLLFDLUBDRBBUBBLBUL",
+        "moves": [
+          "R",
+          "F'",
+          "B'",
+          "L'",
+          "U",
+          "B2",
+          "D'",
+          "F'",
+          "U",
+          "R",
+          "F2",
+          "R2",
+          "U'",
+          "R2",
+          "B2",
+          "D'",
+          "L2",
+          "U",
+          "R2",
+          "B2",
+          "U2",
+          "R2",
+          "D"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-36",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "red",
+            "green",
+            "blue",
+            "yellow",
+            "white",
+            "orange",
+            "orange",
+            "orange",
+            "white"
+          ],
+          "R": [
+            "orange",
+            "white",
+            "white",
+            "white",
+            "red",
+            "white",
+            "green",
+            "yellow",
+            "red"
+          ],
+          "F": [
+            "white",
+            "blue",
+            "blue",
+            "red",
+            "green",
+            "blue",
+            "yellow",
+            "red",
+            "orange"
+          ],
+          "D": [
+            "blue",
+            "white",
+            "yellow",
+            "red",
+            "yellow",
+            "orange",
+            "green",
+            "red",
+            "white"
+          ],
+          "L": [
+            "blue",
+            "blue",
+            "green",
+            "green",
+            "orange",
+            "yellow",
+            "yellow",
+            "green",
+            "orange"
+          ],
+          "B": [
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "blue",
+            "yellow",
+            "green",
+            "blue",
+            "red"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "RFBDULLLULUUURUFDRUBBRFBDRLBUDRDLFRUBBFFLDDFLRLDFBDFBR",
+        "moves": [
+          "R'",
+          "D'",
+          "L2",
+          "U'",
+          "B",
+          "D'",
+          "L'",
+          "U",
+          "F",
+          "U",
+          "R2",
+          "L2",
+          "D'",
+          "F2",
+          "D'",
+          "F2",
+          "U2",
+          "B2",
+          "R2",
+          "U2",
+          "R2",
+          "U"
+        ],
+        "moveCount": 22
+      }
+    },
+    {
+      "id": "engine-seq-37",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "white",
+            "yellow",
+            "blue",
+            "orange",
+            "white",
+            "green",
+            "orange",
+            "orange",
+            "red"
+          ],
+          "R": [
+            "blue",
+            "white",
+            "yellow",
+            "yellow",
+            "red",
+            "red",
+            "orange",
+            "green",
+            "blue"
+          ],
+          "F": [
+            "green",
+            "blue",
+            "yellow",
+            "yellow",
+            "green",
+            "green",
+            "white",
+            "yellow",
+            "white"
+          ],
+          "D": [
+            "red",
+            "orange",
+            "blue",
+            "white",
+            "yellow",
+            "red",
+            "yellow",
+            "red",
+            "white"
+          ],
+          "L": [
+            "green",
+            "white",
+            "yellow",
+            "green",
+            "orange",
+            "blue",
+            "red",
+            "blue",
+            "green"
+          ],
+          "B": [
+            "orange",
+            "red",
+            "orange",
+            "white",
+            "blue",
+            "orange",
+            "red",
+            "blue",
+            "green"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "UDBLUFLLRBUDDRRLFBFBDDFFUDURLBUDRDRUFUDFLBRBFLRLUBLRBF",
+        "moves": [
+          "L'",
+          "B",
+          "D'",
+          "R",
+          "B",
+          "L'",
+          "B2",
+          "R'",
+          "F",
+          "U",
+          "F2",
+          "R2",
+          "B2",
+          "L2",
+          "F2",
+          "U2",
+          "B2",
+          "D",
+          "B2",
+          "L2",
+          "B2",
+          "L2",
+          "D'"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "engine-seq-38",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "white",
+            "white",
+            "orange",
+            "orange",
+            "white",
+            "orange",
+            "white",
+            "white",
+            "yellow"
+          ],
+          "R": [
+            "red",
+            "white",
+            "blue",
+            "yellow",
+            "red",
+            "white",
+            "red",
+            "yellow",
+            "yellow"
+          ],
+          "F": [
+            "blue",
+            "red",
+            "blue",
+            "red",
+            "green",
+            "blue",
+            "orange",
+            "green",
+            "white"
+          ],
+          "D": [
+            "green",
+            "orange",
+            "green",
+            "yellow",
+            "yellow",
+            "red",
+            "green",
+            "orange",
+            "red"
+          ],
+          "L": [
+            "orange",
+            "blue",
+            "red",
+            "red",
+            "orange",
+            "green",
+            "white",
+            "green",
+            "yellow"
+          ],
+          "B": [
+            "yellow",
+            "blue",
+            "blue",
+            "green",
+            "blue",
+            "blue",
+            "green",
+            "yellow",
+            "orange"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "UULLULUUDRUBDRURDDBRBRFBLFUFLFDDRFLRLBRRLFUFDDBBFBBFDL",
+        "moves": [
+          "U",
+          "R",
+          "F",
+          "B",
+          "L2",
+          "U'",
+          "R'",
+          "L'",
+          "B",
+          "L",
+          "B2",
+          "R2",
+          "U",
+          "L2",
+          "D",
+          "F2",
+          "U'",
+          "F2",
+          "D",
+          "B2",
+          "U",
+          "F2",
+          "B2",
+          "R2"
+        ],
+        "moveCount": 24
+      }
+    },
+    {
+      "id": "engine-seq-39",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "yellow",
+            "red",
+            "green",
+            "yellow",
+            "white",
+            "yellow",
+            "orange",
+            "orange",
+            "red"
+          ],
+          "R": [
+            "yellow",
+            "orange",
+            "red",
+            "yellow",
+            "red",
+            "blue",
+            "white",
+            "white",
+            "green"
+          ],
+          "F": [
+            "yellow",
+            "green",
+            "green",
+            "yellow",
+            "green",
+            "red",
+            "blue",
+            "green",
+            "red"
+          ],
+          "D": [
+            "white",
+            "red",
+            "blue",
+            "white",
+            "yellow",
+            "orange",
+            "green",
+            "red",
+            "white"
+          ],
+          "L": [
+            "red",
+            "blue",
+            "blue",
+            "white",
+            "orange",
+            "green",
+            "orange",
+            "blue",
+            "orange"
+          ],
+          "B": [
+            "white",
+            "white",
+            "blue",
+            "orange",
+            "blue",
+            "green",
+            "orange",
+            "blue",
+            "yellow"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "DRFDUDLLRDLRDRBUUFDFFDFRBFRURBUDLFRURBBULFLBLUUBLBFLBD",
+        "moves": [
+          "F'",
+          "U'",
+          "R'",
+          "F'",
+          "U2",
+          "B'",
+          "R'",
+          "U'",
+          "F",
+          "U'",
+          "B2",
+          "U",
+          "B2",
+          "D2",
+          "L2",
+          "U2",
+          "R2",
+          "F2",
+          "L2",
+          "D'",
+          "B2",
+          "U'",
+          "R2"
+        ],
+        "moveCount": 23
+      }
+    },
+    {
+      "id": "solved",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "white",
+            "white",
+            "white",
+            "white",
+            "white",
+            "white",
+            "white",
+            "white",
+            "white"
+          ],
+          "R": [
+            "red",
+            "red",
+            "red",
+            "red",
+            "red",
+            "red",
+            "red",
+            "red",
+            "red"
+          ],
+          "F": [
+            "green",
+            "green",
+            "green",
+            "green",
+            "green",
+            "green",
+            "green",
+            "green",
+            "green"
+          ],
+          "D": [
+            "yellow",
+            "yellow",
+            "yellow",
+            "yellow",
+            "yellow",
+            "yellow",
+            "yellow",
+            "yellow",
+            "yellow"
+          ],
+          "L": [
+            "orange",
+            "orange",
+            "orange",
+            "orange",
+            "orange",
+            "orange",
+            "orange",
+            "orange",
+            "orange"
+          ],
+          "B": [
+            "blue",
+            "blue",
+            "blue",
+            "blue",
+            "blue",
+            "blue",
+            "blue",
+            "blue",
+            "blue"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
+        "moves": [],
+        "moveCount": 0
+      }
+    },
+    {
+      "id": "scramble-a",
+      "request": {
+        "schemaVersion": 1,
+        "faces": {
+          "U": [
+            "yellow",
+            "yellow",
+            "green",
+            "green",
+            "white",
+            "white",
+            "white",
+            "orange",
+            "blue"
+          ],
+          "R": [
+            "orange",
+            "green",
+            "yellow",
+            "yellow",
+            "red",
+            "orange",
+            "orange",
+            "red",
+            "blue"
+          ],
+          "F": [
+            "red",
+            "white",
+            "yellow",
+            "red",
+            "green",
+            "orange",
+            "red",
+            "blue",
+            "green"
+          ],
+          "D": [
+            "blue",
+            "white",
+            "white",
+            "blue",
+            "yellow",
+            "white",
+            "blue",
+            "blue",
+            "orange"
+          ],
+          "L": [
+            "orange",
+            "red",
+            "green",
+            "red",
+            "orange",
+            "yellow",
+            "white",
+            "yellow",
+            "yellow"
+          ],
+          "B": [
+            "red",
+            "green",
+            "green",
+            "green",
+            "blue",
+            "blue",
+            "white",
+            "orange",
+            "red"
+          ]
+        }
+      },
+      "response": {
+        "schemaVersion": 1,
+        "centerColors": {
+          "U": "white",
+          "R": "red",
+          "F": "green",
+          "D": "yellow",
+          "L": "orange",
+          "B": "blue"
+        },
+        "initialState": "DDFFUUULBLFDDRLLRBRUDRFLRBFBUUBDUBBLLRFRLDUDDRFFFBBULR",
+        "moves": [
+          "B2",
+          "D",
+          "F",
+          "L",
+          "F2",
+          "L2",
+          "U'",
+          "L",
+          "U2",
+          "L2",
+          "F2",
+          "D'",
+          "R2",
+          "U",
+          "B2",
+          "D",
+          "R2",
+          "U'",
+          "F2",
+          "D",
+          "L2"
+        ],
+        "moveCount": 21
+      }
+    }
+  ]
+}
