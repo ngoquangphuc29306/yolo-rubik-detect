@@ -1,6 +1,13 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    field_validator,
+    model_validator,
+)
 
 from app.cube.constants import ColorName, FaceId
 
@@ -123,6 +130,12 @@ class WireQuality(BaseModel):
 
     valid: bool
     reason: str | None = None
+
+    @model_validator(mode="after")
+    def _reason_iff_invalid(self) -> "WireQuality":
+        if self.valid != (self.reason is None):
+            raise ValueError("reason must be present exactly when valid is false")
+        return self
 
 
 class ScanFrameResult(BaseModel):

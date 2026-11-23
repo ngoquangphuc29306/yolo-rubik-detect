@@ -5,6 +5,7 @@ import json
 import logging
 import time
 
+import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ValidationError
 
@@ -18,7 +19,7 @@ from app.schemas import (
     WireDetection,
     WireQuality,
 )
-from app.vision.detector import Detector
+from app.vision.detector import Detection, Detector
 from app.vision.frames import FrameError, decode_frame
 from app.vision.grid import analyze
 from app.vision.state import VisionState
@@ -103,6 +104,26 @@ async def scan(ws: WebSocket) -> None:
         return
 
 
+async def locked_detect(
+    lock: asyncio.Lock, detector: Detector, image: np.ndarray
+) -> tuple[list[Detection], float]:
+    """Run one inference under the global lock; returns (detections, inference ms).
+
+    The lock is held until the worker thread has returned, even if this task is cancelled.
+    """
+    async with lock:
+        start = time.perf_counter()
+        task = asyncio.ensure_future(asyncio.to_thread(detector.detect, image))
+        try:
+            detections = await asyncio.shield(task)
+        except asyncio.CancelledError:
+            await asyncio.wait({task})
+            if not task.cancelled():
+                task.exception()  # mark retrieved; the result is discarded
+            raise
+        return detections, (time.perf_counter() - start) * 1000
+
+
 async def _frames(
     ws: WebSocket, scan_id: str, detector: Detector, settings: Settings
 ) -> None:
@@ -129,10 +150,7 @@ async def _frames(
                 return
             continue
         try:
-            async with lock:
-                start = time.perf_counter()
-                detections = await asyncio.to_thread(detector.detect, image)
-                ms = (time.perf_counter() - start) * 1000
+            detections, ms = await locked_detect(lock, detector, image)
         except Exception as exc:  # noqa: BLE001 - never leak detector internals to the client
             logger.error("scan %s detector failed: %s", scan_id[:8], type(exc).__name__)
             await _send(

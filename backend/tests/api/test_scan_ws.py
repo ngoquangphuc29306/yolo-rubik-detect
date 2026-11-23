@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import threading
@@ -11,8 +12,9 @@ from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketTestSession
 from starlette.websockets import WebSocketDisconnect
 
+from app.api.scan_ws import locked_detect
 from app.main import create_app
-from app.schemas import ScanError, ScanFrameResult, ScanReady
+from app.schemas import ScanError, ScanFrameResult, ScanReady, WireQuality
 from app.vision.detector import Detection
 
 ORIGIN = {"Origin": "http://127.0.0.1:5173"}
@@ -48,9 +50,11 @@ class Double:
         self.calls = 0
         self.active = 0
         self.overlap = False
+        self.started = threading.Event()
 
     def detect(self, image: np.ndarray) -> list[Detection]:
         self.calls += 1
+        self.started.set()
         self.active += 1
         if self.active > 1:
             self.overlap = True
@@ -231,9 +235,12 @@ def test_connections_never_overlap_inference() -> None:
     d = Double(delay=0.2)
     results: list[dict[str, Any]] = []
 
+    barrier = threading.Barrier(2, timeout=10)
+
     def run(c: TestClient) -> None:
         with c.websocket_connect("/ws/scan", headers=ORIGIN) as ws:
             hello(ws)
+            barrier.wait()
             ws.send_bytes(jpeg())
             results.append(json.loads(ws.receive_text()))
 
@@ -243,6 +250,7 @@ def test_connections_never_overlap_inference() -> None:
             t.start()
         for t in ts:
             t.join(10)
+    assert not any(t.is_alive() for t in ts)
     assert len(results) == 2 and d.calls == 2
     assert d.overlap is False
 
@@ -256,7 +264,14 @@ def test_disconnect_during_processing_is_quiet(
         with c.websocket_connect("/ws/scan", headers=ORIGIN) as ws:
             hello(ws)
             ws.send_bytes(jpeg())
+            assert d.started.wait(5)  # disconnect while detect is running
         time.sleep(0.6)
+        with c.websocket_connect("/ws/scan", headers=ORIGIN) as ws2:
+            hello(ws2)
+            assert d.calls == 1  # the dropped client's frame ran exactly once
+            ws2.send_bytes(jpeg())
+            assert json.loads(ws2.receive_text())["type"] == "frame_result"
+    assert d.calls == 2
     assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
 
 
@@ -269,3 +284,40 @@ def test_frame_bytes_never_logged(caplog: pytest.LogCaptureFixture) -> None:
         ws.receive_text()
     assert repr(frame[:16]) not in caplog.text
     assert "\\xff\\xd8" not in caplog.text
+
+
+def test_cancel_mid_detect_keeps_lock_until_worker_returns() -> None:
+    started, release = threading.Event(), threading.Event()
+
+    class Gated:
+        def detect(self, image: np.ndarray) -> list[Detection]:
+            started.set()
+            release.wait(10)
+            return []
+
+    async def scenario() -> tuple[bool, bool]:
+        lock = asyncio.Lock()
+        task = asyncio.create_task(
+            locked_detect(lock, Gated(), np.zeros((3, 3, 3), np.uint8))
+        )  # type: ignore[arg-type]
+        while not started.is_set():
+            await asyncio.sleep(0.01)
+        task.cancel()
+        await asyncio.sleep(0.1)
+        held_while_running = lock.locked()
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        return held_while_running, lock.locked()
+
+    held, after = asyncio.run(scenario())
+    assert held is True and after is False
+
+
+def test_quality_reason_iff_invalid() -> None:
+    WireQuality(valid=True)
+    WireQuality(valid=False, reason="INCOMPLETE")
+    with pytest.raises(ValueError):
+        WireQuality(valid=False)
+    with pytest.raises(ValueError):
+        WireQuality(valid=True, reason="INCOMPLETE")
