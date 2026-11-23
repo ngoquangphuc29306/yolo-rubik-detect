@@ -1,7 +1,7 @@
 """Real-checkpoint protocol check for /ws/scan (run explicitly: `uv run pytest -m model`).
 
 Validates that the real model, through the real app and WebSocket, yields well-formed `frame_result`s for the
-shared vision fixtures. Grid validity is NOT asserted: these are not guide-aligned crops.
+shared vision fixtures. Grid validity is NOT asserted: these are not guide-aligned crops (the face box is only checked for shape).
 """
 
 import json
@@ -61,12 +61,13 @@ def test_real_model_frame_results_over_websocket() -> None:
             msg = ScanFrameResult.model_validate(raw)  # strict: all keys, nine cells
             assert set(raw) == {
                 "type", "schemaVersion", "scanId", "frameSeq", "width", "height",
-                "detections", "cells", "grid", "quality", "inferenceMs",
+                "detections", "cells", "grid", "quality", "face", "inferenceMs",
             }, path.name
             assert msg.frameSeq == seq
             assert (msg.width, msg.height) == (SIZE, SIZE)
             assert len(msg.cells) == 9
             assert msg.quality.valid == (msg.grid is not None), path.name
+            assert (msg.face is None) or msg.face.x0 < msg.face.x1 and msg.face.y0 < msg.face.y1
             assert msg.inferenceMs > 0
             for d in msg.detections:
                 assert d.color in COLORS

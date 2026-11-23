@@ -17,6 +17,7 @@ from app.schemas import (
     ScanReady,
     WireCell,
     WireDetection,
+    WireFace,
     WireQuality,
 )
 from app.vision.detector import Detection, Detector
@@ -185,6 +186,13 @@ async def _frames(
             ],
             grid=list(analysis.grid) if analysis.grid is not None else None,
             quality=WireQuality(valid=analysis.valid, reason=analysis.reason),
+            face=(
+                WireFace(
+                    x0=analysis.face[0], y0=analysis.face[1], x1=analysis.face[2], y1=analysis.face[3]
+                )
+                if analysis.face is not None
+                else None
+            ),
             inferenceMs=ms,
         )
         logger.info(

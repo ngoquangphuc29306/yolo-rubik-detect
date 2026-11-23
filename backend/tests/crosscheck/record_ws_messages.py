@@ -38,15 +38,15 @@ class ScriptedDetector:
 
 
 def boxes(skip: int | None = None) -> list[Detection]:
-    c = SIZE / 3
+    c = SIZE / 4  # a 75 % face centred in the crop
     out: list[Detection] = []
     for i in range(9):
         if i == skip:
             continue
         r, col = divmod(i, 3)
-        cx, cy = (col + 0.5) * c, (r + 0.5) * c
+        cx, cy = SIZE / 2 + (col - 1) * c, SIZE / 2 + (r - 1) * c
         out.append(
-            Detection(COLORS[i], 0.9, (cx - 20, cy - 20, cx + 20, cy + 20), i % 6)  # type: ignore[arg-type]
+            Detection(COLORS[i], 0.9, (cx - 18, cy - 18, cx + 18, cy + 18), i % 6)  # type: ignore[arg-type]
         )
     return out
 

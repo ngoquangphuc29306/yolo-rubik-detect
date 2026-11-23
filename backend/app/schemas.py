@@ -138,6 +138,15 @@ class WireQuality(BaseModel):
         return self
 
 
+class WireFace(BaseModel):
+    model_config = _STRICT
+
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
 class ScanFrameResult(BaseModel):
     model_config = _STRICT
 
@@ -151,6 +160,7 @@ class ScanFrameResult(BaseModel):
     cells: Annotated[list[WireCell], Field(min_length=9, max_length=9)]
     grid: Grid | None
     quality: WireQuality
+    face: WireFace | None
     inferenceMs: float
 
 

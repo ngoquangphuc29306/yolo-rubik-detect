@@ -28,15 +28,15 @@ class _Solver:
 
 
 def nine_boxes(skip: int | None = None) -> list[Detection]:
-    c = SIZE / 3
+    c = SIZE / 4  # a 75 % face centred in the crop
     out = []
     for i in range(9):
         if i == skip:
             continue
         r, col = divmod(i, 3)
-        cx, cy = (col + 0.5) * c, (r + 0.5) * c
+        cx, cy = SIZE / 2 + (col - 1) * c, SIZE / 2 + (r - 1) * c
         out.append(
-            Detection(COLORS[i], 0.9, (cx - 20, cy - 20, cx + 20, cy + 20), i % 6)
+            Detection(COLORS[i], 0.9, (cx - 18, cy - 18, cx + 18, cy + 18), i % 6)
         )  # type: ignore[arg-type]
     return out
 
@@ -117,6 +117,7 @@ def test_frames_results_and_sequence() -> None:
             assert m.frameSeq == n and (m.width, m.height) == (SIZE, SIZE)
             assert len(r["cells"]) == 9 and r["grid"] == COLORS
             assert r["quality"] == {"valid": True}
+            assert set(r["face"]) == {"x0", "y0", "x1", "y1"}
             assert len(r["detections"]) == 9 and r["detections"][1]["classId"] == 1
             assert r["inferenceMs"] >= 0
 
@@ -129,6 +130,7 @@ def test_missing_cell_is_incomplete() -> None:
         r = json.loads(ws.receive_text())
     assert r["grid"] is None
     assert r["quality"] == {"valid": False, "reason": "INCOMPLETE"}
+    assert r["face"] is not None  # the lattice is still fitted with one cell missing
     assert r["cells"][4] == {"color": None, "confidence": None, "status": "missing"}
 
 
