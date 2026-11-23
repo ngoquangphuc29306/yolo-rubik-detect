@@ -1,25 +1,96 @@
-import { Camera, CameraOff, Loader2 } from 'lucide-react';
+import * as React from 'react';
+import { Camera, CameraOff, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { CameraState } from '@/hooks/useCamera';
+import { useElementSize, useVideoFrameSize } from '@/hooks/useElementSize';
+import type { LiveConnection } from '@/hooks/useLiveScan';
+import { stabilityProgress, type LiveScanState } from '@/lib/live-scan-machine';
+import { guideOverlay } from '@/lib/scan-roi';
+import type { FrameResult } from '@/types/api';
+import type { FaceId } from '@/types/cube';
+import { LiveScanGuide } from './LiveScanGuide';
+import { RotationCue } from './RotationCue';
+import { FACE_NAMES, type ScanGuide } from './scan-guide';
+
+const TICK_MS = 100; // progress bar refresh: never faster than ~10 Hz
 
 const FRAME_CLASS =
   'relative w-full aspect-[16/10] rounded-2xl overflow-hidden bg-[#111113] border border-zinc-800/90 shadow-[0_18px_60px_rgba(0,0,0,0.55)]';
+
+export interface LiveScanView {
+  connection: LiveConnection;
+  state: LiveScanState;
+  lastResult: FrameResult | null;
+  errorMessage: string | null;
+  onRetry: () => void;
+  nextGuide: ScanGuide;
+  stageFace: FaceId;
+}
 
 export interface LiveViewportProps {
   camera: CameraState;
   videoRef: (el: HTMLVideoElement | null) => void;
   onEnableCamera: () => void;
+  /** null until the vision service is ready: then no guide and no strip detail. */
+  scan: LiveScanView | null;
 }
 
-export function LiveViewport({ camera, videoRef, onEnableCamera }: LiveViewportProps) {
+/** Strip text for connection/camera/phase messages only; the guide owns the hint live region. */
+function stripText(active: boolean, scan: LiveScanView | null): string {
+  if (!active) return 'Enable the camera to start scanning';
+  if (!scan) return 'Waiting for the vision service';
+  if (scan.connection === 'error') return scan.errorMessage ?? 'The live scan stopped.';
+  if (scan.connection !== 'live') return 'Connecting to the vision service…';
+  switch (scan.state.phase) {
+    case 'done':
+      return 'All six faces captured.';
+    case 'captured':
+    case 'rotating':
+      return 'Saved. Rotate the whole cube to the next face.';
+    default:
+      return `Place the ${FACE_NAMES[scan.state.stage].fullName} face inside the square.`;
+  }
+}
+
+export function LiveViewport({ camera, videoRef, onEnableCamera, scan }: LiveViewportProps) {
   const active = camera.status === 'active';
   const requesting = camera.status === 'requesting';
+  const [box, setBox] = React.useState<HTMLDivElement | null>(null);
+  const [video, setVideo] = React.useState<HTMLVideoElement | null>(null);
+  const setVideoEl = React.useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef(el);
+      setVideo(el);
+    },
+    [videoRef],
+  );
+  const viewSize = useElementSize(box);
+  const frameSize = useVideoFrameSize(video);
+
+  const phase = scan?.state.phase;
+  const ticking = active && !!scan && (phase === 'aligning' || phase === 'stabilizing');
+  const [now, setNow] = React.useState(() => performance.now());
+  React.useEffect(() => {
+    if (!ticking) return;
+    setNow(performance.now());
+    const id = setInterval(() => setNow(performance.now()), TICK_MS);
+    return () => clearInterval(id);
+  }, [ticking]);
+
+  const showGuide = active && !!scan;
+  const overlay = React.useMemo(
+    () => guideOverlay(frameSize, viewSize, showGuide ? scan.lastResult : null),
+    [frameSize, viewSize, showGuide, scan?.lastResult],
+  );
+  const searching = phase === 'aligning' || phase === 'stabilizing';
+
   return (
-    <div className={FRAME_CLASS}>
+    <>
+    <div ref={setBox} className={FRAME_CLASS}>
       {/* Real camera frames, unmirrored and letterboxed so overlays can map via contain-fit later. */}
       <video
-        ref={videoRef}
+        ref={setVideoEl}
         autoPlay
         playsInline
         muted
@@ -65,19 +136,32 @@ export function LiveViewport({ camera, videoRef, onEnableCamera }: LiveViewportP
         </div>
       )}
 
-      {/* Capture is unavailable in every live state until a scan connection exists. */}
-      <div className="absolute bottom-0 inset-x-0 z-20 px-4 py-3 bg-[#09090B]/90 border-t border-zinc-800/80 flex items-center justify-between gap-4">
-        <span id="live-capture-unavailable" className="text-xs text-zinc-400">Capture unavailable — no vision connection</span>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled
-          aria-describedby="live-capture-unavailable"
-          className="shrink-0"
-        >
-          Capture Face
-        </Button>
-      </div>
+      {showGuide && (
+        <LiveScanGuide
+          square={overlay.square}
+          boxes={overlay.boxes}
+          cells={searching ? (scan.lastResult?.cells ?? null) : null}
+          progress={searching ? stabilityProgress(scan.state, now) : 0}
+          phase={scan.state.phase}
+          hint={scan.state.hint}
+          capturedGrid={phase === 'captured' ? (scan.state.pendingCapture?.grid ?? null) : null}
+        />
+      )}
+      {showGuide && phase === 'rotating' && <RotationCue guide={scan.nextGuide} nextFace={scan.stageFace} />}
     </div>
+
+    <div
+      role="status"
+      className="rounded-xl border border-zinc-800/80 bg-[#111113] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-300"
+    >
+      <span>{stripText(active, scan)}</span>
+      {scan?.connection === 'error' && active && (
+        <Button size="sm" variant="outline" onClick={scan.onRetry}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          Retry
+        </Button>
+      )}
+    </div>
+    </>
   );
 }

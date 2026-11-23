@@ -23,9 +23,11 @@ interface ScanGuidePanelProps {
   /** Demo-only scripted readouts; null in live mode (nothing is detected, so nothing is shown). */
   metrics: ScanMetrics | null;
   rescanning: boolean;
+  /** Live start pose: larger reference cube and a pose caption. */
+  emphasis?: boolean;
 }
 
-function ScanGuidePanelImpl({ stageNumber, faceLabel, guide, metrics, rescanning }: ScanGuidePanelProps) {
+function ScanGuidePanelImpl({ stageNumber, faceLabel, guide, metrics, rescanning, emphasis }: ScanGuidePanelProps) {
   return (
     <div data-testid="scan-guide-panel" className="rounded-2xl bg-[#111113] border border-zinc-800/80 p-5 space-y-4">
       <div className="flex items-start justify-between gap-4">
@@ -37,7 +39,7 @@ function ScanGuidePanelImpl({ stageNumber, faceLabel, guide, metrics, rescanning
         </div>
 
         {/* Small 3D Reference Cube showing required holding orientation */}
-        <div className="w-24 h-24 rounded-xl bg-[#09090B] border border-zinc-800/90 shrink-0 overflow-hidden">
+        <div className={`${emphasis ? 'w-40 h-40' : 'w-24 h-24'} rounded-xl bg-[#09090B] border border-zinc-800/90 shrink-0 overflow-hidden`}>
           <RubiksCube3D
             cubies={REFERENCE_SOLVED_CUBE}
             mode="reference"
@@ -49,6 +51,10 @@ function ScanGuidePanelImpl({ stageNumber, faceLabel, guide, metrics, rescanning
       </div>
 
       <p className="text-sm text-zinc-400 leading-relaxed">{guide.instruction}</p>
+
+      {emphasis && (
+        <p className="text-xs text-emerald-300">Start pose: green centre toward the camera, white centre on top.</p>
+      )}
 
       {rescanning && (
         <p className="text-xs text-amber-300">

@@ -8,8 +8,10 @@ interface LiveUnavailablePanelProps {
   onRetry: () => void;
 }
 
-/** Live-mode vision status. Phase 1 has no scan transport, so no state here ever enables capture. */
+/** Live-mode vision status. Renders nothing when ready; every other state keeps capture disabled. */
 export function LiveUnavailablePanel({ readiness, onRetry }: LiveUnavailablePanelProps) {
+  if (readiness?.kind === 'ready') return null; // connected: the live scan itself reports its status
+
   let title: string;
   let detail: string | null = null;
   let banner: string | null = null;
@@ -27,8 +29,7 @@ export function LiveUnavailablePanel({ readiness, onRetry }: LiveUnavailablePane
     banner = 'Fixture detector — not real inference';
     detail = 'Capture stays disabled: fixture output is never treated as a camera reading.';
   } else {
-    title = 'Vision service is connected';
-    detail = 'Live capture is not available in this version yet.';
+    title = 'Vision service is running a test detector';
   }
 
   return (

@@ -292,12 +292,11 @@ describe('ScanningScreen - LIVE', () => {
     useSessionStore.getState().startSession('live', 'scanning');
   });
 
-  it('no backend: unavailable panel, capture present but disabled, no overlay, no picker, no fake loading', async () => {
+  it('no backend: unavailable panel, no capture button, no overlay, no picker, no fake loading', async () => {
     stubHealth(() => Promise.reject(new Error('down')));
     render(<ScanningScreen />);
     expect(await screen.findByText('Vision service is not running')).toBeTruthy();
-    const capture = screen.getByRole('button', { name: /capture face/i }) as HTMLButtonElement;
-    expect(capture.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(screen.queryAllByTestId('detection-label')).toHaveLength(0);
     expect(screen.queryByText(/Simulate Computer Vision State/)).toBeNull();
     expect(screen.queryByRole('button', { name: /preview scan states/i })).toBeNull();
@@ -307,14 +306,13 @@ describe('ScanningScreen - LIVE', () => {
     expect(screen.queryByText(/confidence/i)).toBeNull();
   });
 
-  it('the disabled Capture button is described by the "Capture unavailable" text', async () => {
+  it('the footer is a status strip, with no Capture button and no "Capture unavailable" text', async () => {
     stubHealth(() => Promise.reject(new Error('down')));
     render(<ScanningScreen />);
     await flushReal();
-    const capture = screen.getByRole('button', { name: /capture face/i });
-    const id = capture.getAttribute('aria-describedby');
-    expect(id).toBeTruthy();
-    expect(document.getElementById(id!)?.textContent).toMatch(/Capture unavailable/);
+    expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
+    expect(screen.queryByText(/Capture unavailable/)).toBeNull();
+    expect(screen.getByText('Enable the camera to start scanning').closest('[role="status"]')).toBeTruthy();
   });
 
   it('Retry re-checks the backend', async () => {
@@ -348,18 +346,20 @@ describe('ScanningScreen - LIVE', () => {
     stubHealth(() => jsonResponse(loadFixture('health/fixture-mode.json')));
     render(<ScanningScreen />);
     expect(await screen.findByText('Fixture detector — not real inference')).toBeTruthy();
-    const capture = screen.getByRole('button', { name: /capture face/i }) as HTMLButtonElement;
-    expect(capture.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(screen.queryAllByTestId('detection-label')).toHaveLength(0);
   });
 
-  it('a ready vision service still cannot capture in Phase 1', async () => {
+  it('a ready vision service shows no unavailable panel and nothing is captured before the camera is on', async () => {
     stubHealth(() => jsonResponse(loadFixture('health/ok.json')));
     render(<ScanningScreen />);
     await flushReal();
-    const capture = screen.getByRole('button', { name: /capture face/i }) as HTMLButtonElement;
-    expect(capture.disabled).toBe(true);
+    expect(screen.queryByText(/Vision service is connected/)).toBeNull();
+    expect(screen.queryByText(/not available in this version/)).toBeNull();
+    expect(screen.queryByText(/Checking vision service/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(useScanStore.getState().stability).toBe(0);
+    expect(Object.keys(useScanStore.getState().captured)).toHaveLength(0);
   });
 
   it('guide names only the centres it knows (F green, U white, plus captured faces)', async () => {
