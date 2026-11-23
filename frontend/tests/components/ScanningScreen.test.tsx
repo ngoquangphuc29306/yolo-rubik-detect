@@ -391,7 +391,7 @@ describe('ScanningScreen - LIVE', () => {
       expect(getUserMedia).toHaveBeenCalledTimes(1);
     });
 
-    it('video is unmirrored, letterboxed (object-contain) and labelled', async () => {
+    it('video is mirrored for display only, letterboxed (object-contain) and labelled', async () => {
       const { container } = render(<ScanningScreen />);
       const { stream } = fakeStream();
       getUserMedia.mockResolvedValue(stream);
@@ -400,8 +400,7 @@ describe('ScanningScreen - LIVE', () => {
       const video = container.querySelector('video')!;
       expect(video).toBeTruthy();
       expect(video.className).toContain('object-contain');
-      expect(video.className).not.toMatch(/scale-x|-scale|mirror|rotate-y/);
-      expect(video.style.transform).toBe('');
+      expect(video.style.transform).toBe('scaleX(-1)'); // display only; the crop sent to the backend is unmirrored
       expect(video.srcObject).toBe(stream);
       expect(video.getAttribute('aria-label')).toMatch(/camera/i);
     });

@@ -6,6 +6,7 @@ import type { CameraState } from '@/hooks/useCamera';
 import { useElementSize, useVideoFrameSize } from '@/hooks/useElementSize';
 import type { LiveConnection } from '@/hooks/useLiveScan';
 import { stabilityProgress, type LiveScanState } from '@/lib/live-scan-machine';
+import { MIRROR_STYLE } from '@/lib/mirror';
 import { guideOverlay } from '@/lib/scan-roi';
 import type { FrameResult } from '@/types/api';
 import type { FaceId } from '@/types/cube';
@@ -90,7 +91,7 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
   return (
     <>
     <div ref={setBox} className={FRAME_CLASS}>
-      {/* Real camera frames, unmirrored and letterboxed so overlays can map via contain-fit later. */}
+      {/* Real camera frames, letterboxed. Only the DISPLAY is mirrored (like a mirror); the crop sent to the backend is not. */}
       <video
         ref={setVideoEl}
         autoPlay
@@ -98,6 +99,7 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
         muted
         aria-label="Live camera preview"
         className={cn('absolute inset-0 w-full h-full object-contain bg-black', !active && 'invisible')}
+        style={MIRROR_STYLE}
       />
 
       {!active && (

@@ -1,6 +1,7 @@
 // Pure presentational 3x3 scanning guide: props in, markup out. No timers, no store, no claims of verification.
 import { Check } from 'lucide-react';
 import { COLOR_META, colorNameToCode } from '@/lib/colors';
+import { MIRROR_STYLE } from '@/lib/mirror';
 import { cn } from '@/lib/utils';
 import type { LivePhase } from '@/lib/live-scan-machine';
 import type { GuideBox, GuideRect } from '@/lib/scan-roi';
@@ -38,7 +39,8 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
   const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100);
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
+    // Mirror layer: boxes, zone and lattice follow the mirrored video; every piece of text flips back.
+    <div data-testid="mirror-layer" className="absolute inset-0 pointer-events-none" style={MIRROR_STYLE}>
       {boxes.map((b, i) => (
         <div
           key={i}
@@ -84,7 +86,7 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
                 style={{ backgroundColor: COLOR_META[solidColor].hex }}
               >
                 <Check data-check aria-hidden="true" className="w-4 h-4 text-white drop-shadow" />
-                <span aria-hidden="true" className={LETTER}>
+                <span aria-hidden="true" className={LETTER} style={MIRROR_STYLE}>
                   {colorNameToCode(solidColor)}
                 </span>
               </div>
@@ -100,7 +102,7 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
                 className="flex items-center justify-center border border-white/60"
                 style={{ backgroundColor: rgba(COLOR_META[cell.color].hex, 0.75) }}
               >
-                <span aria-hidden="true" className={LETTER}>
+                <span aria-hidden="true" className={LETTER} style={MIRROR_STYLE}>
                   {colorNameToCode(cell.color)}
                 </span>
               </div>
@@ -114,7 +116,7 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
                 aria-label={`${label}: unclear`}
                 className="flex items-center justify-center border-2 border-amber-400 bg-black/50 text-amber-300 font-bold text-lg"
               >
-                <span aria-hidden="true" className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">?</span>
+                <span aria-hidden="true" className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" style={MIRROR_STYLE}>?</span>
               </div>
             );
           }
@@ -127,7 +129,7 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
                 className="flex items-center justify-center border-2 border-amber-400 bg-black/30"
               >
                 {cell.color && (
-                  <span aria-hidden="true" className={LETTER}>
+                  <span aria-hidden="true" className={LETTER} style={MIRROR_STYLE}>
                     {colorNameToCode(cell.color)}
                   </span>
                 )}
@@ -144,7 +146,7 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
       {searching && (
       <div
         className="absolute flex flex-col items-center justify-end gap-2 p-2"
-        style={{ left: square.x, top: square.y, width: square.w, height: square.h }}
+        style={{ left: square.x, top: square.y, width: square.w, height: square.h, ...MIRROR_STYLE }}
       >
         <div
           role="progressbar"

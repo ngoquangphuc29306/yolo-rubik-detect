@@ -46,6 +46,7 @@ vi.mock('@/hooks/useLiveScan', async (importOriginal) => {
   };
 });
 
+import { netMirror } from '../helpers/mirror';
 import { guideOverlay } from '@/lib/scan-roi';
 import { scanGuide } from '@/features/scanner/scan-guide';
 import { ScanningScreen } from '@/features/scanner/ScanningScreen';
@@ -104,6 +105,19 @@ describe('Live scanning screen', () => {
     expect(screen.getAllByRole('img', { name: /Row \d, column \d: green/ })).toHaveLength(9);
     expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(screen.queryByText(/Capture unavailable/)).toBeNull();
+  });
+
+  it('mirrors only the display: video and overlay layer share a parent and flip; text does not', () => {
+    setLive({}, { hint: 'Hold the face steady inside the square.' });
+    render(<ScanningScreen />);
+    const video = screen.getByLabelText('Live camera preview');
+    const layer = screen.getByTestId('mirror-layer');
+    expect(video.style.transform).toBe('scaleX(-1)');
+    expect(layer.style.transform).toBe('scaleX(-1)');
+    expect(layer.parentElement).toBe(video.parentElement);
+    expect(netMirror(screen.getByTestId('face-lattice'))).toBe(-1);
+    expect(netMirror(screen.getByText('Place the Front face inside the square.'))).toBe(1);
+    expect(netMirror(screen.getByText('Hold the face steady inside the square.'))).toBe(1);
   });
 
   it('the lattice follows the fitted face from the result, inside the placement zone', () => {

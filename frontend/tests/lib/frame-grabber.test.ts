@@ -31,6 +31,21 @@ describe('grabFrame', () => {
     expect(toBlob.mock.calls[0]![2]).toBe(0.85);
   });
 
+  it('stays unmirrored even when the displayed video is CSS-mirrored', async () => {
+    const { ctx } = stubCanvas(new Blob(['j']));
+    const v = Object.assign(document.createElement('video'), {});
+    v.style.transform = 'scaleX(-1)';
+    Object.defineProperty(v, 'videoWidth', { value: 1280 });
+    Object.defineProperty(v, 'videoHeight', { value: 720 });
+    Object.defineProperty(v, 'readyState', { value: 4 });
+    await grabFrame(v, { x: 316, y: 36, side: 648 }, 640);
+    expect(ctx.drawImage).toHaveBeenCalledWith(v, 316, 36, 648, 648, 0, 0, 640, 640);
+    expect(ctx.scale).not.toHaveBeenCalled();
+    expect(ctx.setTransform).not.toHaveBeenCalled();
+    expect(ctx.transform).not.toHaveBeenCalled();
+    expect(ctx.translate).not.toHaveBeenCalled();
+  });
+
   it('downsizes to the crop size without flipping', async () => {
     const { ctx } = stubCanvas(new Blob(['j']));
     await grabFrame(video({ videoWidth: 1920, videoHeight: 1080 }), { x: 570, y: 151, side: 777 }, 640);

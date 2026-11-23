@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LiveScanGuide, type LiveScanGuideProps } from '@/features/scanner/LiveScanGuide';
 import { COLOR_META } from '@/lib/colors';
+import { netMirror } from '../helpers/mirror';
 import type { FrameCell } from '@/types/api';
 
 afterEach(cleanup);
@@ -36,6 +37,27 @@ describe('LiveScanGuide', () => {
   it('renders nothing without a square', () => {
     const { container } = r({ square: null });
     expect(container.childElementCount).toBe(0);
+  });
+
+  it('the overlay layer is mirrored; boxes, zone and lattice appear mirrored; text reads normally', () => {
+    const { container } = r({
+      boxes: [{ color: 'red', confidence: 0.9, rect: { x: 120, y: 40, w: 50, h: 50 } }],
+      hint: 'Hold the cube steadier',
+    });
+    const layer = screen.getByTestId('mirror-layer');
+    expect(layer.style.transform).toBe('scaleX(-1)');
+    expect(layer.parentElement).toBe(container);
+    expect(netMirror(container.querySelector('[title="red 90%"]'))).toBe(-1);
+    expect(netMirror(screen.getByTestId('guide-square'))).toBe(-1);
+    expect(netMirror(screen.getByTestId('face-lattice'))).toBe(-1);
+    // every letter, the unclear mark, the hint and the progress label are counter-mirrored back to readable
+    for (const name of ['Row 1, column 1: green', 'Row 2, column 1: unclear', 'Row 2, column 3: out of position']) {
+      const cell = screen.getByRole('img', { name });
+      const glyph = cell.querySelector('[aria-hidden="true"]')!;
+      expect(netMirror(glyph)).toBe(1);
+    }
+    expect(netMirror(screen.getByRole('status'))).toBe(1);
+    expect(netMirror(screen.getByRole('progressbar'))).toBe(1);
   });
 
   it('draws the placement zone as a light dashed square', () => {
