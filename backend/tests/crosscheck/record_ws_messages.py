@@ -59,11 +59,11 @@ def jpeg() -> bytes:
 
 def _norm(msg: dict[str, Any]) -> dict[str, Any]:
     if "inferenceMs" in msg:
-        msg["inferenceMs"] = 0
+        msg["inferenceMs"] = 0.0
     return msg
 
 
-def record() -> list[dict[str, Any]]:
+def _record_messages() -> list[dict[str, Any]]:
     det = ScriptedDetector()
     app = create_app(solver=_Solver(), detector=det)  # type: ignore[arg-type]
     out: list[dict[str, Any]] = []
@@ -98,12 +98,17 @@ def record() -> list[dict[str, Any]]:
     return out
 
 
-def main() -> None:
-    doc = {
+def record() -> dict[str, Any]:
+    """Build the fixture document from the real app (pure: writes nothing)."""
+    return {
         "schema": "ws-messages/1",
         "generatedBy": "backend/tests/crosscheck/record_ws_messages.py",
-        "messages": record(),
+        "messages": _record_messages(),
     }
+
+
+def main() -> None:
+    doc = record()
     OUT.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {OUT}")
 

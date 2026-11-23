@@ -185,7 +185,7 @@
         "quality": {
           "valid": true
         },
-        "inferenceMs": 0
+        "inferenceMs": 0.0
       }
     },
     {
@@ -339,7 +339,7 @@
           "valid": false,
           "reason": "INCOMPLETE"
         },
-        "inferenceMs": 0
+        "inferenceMs": 0.0
       }
     },
     {
@@ -515,7 +515,7 @@
           "valid": false,
           "reason": "AMBIGUOUS"
         },
-        "inferenceMs": 0
+        "inferenceMs": 0.0
       }
     },
     {
