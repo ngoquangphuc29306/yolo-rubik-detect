@@ -41,3 +41,10 @@ Thumbs.db
 captures/
 *.mp4
 *.mov
+# Backend
+backend/.venv/
+**/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.solver-cache/
