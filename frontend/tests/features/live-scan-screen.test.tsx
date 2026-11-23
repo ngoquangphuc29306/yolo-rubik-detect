@@ -112,9 +112,8 @@ describe('Live scanning screen', () => {
     render(<ScanningScreen />);
     const cue = document.querySelector('[data-next-face="R"]');
     expect(cue).toBeTruthy();
-    expect(within(cue as HTMLElement).getByText('Rotate the whole cube')).toBeTruthy();
+    expect(within(cue as HTMLElement).getByText('Saved. Rotate the whole cube to the next face.')).toBeTruthy();
     expect(screen.getByTestId('scan-guide-panel').textContent).toMatch(/Right face/);
-    expect(screen.getByText('Saved. Rotate the whole cube to the next face.')).toBeTruthy();
   });
 
   it('the cue is a block after the frame container, never inside it', () => {
@@ -160,6 +159,23 @@ describe('Live scanning screen', () => {
     expect(square!.y).toBeGreaterThanOrEqual(0);
     expect(square!.x + square!.w).toBeLessThanOrEqual(w);
     expect(square!.y + square!.h).toBeLessThanOrEqual(h);
+  });
+
+  it('the cue replaces the status strip while rotating and is the only Saved status', () => {
+    setLive({}, { stage: 'R', phase: 'rotating' });
+    render(<ScanningScreen />);
+    const saved = screen.getAllByText(/Saved\. Rotate the whole cube to the next face\./);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]!.closest('[role="status"]')).toBe(document.querySelector('[data-next-face="R"]'));
+    expect(screen.queryByText(/Place the .* face inside the square/)).toBeNull();
+  });
+
+  it.each([['aligning'], ['stabilizing'], ['captured'], ['done']] as const)('the strip is present in %s', (phase) => {
+    setLive({}, { phase });
+    render(<ScanningScreen />);
+    expect(document.querySelector('[data-next-face]')).toBeNull();
+    const txt = { aligning: /Place the Front face/, stabilizing: /Place the Front face/, captured: /Saved\. Rotate/, done: /All six faces captured/ }[phase];
+    expect(screen.getByText(txt).closest('[role="status"]')).toBeTruthy();
   });
 
   it('the cue never appears outside the rotating phase', () => {

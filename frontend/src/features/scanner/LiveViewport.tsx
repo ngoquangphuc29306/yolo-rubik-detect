@@ -69,6 +69,7 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
   const frameSize = useVideoFrameSize(video);
 
   const phase = scan?.state.phase;
+  const showCue = active && !!scan && phase === 'rotating';
   const searching = phase === 'aligning' || phase === 'stabilizing';
   const ticking = active && !!scan && searching && scan.state.streak !== null;
   const [now, setNow] = React.useState(() => performance.now());
@@ -149,8 +150,10 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
       )}
     </div>
 
-    {showGuide && phase === 'rotating' && <RotationCue guide={scan.nextGuide} nextFace={scan.stageFace} />}
+    {showCue && <RotationCue guide={scan.nextGuide} nextFace={scan.stageFace} />}
 
+    {/* The cue takes the strip's slot while rotating (it is itself the status); errors still need Retry. */}
+    {(!showCue || scan.connection === 'error') && (
     <div
       role="status"
       className="rounded-xl border border-zinc-800/80 bg-[#111113] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-300"
@@ -163,6 +166,7 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
         </Button>
       )}
     </div>
+    )}
     </>
   );
 }

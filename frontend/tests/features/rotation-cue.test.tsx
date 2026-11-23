@@ -33,6 +33,15 @@ describe('RotationCue', () => {
     }
   });
 
+  it('is one horizontal row from sm up and stacked below, never absolutely positioned', () => {
+    render(<RotationCue guide={scanGuide('U', KNOWN)} nextFace="U" />);
+    const cue = screen.getByRole('status');
+    expect(cue.className.split(' ')).toContain('flex-col');
+    expect(cue.className.split(' ')).toContain('sm:flex-row');
+    expect(cue.className).not.toMatch(/absolute/);
+    expect(cue.textContent).toContain('Saved. Rotate the whole cube to the next face.');
+  });
+
   it('none direction shows a hold steady pulse', () => {
     render(<RotationCue guide={scanGuide('F', KNOWN)} nextFace="F" />);
     const arrow = screen.getByTestId('rotation-arrow');
