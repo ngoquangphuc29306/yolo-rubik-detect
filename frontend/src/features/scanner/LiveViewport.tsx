@@ -81,9 +81,10 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
   }, [ticking]);
 
   const showGuide = active && !!scan;
+  const captured = phase === 'captured';
   const overlay = React.useMemo(
-    () => guideOverlay(frameSize, viewSize, showGuide && searching ? scan.lastResult : null),
-    [frameSize, viewSize, showGuide, searching, scan?.lastResult],
+    () => guideOverlay(frameSize, viewSize, showGuide && (searching || captured) ? scan.lastResult : null),
+    [frameSize, viewSize, showGuide, searching, captured, scan?.lastResult],
   );
 
   return (
@@ -140,7 +141,8 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
       {showGuide && (
         <LiveScanGuide
           square={overlay.square}
-          boxes={overlay.boxes}
+          face={overlay.face}
+          boxes={searching ? overlay.boxes : []}
           cells={searching ? (scan.lastResult?.cells ?? null) : null}
           progress={searching ? stabilityProgress(scan.state, now) : 0}
           phase={scan.state.phase}

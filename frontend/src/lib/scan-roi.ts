@@ -21,7 +21,10 @@ export interface GuideSquare {
   side: number;
 }
 
-export function guideSquare(frame: Size, fraction = 0.72): GuideSquare | null {
+/** Placement-zone side as a fraction of min(video width, height). */
+export const GUIDE_FRACTION = 0.9;
+
+export function guideSquare(frame: Size, fraction = GUIDE_FRACTION): GuideSquare | null {
   const ok = Number.isFinite(frame.w) && Number.isFinite(frame.h) && frame.w > 0 && frame.h > 0;
   if (!ok || !Number.isFinite(fraction) || fraction <= 0 || fraction > 1) return null;
   const side = Math.floor(fraction * Math.min(frame.w, frame.h));
@@ -53,19 +56,25 @@ export function guideSquareToView(
   return { x: p.x, y: p.y, w: side, h: side };
 }
 
-/** Overlay geometry in view pixels: the guide square and every detection box (crop px -> frame px -> view px). */
+/** Overlay geometry in view pixels: the placement zone, the fitted face lattice box and every detection box (crop px -> frame px -> view px). */
 export function guideOverlay(
   frame: Size,
   view: Size,
   result: FrameResult | null,
-): { square: GuideRect | null; boxes: GuideBox[] } {
+): { square: GuideRect | null; boxes: GuideBox[]; face: GuideRect | null } {
   const t = computeContain(view, frame);
   const sq = guideSquare(frame);
-  if (!t || !sq) return { square: null, boxes: [] };
+  if (!t || !sq) return { square: null, boxes: [], face: null };
   const size = cropSize(sq);
   const boxes = (result?.detections ?? []).map((d): GuideBox => {
     const [x1, y1, x2, y2] = boxToView(cropBoxToFrame(d.xyxy, sq, size), t);
     return { color: d.color, confidence: d.confidence, rect: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 } };
   });
-  return { square: guideSquareToView(sq, t), boxes };
+  let face: GuideRect | null = null;
+  if (result?.face) {
+    const f = result.face;
+    const [x1, y1, x2, y2] = boxToView(cropBoxToFrame([f.x0, f.y0, f.x1, f.y1], sq, size), t);
+    face = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  }
+  return { square: guideSquareToView(sq, t), boxes, face };
 }

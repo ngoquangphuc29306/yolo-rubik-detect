@@ -65,6 +65,7 @@ function frame(grid: ColorName[] | null, reason?: string): FrameResult {
       color: grid ? grid[i]! : null, confidence: grid ? 0.9 : null, status: grid ? ('ok' as const) : ('missing' as const),
     })),
     grid,
+    face: null,
     quality: valid ? { valid: true } : { valid: false, reason: reason ?? 'NO_FACE' },
     inferenceMs: 10,
   };

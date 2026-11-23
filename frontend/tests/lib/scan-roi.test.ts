@@ -5,8 +5,13 @@ import type { FrameResult } from '@/types/api';
 
 describe('guideSquare', () => {
   it('matches the documented sizes', () => {
-    expect(guideSquare({ w: 1280, h: 720 })).toEqual({ x: 381, y: 101, side: 518 });
-    expect(guideSquare({ w: 640, h: 480 })).toEqual({ x: 147, y: 67, side: 345 });
+    expect(guideSquare({ w: 1280, h: 720 })).toEqual({ x: 316, y: 36, side: 648 });
+    expect(guideSquare({ w: 640, h: 480 })).toEqual({ x: 104, y: 24, side: 432 });
+  });
+  it('the placement zone is 0.9 of the shorter video side', () => {
+    for (const [w, h] of [[1280, 720], [640, 480], [480, 640], [1920, 1080]] as const) {
+      expect(guideSquare({ w, h })!.side).toBe(Math.floor(0.9 * Math.min(w, h)));
+    }
   });
   it('rejects invalid sizes and fractions', () => {
     expect(guideSquare({ w: 0, h: 480 })).toBeNull();
@@ -72,6 +77,7 @@ describe('guideOverlay', () => {
     detections: [{ classId: 0, color: 'green', confidence: 0.9, xyxy }],
     cells: [],
     grid: null,
+    face: null,
     quality: { valid: false },
     inferenceMs: 1,
   });
@@ -81,16 +87,16 @@ describe('guideOverlay', () => {
     expect(t.scale).toBe(0.46875);
     expect(t.offsetY).toBe(131.25);
     const o = guideOverlay({ w: 1280, h: 720 }, { w: 600, h: 600 }, result([0, 0, 10, 20]));
-    expect(o.square).toEqual({ x: 178.59375, y: 178.59375, w: 242.8125, h: 242.8125 });
+    expect(o.square).toEqual({ x: 148.125, y: 148.125, w: 303.75, h: 303.75 });
     expect(o.boxes).toEqual([
-      { color: 'green', confidence: 0.9, rect: { x: 178.59375, y: 178.59375, w: 4.6875, h: 9.375 } },
+      { color: 'green', confidence: 0.9, rect: { x: 148.125, y: 148.125, w: 4.74609375, h: 9.4921875 } },
     ]);
   });
 
   it('identity when the view equals the frame', () => {
     const o = guideOverlay({ w: 640, h: 480 }, { w: 640, h: 480 }, result([10, 20, 60, 70]));
-    expect(o.square).toEqual({ x: 147, y: 67, w: 345, h: 345 });
-    expect(o.boxes[0]!.rect).toEqual({ x: 157, y: 87, w: 50, h: 50 });
+    expect(o.square).toEqual({ x: 104, y: 24, w: 432, h: 432 });
+    expect(o.boxes[0]!.rect).toEqual({ x: 114, y: 44, w: 50, h: 50 });
   });
 
   it('a box at the crop corner lands on the square corner in view px', () => {
@@ -99,10 +105,19 @@ describe('guideOverlay', () => {
     expect(o.boxes[0]!.rect.y).toBe(o.square!.y);
   });
 
+  it('maps the fitted face box (crop px) to a view rect; null face gives null', () => {
+    const withFace = { ...result([0, 0, 1, 1]), face: { x0: 100, y0: 50, x1: 300, y1: 250 } };
+    // identity view: zone (104,24,432), crop 432 == side, so crop px == frame px offset by the zone origin
+    const o = guideOverlay({ w: 640, h: 480 }, { w: 640, h: 480 }, withFace);
+    expect(o.face).toEqual({ x: 204, y: 74, w: 200, h: 200 });
+    expect(guideOverlay({ w: 640, h: 480 }, { w: 640, h: 480 }, result([0, 0, 1, 1])).face).toBeNull();
+    expect(guideOverlay({ w: 640, h: 480 }, { w: 640, h: 480 }, null).face).toBeNull();
+  });
+
   it('no result gives no boxes; invalid sizes give null/empty', () => {
     expect(guideOverlay({ w: 640, h: 480 }, { w: 640, h: 480 }, null).boxes).toEqual([]);
-    expect(guideOverlay({ w: 0, h: 480 }, { w: 640, h: 480 }, null)).toEqual({ square: null, boxes: [] });
-    expect(guideOverlay({ w: 640, h: 480 }, { w: 0, h: 0 }, result([0, 0, 1, 1]))).toEqual({ square: null, boxes: [] });
-    expect(guideOverlay({ w: NaN, h: 480 }, { w: 640, h: 480 }, null)).toEqual({ square: null, boxes: [] });
+    expect(guideOverlay({ w: 0, h: 480 }, { w: 640, h: 480 }, null)).toEqual({ square: null, boxes: [], face: null });
+    expect(guideOverlay({ w: 640, h: 480 }, { w: 0, h: 0 }, result([0, 0, 1, 1]))).toEqual({ square: null, boxes: [], face: null });
+    expect(guideOverlay({ w: NaN, h: 480 }, { w: 640, h: 480 }, null)).toEqual({ square: null, boxes: [], face: null });
   });
 });

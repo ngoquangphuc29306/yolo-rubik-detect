@@ -49,6 +49,19 @@ describe('parseScanServerMessage', () => {
   rejects('valid with reason', (m) => (m.quality = { valid: true, reason: 'X' }));
   rejects('a cell with colour but null confidence', (m) => (m.cells[0].confidence = null));
   rejects('a cell with confidence but null colour', (m) => (m.cells[0].color = null));
+  rejects('a missing face key', (m) => delete m.face);
+  rejects('a face with an extra key', (m) => (m.face.z = 1));
+  rejects('a face with a missing corner', (m) => delete m.face.y1);
+  rejects('a face with a non-finite corner', (m) => (m.face.x0 = null));
+  rejects('a face given as an array', (m) => (m.face = [1, 2, 3, 4]));
+  it('accepts a null face and keeps the recorded face box', () => {
+    const m = get('frame_result_valid');
+    const kept = parseScanServerMessage(m);
+    expect(kept.ok && kept.value.type === 'frame_result' ? Object.keys(kept.value.face ?? {}) : []).toEqual(['x0', 'y0', 'x1', 'y1']);
+    m.face = null;
+    const r = parseScanServerMessage(m);
+    expect(r.ok && r.value.type === 'frame_result' ? r.value.face : 'bad').toBeNull();
+  });
   rejects('an 8-colour grid', (m) => m.grid.pop());
   rejects('an unknown message type', (m) => (m.type = 'pong'));
   rejects('an unknown error code', (m) => (m.code = 'NOPE'), 'error_invalid_frame');

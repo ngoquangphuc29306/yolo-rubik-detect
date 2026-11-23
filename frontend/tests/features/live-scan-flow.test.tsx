@@ -70,7 +70,7 @@ const frame = (grid: ColorName[]): { ok: true; result: FrameResult } => ({
     type: 'frame_result', schemaVersion: 1, scanId: 's', frameSeq: 1, width: 518, height: 518,
     detections: [],
     cells: grid.map((color) => ({ color, confidence: 0.9, status: 'ok' as const })),
-    grid, quality: { valid: true }, inferenceMs: 5,
+    grid, face: null, quality: { valid: true }, inferenceMs: 5,
   },
 });
 const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });

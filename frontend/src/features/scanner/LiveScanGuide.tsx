@@ -9,7 +9,10 @@ import type { ColorName } from '@/types/cube';
 
 export type { GuideBox, GuideRect };
 export interface LiveScanGuideProps {
+  /** The placement zone: the face may be anywhere inside it. */
   square: GuideRect | null;
+  /** The fitted 3x3 lattice box (view px); null until a lattice has been fitted. */
+  face: GuideRect | null;
   cells: readonly FrameCell[] | null;
   boxes: readonly GuideBox[];
   progress: number;
@@ -26,7 +29,7 @@ function rgba(hex: string, alpha: number): string {
 const LETTER = 'text-[11px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]';
 const EMPTY: FrameCell = { color: null, confidence: null, status: 'missing' };
 
-export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, capturedGrid }: LiveScanGuideProps) {
+export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hint, capturedGrid }: LiveScanGuideProps) {
   if (!square) return null;
   const locked = phase === 'captured' || phase === 'rotating' || phase === 'done';
   const solid = locked && capturedGrid && capturedGrid.length === 9 ? capturedGrid : null;
@@ -54,12 +57,20 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
       <div
         data-testid="guide-square"
         className={cn(
-          'absolute rounded-lg border-2 p-px shadow-[0_0_0_1px_rgba(0,0,0,0.6)]',
-          full ? 'border-emerald-400' : 'border-white/70',
+          'absolute rounded-lg border-2 border-dashed shadow-[0_0_0_1px_rgba(0,0,0,0.35)]',
+          full ? 'border-emerald-400' : 'border-white/45',
         )}
         style={{ left: square.x, top: square.y, width: square.w, height: square.h }}
-      >
-       <div role="group" aria-label="Scan grid, 3 by 3" className="w-full h-full grid grid-cols-3 grid-rows-3 gap-px">
+      />
+
+      {face && (
+       <div
+        data-testid="face-lattice"
+        role="group"
+        aria-label="Scan grid, 3 by 3"
+        className="absolute grid grid-cols-3 grid-rows-3 gap-px p-px border border-white/70 shadow-[0_0_0_1px_rgba(0,0,0,0.6)]"
+        style={{ left: face.x, top: face.y, width: face.w, height: face.h }}
+       >
         {Array.from({ length: 9 }, (_, i) => {
           const label = `Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}`;
           const solidColor = solid?.[i];
@@ -128,12 +139,12 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
           );
         })}
        </div>
-      </div>
+      )}
 
       {searching && (
       <div
-        className="absolute flex flex-col items-center gap-2"
-        style={{ left: square.x, top: square.y + square.h + 10, width: square.w }}
+        className="absolute flex flex-col items-center justify-end gap-2 p-2"
+        style={{ left: square.x, top: square.y, width: square.w, height: square.h }}
       >
         <div
           role="progressbar"

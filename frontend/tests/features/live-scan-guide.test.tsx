@@ -8,6 +8,7 @@ import type { FrameCell } from '@/types/api';
 afterEach(cleanup);
 
 const SQUARE = { x: 100, y: 20, w: 300, h: 300 };
+const FACE = { x: 160, y: 80, w: 150, h: 150 };
 const ok = (color: FrameCell['color']): FrameCell => ({ color, confidence: 0.9, status: 'ok' });
 const CELLS: FrameCell[] = [
   ok('green'),
@@ -22,6 +23,7 @@ const CELLS: FrameCell[] = [
 ];
 const base: LiveScanGuideProps = {
   square: SQUARE,
+  face: FACE,
   cells: CELLS,
   boxes: [],
   progress: 0.3,
@@ -34,6 +36,31 @@ describe('LiveScanGuide', () => {
   it('renders nothing without a square', () => {
     const { container } = r({ square: null });
     expect(container.childElementCount).toBe(0);
+  });
+
+  it('draws the placement zone as a light dashed square', () => {
+    r({ face: null, cells: null });
+    const zone = screen.getByTestId('guide-square');
+    expect(zone.className).toMatch(/border-dashed/);
+    expect(zone.style.left).toBe('100px');
+    expect(zone.style.width).toBe('300px');
+  });
+
+  it('draws no lattice and no cells while no face is fitted', () => {
+    r({ face: null });
+    expect(screen.queryByTestId('face-lattice')).toBeNull();
+    expect(screen.queryAllByRole('img', { name: /^Row \d, column \d:/ })).toHaveLength(0);
+  });
+
+  it('positions the 3x3 lattice on the fitted face, not on the zone thirds', () => {
+    r();
+    const lat = screen.getByTestId('face-lattice');
+    expect([lat.style.left, lat.style.top, lat.style.width, lat.style.height]).toEqual(['160px', '80px', '150px', '150px']);
+    expect(lat.className).toMatch(/grid-cols-3/);
+    const cells = within(lat).getAllByRole('img');
+    expect(cells).toHaveLength(9);
+    // cell i is row i//3, column i%3 inside the face (DOM order of a 3-column grid)
+    cells.forEach((c, i) => expect(c.getAttribute('aria-label')).toMatch(new RegExp(`^Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}:`)));
   });
 
   it('labels each of nine cells by status', () => {

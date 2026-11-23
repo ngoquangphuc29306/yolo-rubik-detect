@@ -165,7 +165,7 @@ function parseCell(v: unknown): FrameCell {
 function parseFrameResult(json: unknown): FrameResult {
   const o = exactObject(
     json,
-    ['type', 'schemaVersion', 'scanId', 'frameSeq', 'width', 'height', 'detections', 'cells', 'grid', 'quality', 'inferenceMs'],
+    ['type', 'schemaVersion', 'scanId', 'frameSeq', 'width', 'height', 'detections', 'cells', 'grid', 'face', 'quality', 'inferenceMs'],
     [],
     'frame result',
   );
@@ -190,6 +190,11 @@ function parseFrameResult(json: unknown): FrameResult {
     if (g.length !== 9) bad('grid must be null or have exactly 9 colours');
     grid = g.map((c) => color(c, 'grid colour'));
   }
+  let face: FrameResult['face'] = null;
+  if (o.face !== null) {
+    const f = exactObject(o.face, ['x0', 'y0', 'x1', 'y1'], [], 'face');
+    face = { x0: finite(f.x0, 'face.x0'), y0: finite(f.y0, 'face.y0'), x1: finite(f.x1, 'face.x1'), y1: finite(f.y1, 'face.y1') };
+  }
   const q = exactObject(o.quality, ['valid'], ['reason'], 'quality');
   if (typeof q.valid !== 'boolean') bad('quality.valid must be a boolean');
   if (q.valid === Object.hasOwn(q, 'reason')) bad('quality.reason must be present exactly when valid is false');
@@ -204,6 +209,7 @@ function parseFrameResult(json: unknown): FrameResult {
     detections,
     cells: cellsRaw.map(parseCell),
     grid,
+    face,
     quality,
     inferenceMs: finite(o.inferenceMs, 'inferenceMs'),
   };

@@ -57,7 +57,7 @@ import { useSessionStore } from '@/stores/session-store';
 const OK = { color: 'green', confidence: 0.9, status: 'ok' } as const;
 const frame = (): FrameResult => ({
   type: 'frame_result', schemaVersion: 1, scanId: 's', frameSeq: 1, width: 518, height: 518,
-  detections: [], cells: Array.from({ length: 9 }, () => ({ ...OK })), grid: null,
+  detections: [], cells: Array.from({ length: 9 }, () => ({ ...OK })), grid: null, face: { x0: 100, y0: 100, x1: 400, y1: 400 },
   quality: { valid: false }, inferenceMs: 1,
 });
 const grid = (c: string) => Array(9).fill(c) as unknown as FaceGrid;
@@ -104,6 +104,14 @@ describe('Live scanning screen', () => {
     expect(screen.getAllByRole('img', { name: /Row \d, column \d: green/ })).toHaveLength(9);
     expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(screen.queryByText(/Capture unavailable/)).toBeNull();
+  });
+
+  it('the lattice follows the fitted face from the result, inside the placement zone', () => {
+    render(<ScanningScreen />);
+    const lat = screen.getByTestId('face-lattice');
+    const zone = screen.getByTestId('guide-square');
+    expect(parseFloat(lat.style.left)).toBeGreaterThan(parseFloat(zone.style.left));
+    expect(parseFloat(lat.style.width)).toBeLessThan(parseFloat(zone.style.width));
   });
 
   it('rotating shows the cue and the next stage panel', () => {

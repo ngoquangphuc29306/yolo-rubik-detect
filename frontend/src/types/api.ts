@@ -93,6 +93,13 @@ export interface ScanServerError {
 
 export type ScanServerMessage = ScanReady | FrameResult | ScanServerError;
 
+export interface FaceBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 export interface FrameResult {
   type: 'frame_result';
   schemaVersion: 1;
@@ -103,6 +110,8 @@ export interface FrameResult {
   detections: { classId: number; color: ColorName; confidence: number; xyxy: [number, number, number, number] }[];
   cells: FrameCell[];
   grid: ColorName[] | null;
+  /** Fitted 3x3 lattice bounding box in crop pixels (unmirrored); null when no lattice could be fitted. */
+  face: FaceBox | null;
   quality: { valid: boolean; reason?: string };
   inferenceMs: number;
 }

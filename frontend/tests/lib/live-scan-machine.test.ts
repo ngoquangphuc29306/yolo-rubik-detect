@@ -19,7 +19,7 @@ const mk = (center: ColorName, other: ColorName = 'red'): ColorName[] => [
 function res(grid: ColorName[] | null, reason?: string): FrameResult {
   return {
     type: 'frame_result', schemaVersion: 1, scanId: 's', frameSeq: 1, width: 640, height: 480,
-    detections: [], cells: [], grid,
+    detections: [], cells: [], grid, face: null,
     quality: grid ? { valid: true } : { valid: false, ...(reason ? { reason } : {}) },
     inferenceMs: 1,
   };
