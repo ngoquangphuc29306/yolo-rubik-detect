@@ -3,20 +3,11 @@ import { Check } from 'lucide-react';
 import { COLOR_META, colorNameToCode } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 import type { LivePhase } from '@/lib/live-scan-machine';
+import type { GuideBox, GuideRect } from '@/lib/scan-roi';
 import type { FrameCell } from '@/types/api';
 import type { ColorName } from '@/types/cube';
 
-export interface GuideRect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-export interface GuideBox {
-  color: ColorName;
-  confidence: number;
-  rect: GuideRect;
-}
+export type { GuideBox, GuideRect };
 export interface LiveScanGuideProps {
   square: GuideRect | null;
   cells: readonly FrameCell[] | null;

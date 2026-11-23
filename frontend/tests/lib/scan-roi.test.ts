@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeContain } from '@/lib/contain-transform';
-import { cropBoxToFrame, cropSize, guideSquare, guideSquareToView } from '@/lib/scan-roi';
+import { cropBoxToFrame, cropSize, guideOverlay, guideSquare, guideSquareToView } from '@/lib/scan-roi';
+import type { FrameResult } from '@/types/api';
 
 describe('guideSquare', () => {
   it('matches the documented sizes', () => {
@@ -57,5 +58,51 @@ describe('guideSquareToView', () => {
     const t = computeContain({ w: 800, h: 400 }, { w: 400, h: 400 })!;
     const v = guideSquareToView({ x: 0, y: 0, side: 400 }, t);
     expect(v).toEqual({ x: 200, y: 0, w: 400, h: 400 });
+  });
+});
+
+describe('guideOverlay', () => {
+  const result = (xyxy: [number, number, number, number]): FrameResult => ({
+    type: 'frame_result',
+    schemaVersion: 1,
+    scanId: 's',
+    frameSeq: 1,
+    width: 518,
+    height: 518,
+    detections: [{ classId: 0, color: 'green', confidence: 0.9, xyxy }],
+    cells: [],
+    grid: null,
+    quality: { valid: false },
+    inferenceMs: 1,
+  });
+
+  it('letterboxed 1280x720 video in a 600x600 view: exact square and box', () => {
+    const t = computeContain({ w: 600, h: 600 }, { w: 1280, h: 720 })!;
+    expect(t.scale).toBe(0.46875);
+    expect(t.offsetY).toBe(131.25);
+    const o = guideOverlay({ w: 1280, h: 720 }, { w: 600, h: 600 }, result([0, 0, 10, 20]));
+    expect(o.square).toEqual({ x: 178.59375, y: 178.59375, w: 242.8125, h: 242.8125 });
+    expect(o.boxes).toEqual([
+      { color: 'green', confidence: 0.9, rect: { x: 178.59375, y: 178.59375, w: 4.6875, h: 9.375 } },
+    ]);
+  });
+
+  it('identity when the view equals the frame', () => {
+    const o = guideOverlay({ w: 640, h: 480 }, { w: 640, h: 480 }, result([10, 20, 60, 70]));
+    expect(o.square).toEqual({ x: 147, y: 67, w: 345, h: 345 });
+    expect(o.boxes[0]!.rect).toEqual({ x: 157, y: 87, w: 50, h: 50 });
+  });
+
+  it('a box at the crop corner lands on the square corner in view px', () => {
+    const o = guideOverlay({ w: 1280, h: 720 }, { w: 600, h: 600 }, result([0, 0, 5, 5]));
+    expect(o.boxes[0]!.rect.x).toBe(o.square!.x);
+    expect(o.boxes[0]!.rect.y).toBe(o.square!.y);
+  });
+
+  it('no result gives no boxes; invalid sizes give null/empty', () => {
+    expect(guideOverlay({ w: 640, h: 480 }, { w: 640, h: 480 }, null).boxes).toEqual([]);
+    expect(guideOverlay({ w: 0, h: 480 }, { w: 640, h: 480 }, null)).toEqual({ square: null, boxes: [] });
+    expect(guideOverlay({ w: 640, h: 480 }, { w: 0, h: 0 }, result([0, 0, 1, 1]))).toEqual({ square: null, boxes: [] });
+    expect(guideOverlay({ w: NaN, h: 480 }, { w: 640, h: 480 }, null)).toEqual({ square: null, boxes: [] });
   });
 });

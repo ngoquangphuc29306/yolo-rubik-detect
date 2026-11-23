@@ -1,6 +1,19 @@
 // Pure guide-square (ROI) geometry between frame pixels and crop/view pixels. No DOM.
-import { frameToView, type ContainTransform, type Xyxy } from './contain-transform';
-import type { Size } from './contain-transform';
+import { boxToView, computeContain, frameToView, type ContainTransform, type Size, type Xyxy } from './contain-transform';
+import type { FrameResult } from '@/types/api';
+import type { ColorName } from '@/types/cube';
+
+export interface GuideRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export interface GuideBox {
+  color: ColorName;
+  confidence: number;
+  rect: GuideRect;
+}
 
 export interface GuideSquare {
   x: number;
@@ -38,4 +51,21 @@ export function guideSquareToView(
   const p = frameToView({ x: square.x, y: square.y }, t);
   const side = square.side * t.scale;
   return { x: p.x, y: p.y, w: side, h: side };
+}
+
+/** Overlay geometry in view pixels: the guide square and every detection box (crop px -> frame px -> view px). */
+export function guideOverlay(
+  frame: Size,
+  view: Size,
+  result: FrameResult | null,
+): { square: GuideRect | null; boxes: GuideBox[] } {
+  const t = computeContain(view, frame);
+  const sq = guideSquare(frame);
+  if (!t || !sq) return { square: null, boxes: [] };
+  const size = cropSize(sq);
+  const boxes = (result?.detections ?? []).map((d): GuideBox => {
+    const [x1, y1, x2, y2] = boxToView(cropBoxToFrame(d.xyxy, sq, size), t);
+    return { color: d.color, confidence: d.confidence, rect: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 } };
+  });
+  return { square: guideSquareToView(sq, t), boxes };
 }
