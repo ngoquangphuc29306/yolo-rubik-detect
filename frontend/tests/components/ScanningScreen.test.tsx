@@ -342,7 +342,7 @@ describe('ScanningScreen - LIVE', () => {
     ).toBeTruthy();
   });
 
-  it('fixture detector: labelled banner, capture still disabled', async () => {
+  it('fixture detector: labelled banner and no capture control', async () => {
     stubHealth(() => jsonResponse(loadFixture('health/fixture-mode.json')));
     render(<ScanningScreen />);
     expect(await screen.findByText('Fixture detector — not real inference')).toBeTruthy();

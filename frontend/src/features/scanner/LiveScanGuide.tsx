@@ -31,6 +31,7 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
   const locked = phase === 'captured' || phase === 'rotating' || phase === 'done';
   const solid = locked && capturedGrid && capturedGrid.length === 9 ? capturedGrid : null;
   const full = progress >= 1 || phase === 'captured';
+  const searching = phase === 'aligning' || phase === 'stabilizing';
   const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100);
 
   return (
@@ -129,6 +130,7 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
        </div>
       </div>
 
+      {searching && (
       <div
         className="absolute flex flex-col items-center gap-2"
         style={{ left: square.x, top: square.y + square.h + 10, width: square.w }}
@@ -149,6 +151,7 @@ export function LiveScanGuide({ square, cells, boxes, progress, phase, hint, cap
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

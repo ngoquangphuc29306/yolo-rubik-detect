@@ -1,4 +1,4 @@
-// Pure presentational cue shown after a capture: how to rotate the ENTIRE cube to the next face.
+// Pure presentational cue shown after a capture, rendered as a block below the video frame (never over the guide): how to rotate the ENTIRE cube to the next face.
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Hand } from 'lucide-react';
 import type { ScanGuide } from './scan-guide';
 import type { FaceId } from '@/types/cube';
@@ -22,7 +22,7 @@ export function RotationCue({ guide, nextFace }: RotationCueProps) {
     <div
       role="status"
       data-next-face={nextFace}
-      className="absolute inset-x-4 bottom-4 mx-auto max-w-md rounded-2xl border border-emerald-400/40 bg-black/80 backdrop-blur p-4 flex gap-4 items-start text-zinc-100"
+      className="w-full rounded-2xl border border-emerald-400/40 bg-black/80 backdrop-blur p-4 flex gap-4 items-start text-zinc-100"
     >
       <div
         data-testid="rotation-arrow"
@@ -42,7 +42,7 @@ export function RotationCue({ guide, nextFace }: RotationCueProps) {
             <li>{guide.steps[1]}</li>
           </ol>
         )}
-        <p className="text-xs text-zinc-400">Follow the diagram — the app checks colours, not how you hold the cube.</p>
+        <p className="text-xs text-zinc-400">Follow the arrow and the reference cube — the app checks colours, not how you hold the cube.</p>
       </div>
     </div>
   );

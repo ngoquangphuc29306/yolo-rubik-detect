@@ -53,7 +53,7 @@ function stripText(active: boolean, scan: LiveScanView | null): string {
   }
 }
 
-export function LiveViewport({ camera, videoRef, onEnableCamera, scan }: LiveViewportProps) {
+function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewportProps) {
   const active = camera.status === 'active';
   const requesting = camera.status === 'requesting';
   const [box, setBox] = React.useState<HTMLDivElement | null>(null);
@@ -69,7 +69,8 @@ export function LiveViewport({ camera, videoRef, onEnableCamera, scan }: LiveVie
   const frameSize = useVideoFrameSize(video);
 
   const phase = scan?.state.phase;
-  const ticking = active && !!scan && (phase === 'aligning' || phase === 'stabilizing');
+  const searching = phase === 'aligning' || phase === 'stabilizing';
+  const ticking = active && !!scan && searching && scan.state.streak !== null;
   const [now, setNow] = React.useState(() => performance.now());
   React.useEffect(() => {
     if (!ticking) return;
@@ -80,10 +81,9 @@ export function LiveViewport({ camera, videoRef, onEnableCamera, scan }: LiveVie
 
   const showGuide = active && !!scan;
   const overlay = React.useMemo(
-    () => guideOverlay(frameSize, viewSize, showGuide ? scan.lastResult : null),
-    [frameSize, viewSize, showGuide, scan?.lastResult],
+    () => guideOverlay(frameSize, viewSize, showGuide && searching ? scan.lastResult : null),
+    [frameSize, viewSize, showGuide, searching, scan?.lastResult],
   );
-  const searching = phase === 'aligning' || phase === 'stabilizing';
 
   return (
     <>
@@ -147,8 +147,9 @@ export function LiveViewport({ camera, videoRef, onEnableCamera, scan }: LiveVie
           capturedGrid={phase === 'captured' ? (scan.state.pendingCapture?.grid ?? null) : null}
         />
       )}
-      {showGuide && phase === 'rotating' && <RotationCue guide={scan.nextGuide} nextFace={scan.stageFace} />}
     </div>
+
+    {showGuide && phase === 'rotating' && <RotationCue guide={scan.nextGuide} nextFace={scan.stageFace} />}
 
     <div
       role="status"
@@ -165,3 +166,5 @@ export function LiveViewport({ camera, videoRef, onEnableCamera, scan }: LiveVie
     </>
   );
 }
+
+export const LiveViewport = React.memo(LiveViewportImpl);

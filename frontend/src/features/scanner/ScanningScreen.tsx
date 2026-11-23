@@ -24,8 +24,9 @@ import { LiveViewport } from './LiveViewport';
 import { FACE_NAMES, scanGuide } from './scan-guide';
 import { useDemoScanScript } from './useDemoScanScript';
 
-/** Documented initial scan convention; every other centre is known only after its face is captured. */
 const LIVE_HANDOFF_MS = 1200;
+
+/** Documented initial scan convention; every other centre is known only after its face is captured. */
 const LIVE_START_CENTERS: Partial<Record<FaceId, ColorName>> = { F: 'green', U: 'white' };
 
 /** Scripted readouts for the demo guide panel. */
@@ -147,16 +148,23 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
   }, [screenNow, sessionId, stopCamera, isDemo, resetLiveScan]);
 
   // After the sixth live capture: end camera/transport/capture loop now, then hand off to Reconstruction.
+  // Fires only on the false -> true transition while mounted: coming back to a complete scan must not bounce away.
   const liveDone = !isDemo && allCaptured;
+  const wasLiveDone = React.useRef(liveDone);
+  const [handoff, setHandoff] = React.useState(0);
   React.useEffect(() => {
-    if (!liveDone) return;
+    if (liveDone && !wasLiveDone.current) setHandoff((n) => n + 1);
+    wasLiveDone.current = liveDone;
+  }, [liveDone]);
+  React.useEffect(() => {
+    if (handoff === 0 || !liveDone) return;
     stopCamera();
     const id = sessionId;
     const timer = setTimeout(() => {
       if (useSessionStore.getState().sessionId === id) useSessionStore.getState().setScreen('reconstructing');
     }, LIVE_HANDOFF_MS);
     return () => clearTimeout(timer);
-  }, [liveDone, sessionId, stopCamera]);
+  }, [handoff, liveDone, sessionId, stopCamera]);
 
   const liveRescan = liveScan.rescan;
   const selectFace = React.useCallback((face: FaceId) => {
@@ -195,6 +203,21 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
   const nextGuide = React.useMemo(
     () => scanGuide(liveScan.state.stage, knownCenters),
     [liveScan.state.stage, knownCenters],
+  );
+  const scanView = React.useMemo(
+    () =>
+      liveReady
+        ? {
+            connection: liveScan.connection,
+            state: liveScan.state,
+            lastResult: liveScan.lastResult,
+            errorMessage: liveScan.errorMessage,
+            onRetry: liveScan.retry,
+            nextGuide,
+            stageFace: liveScan.state.stage,
+          }
+        : null,
+    [liveReady, liveScan.connection, liveScan.state, liveScan.lastResult, liveScan.errorMessage, liveScan.retry, nextGuide],
   );
   const rescanning = rescan?.face === activeFace && rescan.sessionId === sessionId && !captured[activeFace];
 
@@ -297,19 +320,7 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
               camera={camera.state}
               videoRef={combinedVideoRef}
               onEnableCamera={camera.start}
-              scan={
-                liveReady
-                  ? {
-                      connection: liveScan.connection,
-                      state: liveScan.state,
-                      lastResult: liveScan.lastResult,
-                      errorMessage: liveScan.errorMessage,
-                      onRetry: liveScan.retry,
-                      nextGuide,
-                      stageFace: liveScan.state.stage,
-                    }
-                  : null
-              }
+              scan={scanView}
             />
           )}
 

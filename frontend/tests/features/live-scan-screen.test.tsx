@@ -8,7 +8,10 @@ import type { FaceGrid } from '@/types/cube';
 
 vi.mock('@/components/three/RubiksCube3D', async () => {
   const React = await import('react');
-  return { RubiksCube3D: () => React.createElement('div', { 'data-testid': 'cube-stub' }) };
+  return {
+    RubiksCube3D: (p: { referenceRotation?: number[] }) =>
+      React.createElement('div', { 'data-testid': 'cube-stub', 'data-rot': JSON.stringify(p.referenceRotation ?? null) }),
+  };
 });
 
 const h = vi.hoisted(() => ({
@@ -43,6 +46,8 @@ vi.mock('@/hooks/useLiveScan', async (importOriginal) => {
   };
 });
 
+import { guideOverlay } from '@/lib/scan-roi';
+import { scanGuide } from '@/features/scanner/scan-guide';
 import { ScanningScreen } from '@/features/scanner/ScanningScreen';
 import { startDemoScan } from '@/stores/demo-session';
 import { useCubeStore } from '@/stores/cube-store';
@@ -112,6 +117,51 @@ describe('Live scanning screen', () => {
     expect(screen.getByText('Saved. Rotate the whole cube to the next face.')).toBeTruthy();
   });
 
+  it('the cue is a block after the frame container, never inside it', () => {
+    setLive({}, { stage: 'R', phase: 'rotating' });
+    render(<ScanningScreen />);
+    const frameEl = screen.getByLabelText('Live camera preview').parentElement!;
+    const cue = document.querySelector('[data-next-face="R"]')!;
+    expect(frameEl.contains(cue)).toBe(false);
+    expect(frameEl.compareDocumentPosition(cue) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(cue.className).not.toMatch(/absolute/);
+  });
+
+  it('the reference cube shows the next stage pose while rotating', () => {
+    useScanStore.getState().captureFace('F', grid('green'), 'live');
+    setLive({}, { stage: 'R', phase: 'rotating' });
+    render(<ScanningScreen />);
+    const rot = JSON.parse(screen.getByTestId('cube-stub').getAttribute('data-rot')!);
+    expect(rot).toEqual(scanGuide('R', { F: 'green', U: 'white' }).referenceRotation);
+  });
+
+  it('progress bar and hint are hidden once captured/rotating', () => {
+    setLive({}, { stage: 'R', phase: 'rotating', hint: 'old hint' });
+    render(<ScanningScreen />);
+    expect(screen.queryByRole('progressbar', { name: 'Hold steady' })).toBeNull();
+    expect(screen.queryByText('old hint')).toBeNull();
+  });
+
+  it('stale detection boxes are shown only while aligning/stabilizing', () => {
+    const withBox = { ...frame(), detections: [{ classId: 0, color: 'green' as const, confidence: 0.9, xyxy: [0, 0, 10, 10] as [number, number, number, number] }] };
+    setLive({ lastResult: withBox });
+    const { unmount } = render(<ScanningScreen />);
+    expect(screen.getByTitle('green 90%')).toBeTruthy();
+    unmount();
+    setLive({ lastResult: withBox }, { stage: 'R', phase: 'rotating' });
+    render(<ScanningScreen />);
+    expect(screen.queryByTitle('green 90%')).toBeNull();
+  });
+
+  it.each([360, 600, 900, 1280])('the guide square lies inside the 16:10 frame at %i px wide', (w) => {
+    const h = (w * 10) / 16;
+    const { square } = guideOverlay({ w: 1280, h: 720 }, { w, h }, null);
+    expect(square!.x).toBeGreaterThanOrEqual(0);
+    expect(square!.y).toBeGreaterThanOrEqual(0);
+    expect(square!.x + square!.w).toBeLessThanOrEqual(w);
+    expect(square!.y + square!.h).toBeLessThanOrEqual(h);
+  });
+
   it('the cue never appears outside the rotating phase', () => {
     render(<ScanningScreen />);
     expect(document.querySelector('[data-next-face]')).toBeNull();
@@ -178,6 +228,14 @@ describe('Live scanning screen', () => {
       expect(live.rescan).not.toHaveBeenCalled();
       expect(useScanStore.getState().stageIndex).toBe(0);
     });
+    it('selecting the current uncaptured stage does not break and needs no rescan call', () => {
+      const live = setLive();
+      render(<ScanningScreen />);
+      fireEvent.click(screen.getByTestId('face-card-F'));
+      expect(live.rescan).not.toHaveBeenCalled();
+      expect(useScanStore.getState().stageIndex).toBe(0);
+      expect(useScanStore.getState().faceStatuses.F).toBe('scanning');
+    });
     it('selecting a captured face rescans it with its previous centre', () => {
       const live = setLive();
       render(<ScanningScreen />);
@@ -215,6 +273,23 @@ describe('Live scanning screen', () => {
       expect(useSessionStore.getState().screen).toBe('scanning');
       act(() => void vi.advanceTimersByTime(2));
       expect(useSessionStore.getState().screen).toBe('reconstructing');
+    });
+
+    it('coming back to a complete scan does not stop the camera or bounce to reconstruction', () => {
+      vi.useFakeTimers();
+      const live = setLive();
+      for (const [f, c] of [['F', 'green'], ['R', 'red'], ['B', 'blue'], ['L', 'orange'], ['U', 'white'], ['D', 'yellow']] as const) {
+        useScanStore.getState().captureFace(f, grid(c), 'live');
+      }
+      render(<ScanningScreen />);
+      act(() => void vi.advanceTimersByTime(5000));
+      expect(h.stop).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().screen).toBe('scanning');
+      fireEvent.click(screen.getByTestId('face-card-R'));
+      expect(live.rescan).toHaveBeenCalledWith('R', 'red');
+      expect(useScanStore.getState().captured.R).toBeUndefined();
+      act(() => void vi.advanceTimersByTime(5000));
+      expect(useSessionStore.getState().screen).toBe('scanning');
     });
 
     it('clears the timer on unmount', () => {

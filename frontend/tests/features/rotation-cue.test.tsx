@@ -15,7 +15,7 @@ describe('RotationCue', () => {
     const cue = screen.getByRole('status');
     expect(cue.textContent).toContain('Rotate the whole cube');
     expect(cue.textContent).toContain(g.rotationHint);
-    expect(cue.textContent).toContain('Follow the diagram — the app checks colours, not how you hold the cube.');
+    expect(cue.textContent).toContain('Follow the arrow and the reference cube — the app checks colours, not how you hold the cube.');
     expect(cue.textContent).not.toMatch(/verified|detects? (your )?orientation/i);
     const arrow = screen.getByTestId('rotation-arrow');
     expect(arrow.getAttribute('data-direction')).toBe(g.arrowDirection);
