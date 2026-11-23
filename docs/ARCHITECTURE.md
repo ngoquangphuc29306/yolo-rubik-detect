@@ -17,7 +17,7 @@
 - `GET /health` and `POST /api/solve` exist; `/ws/scan` does not (section 8.1). HTTP status and error-code map for the solve endpoint (section 8.3). The wire contract is unchanged; internal faults are a bare 500.
 - Section 10 shows the actual `backend/` tree (no `vision/`, no `weights/` yet). Section 11 gains solver licence, resources and configuration.
 - Section 12.1: the Python cross-check is done (TypeScript-generated fixtures, backend-recorded responses bound by the frontend, 300-state slow check).
-- Sections 13 and 14: Phase 1 complete and merged, Phase 2 implemented awaiting approval; design risks R1 to R8 recorded; the user's separately trained YOLO26s model is noted for Phase 6.
+- Sections 13 and 14: Phase 1 complete and merged, Phase 2 implemented awaiting approval; design risks R1 to R8 recorded; the model is now named YOLO26s throughout (trained externally, not integrated; Phase 6).
 
 **v1.1 (2026-11-22)** — model-last amendments from the Phase 0/1 plan (section 11) and decisions made while executing Phase 1:
 
@@ -34,7 +34,7 @@
 
 ## 1. Executive overview
 
-RubikVision turns a physical scrambled 3×3 Rubik's Cube into a digital twin and teaches the user how to solve it. A custom fine-tuned YOLO26n **Object Detection** model identifies individual colored facelets during a guided webcam scan. The system reconstructs the full cube state, validates its physical solvability, runs the Kociemba two-phase solver, then renders a synchronized interactive 3D cube that automatically demonstrates each required move with an adjustable delay.
+RubikVision turns a physical scrambled 3×3 Rubik's Cube into a digital twin and teaches the user how to solve it. A custom fine-tuned YOLO26s **Object Detection** model (trained externally; its weights are **not integrated** into the application yet) identifies individual colored facelets during a guided webcam scan. The system reconstructs the full cube state, validates its physical solvability, runs the Kociemba two-phase solver, then renders a synchronized interactive 3D cube that automatically demonstrates each required move with an adjustable delay.
 
 The camera is active only during scanning and optional recovery/verification. During solving, the user holds the real cube comfortably, follows the 3D demonstration, and does not need to confirm every move. If the physical cube and digital twin become unsynchronized, the user pauses and rescans the actual cube to obtain a new solution.
 
@@ -52,7 +52,7 @@ The core separation is intentional: **YOLO perceives; geometry reconstructs; Koc
 
 | Decision area | Selected approach | Alternatives considered / trade-off |
 | --- | --- | --- |
-| Perception | Fine-tuned YOLO26n detection, class per visible facelet color | HSV-only is cheaper and useful as an optional benchmark, but does not satisfy the fine-tuning objective. Segmentation is not required for a front-facing 3×3 grid. |
+| Perception | Fine-tuned YOLO26s detection (trained externally, not yet integrated), class per visible facelet color | HSV-only is cheaper and useful as an optional benchmark, but does not satisfy the fine-tuning objective. Segmentation is not required for a front-facing 3×3 grid. |
 | Scanning | Guided six-face scanning with automatic capture and 2D overlay arrows | Random scanning needs orientation search and may be ambiguous; continuous 3D scanning requires harder pose estimation and tracking. |
 | Solving UX | Hybrid coach: camera off, timed automatic demonstrations, adjustable delay, pause/replay, rescan | Per-move manual confirmation is inconvenient and superseded. Automatic camera verification during solving is out of scope. |
 | Runtime | React/TypeScript browser UI + local Python/FastAPI service | Fully browser-side inference would improve portability but adds export/runtime compatibility work; native mobile is not needed for MVP. |
@@ -72,7 +72,7 @@ The core separation is intentional: **YOLO perceives; geometry reconstructs; Koc
 
 | Layer | Technology | Responsibility |
 | --- | --- | --- |
-| Training | Python 3.11 (target), PyTorch, Ultralytics, YOLO26n (`yolo26n.pt`) | Fine-tune six-color object detector; evaluate and export `best.pt`. |
+| Training | Python 3.11 (target), PyTorch, Ultralytics, YOLO26s (`yolo26s.pt`) | Fine-tune six-color object detector; evaluate and export `best.pt`. The YOLO26s model has been trained externally (Colab); `backend/weights/best.pt` does not exist in this repository and nothing loads it yet (Phase 6). |
 | Data | Roboflow Universe, Google Colab GPU | Obtain and inspect existing bounding-box labels; training environment. |
 | Vision | OpenCV, NumPy | Image decode, ROI/geometry checks, facelet center assignment, optional perspective correction. |
 | Backend | FastAPI, Uvicorn, Pydantic | WebSocket inference endpoint, REST solver API, validation and error contracts. |
@@ -94,7 +94,7 @@ flowchart LR
     Human[User with physical cube] -->|Guided scan| Camera[Webcam]
     Camera --> UI[React browser app]
     UI -->|JPEG frames via WebSocket| API[FastAPI local service]
-    API --> Vision[YOLO26n detector and face geometry]
+    API --> Vision[YOLO26s detector and face geometry]
     Vision -->|Detections and face grid| API
     API -->|JSON results| UI
     UI -->|Six captured color grids via REST| Cube[Cube validation and reconstruction]
@@ -199,7 +199,7 @@ Each label line is `class_id x_center y_center width height` with normalized coo
 
 ### 5.3 Training baseline
 
-- Initialize from `yolo26n.pt` (detection, COCO-pretrained); fine-tune for all six classes.
+- Initialize from `yolo26s.pt` (detection, COCO-pretrained); fine-tune for all six classes. The user has already done this externally (Colab) and holds a trained YOLO26s checkpoint; it is **not** in this repository and not integrated. Phase 5 therefore records the existing run's provenance (dataset, split, metrics, versions, weight hash) rather than training from scratch, and re-trains only if that provenance or the evaluation is insufficient.
 - Proposed starting configuration: `imgsz=640`, 50 epochs (50 versus 60 is a tunable baseline, not a decision), seed recorded, early stopping and batch size chosen for actual GPU memory. Tune only after a measured baseline. These are experiment defaults, not guaranteed optimums.
 - Avoid hue-changing augmentations that would invalidate color labels; use moderate brightness/contrast, scale, translation, rotation and perspective as appropriate. Inspect resulting examples. Never augment validation/test.
 - Save best checkpoint, training configuration, Ultralytics/PyTorch versions, class names, dataset manifest and evaluation report. Record the weight SHA-256/hash or version in the runtime manifest. Do not silently use a generic COCO checkpoint when custom weights are missing.
@@ -667,7 +667,7 @@ Current state: Phases 0 and 1 are done and merged. Phase 2 (HTTP backend: `/heal
 | R5. Shared convention error between the Python and TypeScript engines | Third oracle (library solutions replayed in both engines) and published strings. |
 | R6. `cube-solver` has no cp314 wheel | Backend pinned to Python 3.12 (`.python-version`, `requires-python >=3.12,<3.13`). |
 | R7. Wire-code gaps (no code for internal faults or "solver not ready") | Bare 500 and fail-fast startup map to the client's existing `BACKEND_UNAVAILABLE`; adding a code is a contract change needing approval. |
-| R8. Document drift: this file named YOLO26n while the user reports a separately trained YOLO26s model | Status lines fixed in v1.2. The user reports a YOLO26s model trained separately; sections 1 and 2 still name YOLO26n and are left unchanged. Reconcile the model choice at Phase 5/6 (class names, task and weights are validated at load); vision scope is unchanged. |
+| R8. Document drift between the model named here and the model actually trained | Resolved in the Phase 2 merge reconciliation: this document now names YOLO26s, which the user trained externally. It is **not integrated**: no weights are in the repository, no detector code exists, and `/health` reports vision unavailable. At Phase 5/6 the loader still validates the task and the six class names and maps names rather than IDs; vision scope is unchanged. |
 
 Accepted product decisions come from the design discussion: YOLO Object Detection, guided scan, hybrid camera-off solving, timed automatic guidance, recovery by rescan and selected local web stack. Architecture-author choices that remain to be verified: exact API schema, coordinate implementation, fixed initial white/green pair, scan gate thresholds, frame cap, default durations, timeout policies, metric targets, test setup and library versions. These are explicit proposed defaults; builder may tune them without changing the core product behavior. Dataset remains unselected and model untrained. The Phase 1 frontend and the Phase 2 backend are implemented and tested, but no vision runtime benchmark has been performed and nothing has been verified against a physical cube.
 

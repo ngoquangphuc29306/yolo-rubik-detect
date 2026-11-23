@@ -117,7 +117,7 @@ Measured in the implementation phase (not the benchmark): table build 282.8 s; `
 - **Live footer copy (observation, not a defect, Phase 1 copy, out of scope).** On the live screen with the backend connected but vision unavailable, the footer reads "Capture unavailable — no vision connection".
 - **Formatting.** `ruff format` is not enforced; only `ruff check` is a gate.
 - **Concurrency.** Client disconnects are not detected; a superseded solve finishes and its result is discarded by the client request guard. Accepted at this scale.
-- **Model naming.** The user reports a separately trained YOLO26s model for Phase 6, while ARCHITECTURE still names YOLO26n. Recorded in ARCHITECTURE risk R8; vision scope is unchanged.
+- **Model naming.** The user trained a YOLO26s model externally; it is not integrated (no weights in the repository, no detector code). ARCHITECTURE and CLAUDE.md now name YOLO26s (reconciled before the merge; risk R8). Vision scope is unchanged.
 - **Console.** The known `THREE.Clock` deprecation warning remains (4 in the Task 9 browser pass).
 
 ## 7. Reproduce

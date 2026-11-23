@@ -2,7 +2,7 @@
 
 ## Project mission
 
-RubikVision helps users solve a physical 3×3 Rubik's Cube: guided webcam scanning → YOLO26n facelet detection → cube reconstruction and Kociemba → Three.js digital twin with timed auto-guidance.
+RubikVision helps users solve a physical 3×3 Rubik's Cube: guided webcam scanning → YOLO26s facelet detection (trained externally; weights not yet integrated) → cube reconstruction and Kociemba → Three.js digital twin with timed auto-guidance.
 
 Build the software first using deterministic fixtures; train six-color YOLO weights last. Preserve the existing Google AI Studio visual design and six-screen flow unless the user explicitly requests changes. Do not mistake a prototype, fixture result, or digital replay for physical verification.
 
