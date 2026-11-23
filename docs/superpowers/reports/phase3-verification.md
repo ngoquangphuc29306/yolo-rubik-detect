@@ -120,7 +120,7 @@ Budget (design section 8): server inference p95 at most 300 ms and an effective 
 | C, all | 288 | 259.5 ms | 575 ms | 3270 ms |
 
 - Effective result rate (browser `frame_result` messages, 150 frames): 2.71 results per second. Budget 3: **not met**.
-- Inference p95 budget 300 ms: **not met** in 6 of 7 scans; the best scan's p95 was 303 ms. Variance between scans is large (cold start, concurrent browser and Vite load).
+- Inference p95 budget 300 ms: **not met** in all six scans; the best scan's p95 was 303 ms. Variance between scans is large (cold start, concurrent browser and Vite load).
 - Backend process while scanning: working set 2266 MB, private 2560 MB (design budget 2.5 GB), CPU 6.16 s per 5 s, about 1.2 cores of 4 (torch intra-op threads).
 - Time to capture: 1.9 to 2.7 s from the first nine boxes (designed 1 to 2 s): observation O1.
 - Design-time measurement, for comparison (full test images, not the guide crop): 640 px median 186 ms, p95 262 ms; 480 px median 107 ms; 320 px median 58 ms.

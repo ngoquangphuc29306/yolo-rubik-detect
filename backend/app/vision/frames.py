@@ -2,6 +2,7 @@
 
 from typing import Literal
 
+# cv2 and numpy are not direct dependencies: they arrive transitively via ultralytics.
 import cv2
 import numpy as np
 

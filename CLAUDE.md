@@ -32,10 +32,10 @@ If paths differ, locate the actual documents rather than creating duplicate spec
 | 0 | Baseline, reproducible setup, actual build/typecheck and browser observations |
 | 1 | Frontend migration/refactor, deterministic engine and timed coach, explicit demo; typed clients |
 | 2 | FastAPI, canonical reconstruction/validation, real Kociemba and shared fixtures |
-| 3 | Detector interface, fixture detector, geometry and WebSocket protocol |
-| 4 | Full-stack fixture integration and YOLO adapter (software-ready gate) |
-| 5 | Dataset audit, six-color label mapping, training and evaluation |
-| 6 | Load `backend/weights/best.pt`, benchmark real webcam and physical end-to-end recovery (model-ready gate) |
+| 3 | Detector interface, fixture detector, geometry and WebSocket protocol (superseded, see ARCHITECTURE §13) |
+| 4 | Full-stack fixture integration and YOLO adapter (software-ready gate) (superseded, see ARCHITECTURE §13) |
+| 5 | Dataset audit, six-color label mapping, training and evaluation (superseded, see ARCHITECTURE §13) |
+| 6 | Load `backend/weights/best.pt`, benchmark real webcam and physical end-to-end recovery (model-ready gate) (superseded, see ARCHITECTURE §13) |
 
 Current authorization is determined by the user's latest approval, not by this roadmap. Phase 1 is merged into `main` (plan `docs/superpowers/plans/2026-11-19-frontend-refactor.md`; evidence in `docs/superpowers/reports/phase1-verification.md`). Phase 2 (backend) is merged (plan `docs/superpowers/plans/2026-11-22-phase-2-backend.md`; evidence in `docs/superpowers/reports/phase2-verification.md`). Phase 3 (real YOLO26s live scanning; plan `docs/superpowers/plans/2026-11-23-phase-3-live-vision.md`) is implemented on branch `feat/phase-3-live-vision` and awaits the user's approval; evidence is in `docs/superpowers/reports/phase3-verification.md`. The physical webcam test is NOT RUN (user-run, `docs/superpowers/reports/phase3-physical-test-checklist.md`). The Phase 3 to 6 rows above are superseded by that reframing (`docs/ARCHITECTURE.md` §13); do not start another phase automatically.
 
@@ -45,7 +45,7 @@ Current authorization is determined by the user's latest approval, not by this r
 - Pure `engine/`: cube state, integer facelet geometry, move permutations and playback reducer; no React, DOM, timers, Three.js, network or store dependencies.
 - `components/three/`: controlled renderer and camera viewpoint; no independent mutation of cube state or authoritative playback clock.
 - `features/`: product workflows; `hooks/`: browser lifecycle and orchestration; `stores/`: session/application state; `services/`: typed, validated transport boundaries; `demo/`: explicit deterministic fixtures.
-- Backend: Python/FastAPI, Pydantic, OpenCV/NumPy, Kociemba, Ultralytics/PyTorch. Detector returns the same typed detections for fixture and YOLO implementations. Frontend owns scan sequence/stability; backend owns frame geometry, physical legality and solution generation.
+- Backend: Python/FastAPI, Pydantic, OpenCV/NumPy, Kociemba, Ultralytics/PyTorch. A `Detector` protocol returns typed detections; the YOLO26s detector is the only runtime implementation, and tests inject doubles. Frontend owns scan sequence/stability; backend owns frame geometry, physical legality and solution generation.
 - Training is isolated from runtime. Do not add a database, authentication, cloud inference, LLM, segmentation or true AR for the MVP without an approved design change.
 
 ## Canonical cube invariants — never change casually
@@ -59,7 +59,7 @@ Current authorization is determined by the user's latest approval, not by this r
 
 ## Vision and transport
 
-- Demo and live are disjoint. Demo fixtures must be visibly labeled, never presented over live webcam as inferred boxes, confidences or captured grids. Fixture backend is opt-in and explicitly visible; never silently fall back to fixtures or COCO weights.
+- Demo and live are disjoint. Demo fixtures must be visibly labeled, never presented over live webcam as inferred boxes, confidences or captured grids. No fixture backend exists; any future one must be opt-in and visibly labelled. Never silently fall back to fixtures or COCO weights.
 - Guided scanning captures one front-facing 3×3 grid at a time. Only rotate the whole physical cube during scan. Nine detected stickers and a center color do not prove roll or hidden neighbor identity.
 - Use unmirrored frame coordinates, consistent contain-fit overlay transform and agreed ROI contract from Architecture. One in-flight frame per connection; discard stale connection/stage/frame results. Reject incomplete, duplicate, unstable or ambiguous grids.
 - Endpoints: `GET /health`, `POST /api/solve`, `/ws/scan`. Keep schema/version, fixtures and Python/TypeScript contracts aligned. Validate runtime payloads, not just TypeScript types. Abort/ignore stale requests, including retries within one session.

@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+# numpy is not a direct dependency: it arrives transitively via ultralytics.
 import numpy as np
 
 from app.config import BACKEND_DIR
