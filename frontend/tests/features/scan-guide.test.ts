@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { scanGuide } from '@/features/scanner/scan-guide';
 import legacyScanGuide from '../golden/legacy-scan-guide.json';
+import { ROTATION_STEPS } from '@/lib/rotation-steps';
 import { SCAN_FACE_ORDER, type ColorName, type FaceId } from '@/types/cube';
 
 const ALL: Record<FaceId, ColorName> = { U: 'white', R: 'red', F: 'green', D: 'yellow', L: 'orange', B: 'blue' };
@@ -68,5 +69,29 @@ describe('scanGuide', () => {
 
   it('uses a different centre colour when known (not hard-coded)', () => {
     expect(scanGuide('R', { ...ALL, R: 'blue', B: 'red' }).instruction).toContain('blue center');
+  });
+
+  describe('mirrored (live preview) variant', () => {
+    it.each(['R', 'B', 'L', 'U', 'D'] as const)('%s: the arrow equals the arrow of the step that captures it', (stage) => {
+      const step = ROTATION_STEPS.find((s) => s.captures === stage)!;
+      expect(scanGuide(stage, ALL, true).arrowDirection).toBe(step.arrow);
+    });
+    it.each(['R', 'B', 'L'] as const)('%s: no left/right wording that would contradict the arrow', (stage) => {
+      const g = scanGuide(stage, ALL, true);
+      expect(`${g.heading} ${g.instruction} ${g.rotationHint}`).not.toMatch(/left/i);
+      expect(g.instruction).toContain('the way the arrow points');
+    });
+    it('F, U, D text and every reference rotation equal the unmirrored guide', () => {
+      for (const stage of SCAN_FACE_ORDER) {
+        const a = scanGuide(stage, ALL, true);
+        const b = scanGuide(stage, ALL);
+        expect(a.referenceRotation).toEqual(b.referenceRotation);
+        if (stage === 'F' || stage === 'U' || stage === 'D') expect(a).toEqual(b);
+      }
+    });
+    it('the unmirrored default stays the frozen legacy text (demo)', () => {
+      expect(scanGuide('R', ALL).arrowDirection).toBe('left');
+      expect(scanGuide('R', ALL).instruction).toContain('to the left');
+    });
   });
 });

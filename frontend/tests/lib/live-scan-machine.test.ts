@@ -34,6 +34,8 @@ function stabilize(s: LiveScanState, grid: ColorName[], t0 = 0): LiveScanState {
   return R(cur, grid, t0 + STABLE_MS);
 }
 const store = (s: LiveScanState): LiveScanState => liveScanReducer(s, { type: 'CAPTURE_STORED', epoch: s.epoch });
+/** Completes a return step by showing the green front face steadily (no capture). */
+const back = (s: LiveScanState): LiveScanState => stabilize(s, mk('green', 'blue'), 20_000);
 const rot = (s: LiveScanState): LiveScanState => liveScanReducer(s, { type: 'ROTATION_DONE', epoch: s.epoch });
 
 function deepFreeze<T>(o: T): T {
@@ -225,6 +227,7 @@ describe('transitions', () => {
       expect(s.phase).toBe('captured');
       s = store(s);
       if (i < 5) s = rot(s);
+      if (i === 3 || i === 4) s = back(s); // the return steps 4 and 6 show the green centre again
     });
     expect(s.phase).toBe('done');
     expect(Object.values(s.capturedCenters).sort()).toEqual([...cols].sort());
@@ -297,7 +300,7 @@ describe('hardening', () => {
     expect(s0.stage).toBe(stage);
     const s = stabilize(s0, mk('white', 'blue'));
     expect(s.phase).toBe('aligning');
-    expect(s.hint).toBe('That is the white (top) face. Keep white on top and turn the whole cube left.');
+    expect(s.hint).toBe('That is the white (top) face. Keep white on top and turn the whole cube the way the arrow points.');
   });
   it('does not alias the event grid', () => {
     const grid = mk('green');
@@ -393,5 +396,102 @@ describe('CLEAR_STREAK', () => {
     const done = initialLiveScanState(ALL);
     expect(done.phase).toBe('done');
     expect(clear(done)).toEqual(done);
+  });
+});
+
+describe('arrow steps and return steps', () => {
+  /** Captures F, R, B, L and stops with the rotation timer done: step 4 (return) is pending. */
+  function atReturn4(): LiveScanState {
+    let s = initialLiveScanState();
+    for (const c of ['green', 'red', 'blue', 'orange'] as const) s = rot(store(stabilize(s, mk(c, c === 'red' ? 'blue' : 'red'))));
+    return s;
+  }
+  it('has no step before the first capture', () => {
+    expect(initialLiveScanState().step).toBeNull();
+  });
+  it('each capture moves to the next arrow step (1, 2, 3, 4)', () => {
+    let s = initialLiveScanState();
+    const seen: (number | null)[] = [];
+    for (const c of ['green', 'red', 'blue', 'orange'] as const) {
+      s = store(stabilize(s, mk(c, c === 'red' ? 'blue' : 'red')));
+      seen.push(s.step);
+      s = rot(s);
+    }
+    expect(seen).toEqual([1, 2, 3, 4]);
+    expect(s.stage).toBe('U');
+  });
+  it('step stays through ROTATION_DONE (the arrow remains until the target is reached)', () => {
+    const s = rot(store(stabilize(initialLiveScanState(), mk('green'))));
+    expect(s).toMatchObject({ phase: 'aligning', step: 1 });
+  });
+  it('a return step is not captured: the expected centre advances the step, no pendingCapture', () => {
+    const s0 = atReturn4();
+    expect(s0.step).toBe(4);
+    const s = stabilize(s0, mk('green', 'blue'), 50_000);
+    expect(s.pendingCapture).toBeNull();
+    expect(s.phase).toBe('aligning');
+    expect(s.step).toBe(5);
+    expect(s.stage).toBe('U');
+    expect(s.hint).toBeNull();
+    expect(s.epoch).toBe(s0.epoch + 1);
+    expect(s.capturedCenters).toEqual(s0.capturedCenters);
+  });
+  it('a wrong centre on a return step gives the named hint and stays on the step', () => {
+    const s0 = atReturn4();
+    const s = stabilize(s0, mk('white', 'blue'), 50_000);
+    expect(s.step).toBe(4);
+    expect(s.pendingCapture).toBeNull();
+    expect(s.phase).toBe('aligning');
+    expect(s.hint).toBe('You see the white centre — expected green.');
+    expect(stabilize(s0, mk('orange', 'blue'), 50_000).hint).toBe('You see the orange centre — expected green.');
+  });
+  it('the return hint stays latched while the wrong centre keeps showing, and clears on another face', () => {
+    const s = stabilize(atReturn4(), mk('white', 'blue'), 50_000);
+    expect(R(s, mk('white', 'blue'), 52_000).hint).toBe(s.hint);
+    expect(R(s, mk('green', 'blue'), 52_000).hint).toBeNull();
+  });
+  it('an unstable or invalid result never completes a return step', () => {
+    const s0 = atReturn4();
+    let s = R(s0, mk('green', 'blue'), 0);
+    expect(s.step).toBe(4);
+    s = R(s, null, 10, 'NO_FACE');
+    expect(s.step).toBe(4);
+    expect(R(s0, mk('green', 'blue'), 1, undefined, s0.epoch - 1).step).toBe(4); // stale epoch ignored
+  });
+  it('after the return, U is captured with the normal white gate, then step 6 (return) follows', () => {
+    let s = stabilize(atReturn4(), mk('green', 'blue'), 50_000);
+    expect(stabilize(s, mk('yellow', 'blue'), 60_000).hint).toBe(
+      'The top face centre should be white. Return to the green face, then tilt the top toward you.',
+    );
+    s = store(stabilize(s, mk('white', 'blue'), 70_000));
+    expect(s.step).toBe(6);
+    expect(s.stage).toBe('D');
+    s = rot(s);
+    expect(stabilize(s, mk('yellow', 'blue'), 80_000).hint).toBe('You see the yellow centre — expected green.');
+    s = stabilize(s, mk('green', 'blue'), 90_000);
+    expect(s.step).toBe(7);
+    s = store(stabilize(s, mk('yellow', 'blue'), 100_000));
+    expect(s).toMatchObject({ phase: 'done', step: null });
+  });
+  it('CLEAR_STREAK keeps the step; RESCAN and RESET drop it', () => {
+    const s = R(atReturn4(), mk('green', 'blue'), 0);
+    expect(liveScanReducer(s, { type: 'CLEAR_STREAK' })).toMatchObject({ step: 4, streak: null });
+    expect(liveScanReducer(s, { type: 'RESCAN', face: 'R', previousCenter: 'red' }).step).toBeNull();
+    expect(liveScanReducer(s, { type: 'RESET' }).step).toBeNull();
+  });
+  it('a rescan capture that is not the first frontier face shows no arrow', () => {
+    let s = initialLiveScanState();
+    s = rot(store(stabilize(s, mk('green'))));
+    s = rot(store(stabilize(s, mk('red', 'blue'))));
+    s = rot(store(stabilize(s, mk('blue', 'red'))));
+    s = liveScanReducer(s, { type: 'RESCAN', face: 'R', previousCenter: 'red' });
+    s = store(stabilize(s, mk('red', 'blue')));
+    expect(s.stage).toBe('L');
+    expect(s.step).toBeNull();
+  });
+  it('CAPTURE_FAILED keeps the step', () => {
+    let s = rot(store(stabilize(initialLiveScanState(), mk('green'))));
+    s = stabilize(s, mk('red', 'blue'), 5_000);
+    expect(liveScanReducer(s, { type: 'CAPTURE_FAILED', epoch: s.epoch }).step).toBe(1);
   });
 });

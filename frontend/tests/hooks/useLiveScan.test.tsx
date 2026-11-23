@@ -443,10 +443,11 @@ describe('useLiveScan loop', () => {
     const t = transports[0]!;
     const order: FaceId[] = ['F', 'R', 'B', 'L', 'U', 'D'];
     for (const f of order) {
+      if (f === 'U' || f === 'D') await stableFace(t, 'F'); // return steps 4 and 6: show green again, nothing is captured
       await stableFace(t, f);
       await advance(ROTATION_MS + 50);
     }
-    expect(onCapture.mock.calls.map((c) => c[0])).toEqual(order);
+    expect(onCapture.mock.calls.map((c) => c[0])).toEqual(order); // the two return steps captured nothing
     expect(onCapture.mock.calls.map((c) => c[1])).toEqual(order.map((f) => GRIDS[f]));
     expect(result.current.state.phase).toBe('done');
     const sent = t.sends.length;

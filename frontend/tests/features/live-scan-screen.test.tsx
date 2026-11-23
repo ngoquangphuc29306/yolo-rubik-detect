@@ -130,16 +130,20 @@ describe('Live scanning screen', () => {
 
   it('rotating shows the cue and the next stage panel', () => {
     useScanStore.getState().captureFace('F', grid('green'), 'live');
-    setLive({}, { stage: 'R', phase: 'rotating' });
+    setLive({}, { stage: 'R', phase: 'rotating', step: 1 });
     render(<ScanningScreen />);
     const cue = document.querySelector('[data-next-face="R"]');
     expect(cue).toBeTruthy();
-    expect(within(cue as HTMLElement).getByText('Saved. Rotate the whole cube to the next face.')).toBeTruthy();
+    expect(within(cue as HTMLElement).getByText('Saved. Rotate the whole cube along the arrow.')).toBeTruthy();
+    expect(within(cue as HTMLElement).getByText('Next: red centre')).toBeTruthy();
+    expect(within(cue as HTMLElement).getByText('Right face')).toBeTruthy();
+    // the arrow for step 1 (mirrored screen: right) is drawn on the preview, centred on the cube
+    expect(screen.getByTestId('rotation-arrow').getAttribute('data-direction')).toBe('right');
     expect(screen.getByTestId('scan-guide-panel').textContent).toMatch(/Right face/);
   });
 
   it('the cue is a block after the frame container, never inside it', () => {
-    setLive({}, { stage: 'R', phase: 'rotating' });
+    setLive({}, { stage: 'R', phase: 'rotating', step: 1 });
     render(<ScanningScreen />);
     const frameEl = screen.getByLabelText('Live camera preview').parentElement!;
     const cue = document.querySelector('[data-next-face="R"]')!;
@@ -150,14 +154,14 @@ describe('Live scanning screen', () => {
 
   it('the reference cube shows the next stage pose while rotating', () => {
     useScanStore.getState().captureFace('F', grid('green'), 'live');
-    setLive({}, { stage: 'R', phase: 'rotating' });
+    setLive({}, { stage: 'R', phase: 'rotating', step: 1 });
     render(<ScanningScreen />);
     const rot = JSON.parse(screen.getByTestId('cube-stub').getAttribute('data-rot')!);
     expect(rot).toEqual(scanGuide('R', { F: 'green', U: 'white' }).referenceRotation);
   });
 
   it('progress bar and hint are hidden once captured/rotating', () => {
-    setLive({}, { stage: 'R', phase: 'rotating', hint: 'old hint' });
+    setLive({}, { stage: 'R', phase: 'rotating', step: 1, hint: 'old hint' });
     render(<ScanningScreen />);
     expect(screen.queryByRole('progressbar', { name: 'Hold steady' })).toBeNull();
     expect(screen.queryByText('old hint')).toBeNull();
@@ -169,7 +173,7 @@ describe('Live scanning screen', () => {
     const { unmount } = render(<ScanningScreen />);
     expect(screen.getByTitle('green 90%')).toBeTruthy();
     unmount();
-    setLive({ lastResult: withBox }, { stage: 'R', phase: 'rotating' });
+    setLive({ lastResult: withBox }, { stage: 'R', phase: 'rotating', step: 1 });
     render(<ScanningScreen />);
     expect(screen.queryByTitle('green 90%')).toBeNull();
   });
@@ -184,9 +188,9 @@ describe('Live scanning screen', () => {
   });
 
   it('the cue replaces the status strip while rotating and is the only Saved status', () => {
-    setLive({}, { stage: 'R', phase: 'rotating' });
+    setLive({}, { stage: 'R', phase: 'rotating', step: 1 });
     render(<ScanningScreen />);
-    const saved = screen.getAllByText(/Saved\. Rotate the whole cube to the next face\./);
+    const saved = screen.getAllByText(/Saved\. Rotate the whole cube along the arrow\./);
     expect(saved).toHaveLength(1);
     expect(saved[0]!.closest('[role="status"]')).toBe(document.querySelector('[data-next-face="R"]'));
     expect(screen.queryByText(/Place the .* face inside the square/)).toBeNull();
@@ -200,9 +204,41 @@ describe('Live scanning screen', () => {
     expect(screen.getByText(txt).closest('[role="status"]')).toBeTruthy();
   });
 
-  it('the cue never appears outside the rotating phase', () => {
+  it('the cue and arrow need a pending step; none at the start pose', () => {
     render(<ScanningScreen />);
     expect(document.querySelector('[data-next-face]')).toBeNull();
+    expect(screen.queryByTestId('rotation-arrow')).toBeNull();
+  });
+
+  it('the arrow and cue stay while aligning (no "Saved") and give way when the target centre is stable', () => {
+    setLive({}, { stage: 'R', phase: 'aligning', step: 1 });
+    const { unmount } = render(<ScanningScreen />);
+    expect(screen.getByTestId('rotation-arrow')).toBeTruthy();
+    expect(document.querySelector('[data-next-face="R"]')!.textContent).not.toContain('Saved.');
+    unmount();
+    const red = Array(9).fill('red') as never;
+    setLive({}, { stage: 'R', phase: 'stabilizing', step: 1, streak: { grid: red, count: 2, since: 0 } });
+    render(<ScanningScreen />);
+    expect(screen.queryByTestId('rotation-arrow')).toBeNull();
+    expect(document.querySelector('[data-next-face]')).toBeNull();
+  });
+
+  it('return step: the cue says nothing is scanned and the arrow points the table direction', () => {
+    setLive({}, { stage: 'U', phase: 'aligning', step: 4 });
+    render(<ScanningScreen />);
+    expect(screen.getByText('No scan on this step.')).toBeTruthy();
+    expect(screen.getByText('Next: green centre')).toBeTruthy();
+    expect(screen.getByTestId('rotation-arrow').getAttribute('data-direction')).toBe('right');
+  });
+
+  it('the arrow is centred on the fitted face, which is mirrored together with the video', () => {
+    setLive({}, { stage: 'R', phase: 'aligning', step: 1 });
+    render(<ScanningScreen />);
+    const arrow = screen.getByTestId('rotation-arrow');
+    const lat = screen.getByTestId('face-lattice');
+    const cx = parseFloat(arrow.style.left) + parseFloat(arrow.style.width) / 2;
+    expect(cx).toBeCloseTo(parseFloat(lat.style.left) + parseFloat(lat.style.width) / 2);
+    expect(netMirror(arrow)).toBe(1);
   });
 
   it('keeps the guide square inside the frame (layout numbers)', () => {

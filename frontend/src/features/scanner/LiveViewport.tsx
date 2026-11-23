@@ -6,13 +6,13 @@ import type { CameraState } from '@/hooks/useCamera';
 import { useElementSize, useVideoFrameSize } from '@/hooks/useElementSize';
 import type { LiveConnection } from '@/hooks/useLiveScan';
 import { stabilityProgress, type LiveScanState } from '@/lib/live-scan-machine';
+import { rotationStep } from '@/lib/rotation-steps';
 import { MIRROR_STYLE } from '@/lib/mirror';
 import { guideOverlay } from '@/lib/scan-roi';
 import type { FrameResult } from '@/types/api';
-import type { FaceId } from '@/types/cube';
 import { LiveScanGuide } from './LiveScanGuide';
 import { RotationCue } from './RotationCue';
-import { FACE_NAMES, type ScanGuide } from './scan-guide';
+import { FACE_NAMES } from './scan-guide';
 
 const TICK_MS = 100; // progress bar refresh: never faster than ~10 Hz
 
@@ -25,8 +25,6 @@ export interface LiveScanView {
   lastResult: FrameResult | null;
   errorMessage: string | null;
   onRetry: () => void;
-  nextGuide: ScanGuide;
-  stageFace: FaceId;
 }
 
 export interface LiveViewportProps {
@@ -70,7 +68,6 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
   const frameSize = useVideoFrameSize(video);
 
   const phase = scan?.state.phase;
-  const showCue = active && !!scan && phase === 'rotating';
   const searching = phase === 'aligning' || phase === 'stabilizing';
   const ticking = active && !!scan && searching && scan.state.streak !== null;
   const [now, setNow] = React.useState(() => performance.now());
@@ -82,6 +79,10 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
   }, [ticking]);
 
   const showGuide = active && !!scan;
+  const step = scan ? rotationStep(scan.state.step) : null;
+  // The arrow and its caption stay until the target centre is on screen, then give way to the lattice and progress.
+  const onTarget = phase === 'stabilizing' && step !== null && scan?.state.streak?.grid[4] === step.to;
+  const showCue = showGuide && step !== null && !onTarget && (phase === 'rotating' || searching);
   const captured = phase === 'captured';
   const overlay = React.useMemo(
     () => guideOverlay(frameSize, viewSize, showGuide && (searching || captured) ? scan.lastResult : null),
@@ -150,11 +151,12 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
           phase={scan.state.phase}
           hint={scan.state.hint}
           capturedGrid={phase === 'captured' ? (scan.state.pendingCapture?.grid ?? null) : null}
+          arrow={showCue ? step.arrow : null}
         />
       )}
     </div>
 
-    {showCue && <RotationCue guide={scan.nextGuide} nextFace={scan.stageFace} />}
+    {showCue && <RotationCue step={step} stage={scan.state.stage} saved={phase === 'rotating'} />}
 
     {/* The cue takes the strip's slot while rotating (it is itself the status); errors still need Retry. */}
     {(!showCue || scan.connection === 'error') && (

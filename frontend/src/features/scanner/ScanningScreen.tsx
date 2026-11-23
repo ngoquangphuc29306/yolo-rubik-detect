@@ -199,11 +199,7 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
     }
     return known;
   }, [isDemo, captured]);
-  const guide = React.useMemo(() => scanGuide(activeFace, knownCenters), [activeFace, knownCenters]);
-  const nextGuide = React.useMemo(
-    () => scanGuide(liveScan.state.stage, knownCenters),
-    [liveScan.state.stage, knownCenters],
-  );
+  const guide = React.useMemo(() => scanGuide(activeFace, knownCenters, !isDemo), [activeFace, knownCenters, isDemo]);
   const scanView = React.useMemo(
     () =>
       liveReady
@@ -213,11 +209,9 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
             lastResult: liveScan.lastResult,
             errorMessage: liveScan.errorMessage,
             onRetry: liveScan.retry,
-            nextGuide,
-            stageFace: liveScan.state.stage,
           }
         : null,
-    [liveReady, liveScan.connection, liveScan.state, liveScan.lastResult, liveScan.errorMessage, liveScan.retry, nextGuide],
+    [liveReady, liveScan.connection, liveScan.state, liveScan.lastResult, liveScan.errorMessage, liveScan.retry],
   );
   const rescanning = rescan?.face === activeFace && rescan.sessionId === sessionId && !captured[activeFace];
 

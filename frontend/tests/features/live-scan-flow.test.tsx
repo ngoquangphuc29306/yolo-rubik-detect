@@ -74,13 +74,22 @@ const frame = (grid: ColorName[]): { ok: true; result: FrameResult } => ({
   },
 });
 const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
-const stageGrid = () => frame(GRIDS[SCAN_FACE_ORDER[useScanStore.getState().stageIndex]!]);
+/** Return steps 4 and 6 (before U and before D): the user shows the green front face again for a while, nothing is captured. */
+const returns = { U: 0, D: 0 };
+const RETURN_FRAMES = 14;
+const stageGrid = () => {
+  const face = SCAN_FACE_ORDER[useScanStore.getState().stageIndex]!;
+  if ((face === 'U' || face === 'D') && returns[face]++ < RETURN_FRAMES) return frame(GRIDS.F);
+  return frame(GRIDS[face]);
+};
 const capturedCount = () => Object.keys(useScanStore.getState().captured).length;
 
 beforeEach(() => {
   vi.useFakeTimers();
   h.stop.mockClear();
   h.urls = [];
+  returns.U = 0;
+  returns.D = 0;
   h.script = stageGrid;
   h.solve.mockReset();
   Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { value: 1280, configurable: true });

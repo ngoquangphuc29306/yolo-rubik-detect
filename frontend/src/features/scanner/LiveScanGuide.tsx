@@ -3,10 +3,12 @@ import { Check } from 'lucide-react';
 import { COLOR_META, colorNameToCode } from '@/lib/colors';
 import { MIRROR_STYLE } from '@/lib/mirror';
 import { cn } from '@/lib/utils';
+import type { ArrowDirection } from '@/lib/rotation-steps';
 import type { LivePhase } from '@/lib/live-scan-machine';
 import type { GuideBox, GuideRect } from '@/lib/scan-roi';
 import type { FrameCell } from '@/types/api';
 import type { ColorName } from '@/types/cube';
+import { RotationArrow } from './RotationArrow';
 
 export type { GuideBox, GuideRect };
 export interface LiveScanGuideProps {
@@ -20,6 +22,8 @@ export interface LiveScanGuideProps {
   phase: LivePhase;
   hint: string | null;
   capturedGrid?: readonly ColorName[] | null;
+  /** Whole-cube rotation arrow for the mirrored screen, drawn on the cube; null/absent for none. */
+  arrow?: ArrowDirection | null;
 }
 
 function rgba(hex: string, alpha: number): string {
@@ -30,7 +34,7 @@ function rgba(hex: string, alpha: number): string {
 const LETTER = 'text-[11px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]';
 const EMPTY: FrameCell = { color: null, confidence: null, status: 'missing' };
 
-export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hint, capturedGrid }: LiveScanGuideProps) {
+export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hint, capturedGrid, arrow }: LiveScanGuideProps) {
   if (!square) return null;
   const locked = phase === 'captured' || phase === 'rotating' || phase === 'done';
   const solid = locked && capturedGrid && capturedGrid.length === 9 ? capturedGrid : null;
@@ -141,6 +145,15 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
           );
         })}
        </div>
+      )}
+
+      {arrow && (
+        <RotationArrow
+          direction={arrow}
+          cx={face ? face.x + face.w / 2 : square.x + square.w / 2}
+          cy={face ? face.y + face.h / 2 : square.y + square.h / 2}
+          size={Math.max(64, Math.min(220, Math.min(square.w, square.h) * 0.4))}
+        />
       )}
 
       {searching && (

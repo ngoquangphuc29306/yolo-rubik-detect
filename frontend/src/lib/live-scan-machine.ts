@@ -3,6 +3,7 @@
 // orientation or face roll.
 import { SCAN_FACE_ORDER, type ColorName, type FaceGrid, type FaceId } from '@/types/cube';
 import type { FrameResult } from '@/types/api';
+import { faceAfterStep, isReturnStep, nextStepAfterCapture, nextStepAfterReturn, rotationStep } from '@/lib/rotation-steps';
 
 export const STABLE_RESULTS = 5;
 export const STABLE_MS = 1000;
@@ -15,6 +16,8 @@ export interface LiveScanState {
   stage: FaceId;
   phase: LivePhase;
   epoch: number;
+  /** Pending arrow step (1..7) between captures; a return step is never captured. null when none applies. */
+  step: number | null;
   streak: { grid: ColorName[]; count: number; since: number } | null;
   hint: string | null;
   /** Centre colour whose gate-rejection hint stays latched while it keeps showing. */
@@ -43,6 +46,7 @@ function build(centers: Centers, epoch: number): LiveScanState {
     stage: stage ?? SCAN_FACE_ORDER[SCAN_FACE_ORDER.length - 1]!,
     phase: stage ? 'aligning' : 'done',
     epoch,
+    step: null,
     streak: null,
     hint: null,
     gateRejected: null,
@@ -86,7 +90,7 @@ function gateHint(state: LiveScanState, c: ColorName): string | null {
     return 'The top face centre should be white. Return to the green face, then tilt the top toward you.';
   }
   if ((state.stage === 'R' || state.stage === 'B' || state.stage === 'L') && c === 'white') {
-    return 'That is the white (top) face. Keep white on top and turn the whole cube left.';
+    return 'That is the white (top) face. Keep white on top and turn the whole cube the way the arrow points.';
   }
   if (Object.values(state.capturedCenters).includes(c)) {
     return `We still see the ${c} face. Follow the arrow and turn the whole cube.`;
@@ -115,6 +119,23 @@ function onResult(state: LiveScanState, result: FrameResult, at: number): LiveSc
     gateRejected: latched ? state.gateRejected : null,
   };
   if (streak.count < STABLE_RESULTS || !(at - streak.since >= STABLE_MS)) return next;
+  const ret = isReturnStep(state.step) ? rotationStep(state.step) : null;
+  if (ret) {
+    // A return step is never captured: it only waits for the expected centre colour.
+    if (grid[4] === ret.to) {
+      return {
+        ...next,
+        streak: null,
+        phase: 'aligning',
+        hint: null,
+        gateRejected: null,
+        step: nextStepAfterReturn(ret.step),
+        epoch: state.epoch + 1,
+      };
+    }
+    const seen = grid[4]!;
+    return { ...next, streak: null, phase: 'aligning', hint: `You see the ${seen} centre — expected ${ret.to}.`, gateRejected: seen };
+  }
   const hint = gateHint(state, grid[4]!);
   if (hint) return { ...next, streak: null, phase: 'aligning', hint, gateRejected: grid[4]! };
   return {
@@ -134,8 +155,12 @@ export function liveScanReducer(state: LiveScanState, event: LiveScanEvent): Liv
       if (event.epoch !== state.epoch || state.phase !== 'captured' || !state.pendingCapture) return state;
       const centers: Centers = { ...state.capturedCenters, [state.stage]: state.pendingCapture.grid[4] };
       const stage = firstUncaptured(centers);
+      // The arrow only applies when this capture was the frontier one (a rescan of an earlier face shows none).
+      const candidate = nextStepAfterCapture(state.stage);
+      const step = candidate !== null && stage !== null && faceAfterStep(candidate) === stage ? candidate : null;
       return {
         ...state,
+        step,
         stage: stage ?? state.stage,
         phase: stage ? 'rotating' : 'done',
         capturedCenters: centers,
@@ -174,6 +199,7 @@ export function liveScanReducer(state: LiveScanState, event: LiveScanEvent): Liv
         phase: 'aligning',
         capturedCenters: rest,
         rescan: { face: event.face, previousCenter: event.previousCenter },
+        step: null,
         streak: null,
         pendingCapture: null,
         hint: null,

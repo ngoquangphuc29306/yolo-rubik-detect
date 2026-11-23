@@ -1,52 +1,42 @@
-// Pure presentational cue shown after a capture, rendered as a block below the video frame (never over the guide): how to rotate the ENTIRE cube to the next face.
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Hand } from 'lucide-react';
-import type { ScanGuide } from './scan-guide';
+// Pure presentational caption for the arrow shown on the preview, rendered as a block below the video frame
+// (outside the mirrored layers, so its text always reads normally). It names the expected centre colour only;
+// the app checks colours, not how the cube is held.
+import { Hand } from 'lucide-react';
+import { stepCaption, isReturnStep, type RotationStep } from '@/lib/rotation-steps';
 import type { FaceId } from '@/types/cube';
 
 export interface RotationCueProps {
-  guide: ScanGuide;
-  nextFace: FaceId;
+  step: RotationStep;
+  /** The stage the scan will capture next. */
+  stage: FaceId;
+  /** True right after a capture (phase "rotating"). */
+  saved: boolean;
 }
 
-const ARROWS = {
-  left: { Icon: ArrowLeft, anim: 'animate-arrow-left' },
-  right: { Icon: ArrowRight, anim: 'animate-arrow-right' },
-  up: { Icon: ArrowUp, anim: 'animate-arrow-up' },
-  down: { Icon: ArrowDown, anim: 'animate-arrow-down' },
-  none: { Icon: Hand, anim: 'animate-arrow-pulse' },
-} as const;
-
-export function RotationCue({ guide, nextFace }: RotationCueProps) {
-  const { Icon, anim } = ARROWS[guide.arrowDirection];
+export function RotationCue({ step, stage, saved }: RotationCueProps) {
+  const { line, target } = stepCaption(step);
   return (
     <div
       role="status"
-      data-next-face={nextFace}
+      data-next-face={stage}
+      data-step={step.step}
       className="w-full rounded-2xl border border-emerald-400/40 bg-black/80 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center gap-3 text-zinc-100"
     >
-      <div
-        data-testid="rotation-arrow"
-        data-direction={guide.arrowDirection}
-        aria-hidden="true"
-        className={`shrink-0 w-10 h-10 rounded-full bg-emerald-400/15 text-emerald-400 flex items-center justify-center ${anim} motion-reduce:animate-none`}
-      >
-        <Icon className="w-6 h-6" />
+      <div aria-hidden="true" className="shrink-0 w-10 h-10 rounded-full bg-emerald-400/15 text-emerald-400 flex items-center justify-center">
+        <Hand className="w-5 h-5" />
       </div>
       <div className="min-w-0 space-y-0.5">
-        <p className="flex flex-wrap items-baseline gap-x-3">
-          <span className="text-[11px] uppercase tracking-wider text-emerald-400">
-            Saved. Rotate the whole cube to the next face.
-          </span>
-          <span className="font-display font-semibold text-sm">{guide.rotationHint}</span>
+        <p className="text-[11px] uppercase tracking-wider text-emerald-400">
+          {saved ? 'Saved. ' : ''}Rotate the whole cube along the arrow.
         </p>
-        {!guide.steps && <p className="text-xs text-zinc-300">{guide.instruction}</p>}
-        {guide.steps && (
-          <ol className="list-decimal pl-5 text-xs text-zinc-200 flex flex-col sm:flex-row sm:gap-x-6">
-            <li>{guide.steps[0]}</li>
-            <li>{guide.steps[1]}</li>
-          </ol>
-        )}
-        <p className="text-[11px] text-zinc-400">Follow the arrow and the reference cube — the app checks colours, not how you hold the cube.</p>
+        <p className="flex flex-wrap items-baseline gap-x-3">
+          <span className="font-display font-semibold text-sm">{line}</span>
+          <span className="text-xs text-zinc-300">{target}</span>
+        </p>
+        {isReturnStep(step.step) && <p className="text-xs text-zinc-300">No scan on this step.</p>}
+        <p className="text-[11px] text-zinc-400">
+          Follow the arrow on the preview — the app checks colours, not how you hold the cube.
+        </p>
       </div>
     </div>
   );

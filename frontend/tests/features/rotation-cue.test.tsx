@@ -2,50 +2,40 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RotationCue } from '@/features/scanner/RotationCue';
-import { scanGuide } from '@/features/scanner/scan-guide';
-import { SCAN_FACE_ORDER, type FaceId } from '@/types/cube';
+import { ROTATION_STEPS } from '@/lib/rotation-steps';
 
 afterEach(cleanup);
-const KNOWN = { F: 'green', U: 'white' } as const;
 
-describe('RotationCue', () => {
-  it.each(SCAN_FACE_ORDER)('next face %s', (face: FaceId) => {
-    const g = scanGuide(face, KNOWN);
-    render(<RotationCue guide={g} nextFace={face} />);
+describe('RotationCue (caption block, never mirrored)', () => {
+  it.each(ROTATION_STEPS)('step $step names the expected centre and the target stage', (step) => {
+    render(<RotationCue step={step} stage={step.captures ?? 'U'} saved={false} />);
     const cue = screen.getByRole('status');
-    expect(cue.textContent).toContain('Rotate the whole cube');
-    expect(cue.textContent).toContain(g.rotationHint);
-    expect(cue.textContent).toContain('Follow the arrow and the reference cube — the app checks colours, not how you hold the cube.');
+    expect(cue.textContent).toContain(`Next: ${step.to} centre`);
+    expect(cue.textContent).toContain(step.captures ? 'face' : 'Return to the Front face (not scanned)');
     expect(cue.textContent).not.toMatch(/verified|detects? (your )?orientation/i);
-    const arrow = screen.getByTestId('rotation-arrow');
-    expect(arrow.getAttribute('data-direction')).toBe(g.arrowDirection);
-    expect(arrow.className).toMatch(/motion-reduce:animate-none/);
-    const items = screen.queryAllByRole('listitem');
-    if (face === 'U' || face === 'D') {
-      expect(cue.textContent).not.toContain(g.instruction);
-      expect(items).toHaveLength(2);
-      expect(items[0]!.textContent).toBe(g.steps![0]);
-      expect(items[1]!.textContent).toBe(g.steps![1]);
-      expect(items[0]!.textContent).toMatch(/green face looks at the camera/);
-    } else {
-      expect(cue.textContent).toContain(g.instruction);
-      expect(items).toHaveLength(0);
-    }
+    expect(cue.getAttribute('data-step')).toBe(String(step.step));
   });
 
   it('is one horizontal row from sm up and stacked below, never absolutely positioned', () => {
-    render(<RotationCue guide={scanGuide('U', KNOWN)} nextFace="U" />);
+    render(<RotationCue step={ROTATION_STEPS[0]!} stage="R" saved />);
     const cue = screen.getByRole('status');
     expect(cue.className.split(' ')).toContain('flex-col');
     expect(cue.className.split(' ')).toContain('sm:flex-row');
     expect(cue.className).not.toMatch(/absolute/);
-    expect(cue.textContent).toContain('Saved. Rotate the whole cube to the next face.');
+    expect(cue.getAttribute('data-next-face')).toBe('R');
   });
 
-  it('none direction shows a hold steady pulse', () => {
-    render(<RotationCue guide={scanGuide('F', KNOWN)} nextFace="F" />);
-    const arrow = screen.getByTestId('rotation-arrow');
-    expect(arrow.getAttribute('data-direction')).toBe('none');
-    expect(arrow.className).toMatch(/animate-arrow-pulse/);
+  it('says Saved only right after a capture, and always points at the arrow on the preview', () => {
+    const { rerender } = render(<RotationCue step={ROTATION_STEPS[0]!} stage="R" saved />);
+    expect(screen.getByRole('status').textContent).toContain('Saved.');
+    rerender(<RotationCue step={ROTATION_STEPS[0]!} stage="R" saved={false} />);
+    expect(screen.getByRole('status').textContent).not.toContain('Saved.');
+    expect(screen.getByRole('status').textContent).toContain('Follow the arrow on the preview');
+    expect(screen.getByRole('status').textContent).toContain('the app checks colours, not how you hold the cube');
+  });
+
+  it('a return step says nothing is scanned', () => {
+    render(<RotationCue step={ROTATION_STEPS[3]!} stage="U" saved={false} />);
+    expect(screen.getByRole('status').textContent).toContain('No scan on this step');
   });
 });
