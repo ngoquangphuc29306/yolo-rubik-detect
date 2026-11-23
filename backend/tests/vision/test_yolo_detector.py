@@ -57,6 +57,22 @@ def test_missing_file_is_unavailable(tmp_path: Path) -> None:
         det.load()
 
 
+@pytest.mark.parametrize("device", ["cuda:x", "cuda", "gpu", "cuda:-1"])
+def test_malformed_device_is_unavailable(tmp_path: Path, device: str) -> None:
+    f = tmp_path / "m.pt"
+    f.write_bytes(b"x")
+    with pytest.raises(ModelUnavailable) as ei:
+        YoloDetector(f, 640, 0.5, device).load()
+    assert ei.value.reason == "The requested inference device is not available."
+
+
+def test_reason_has_no_path(tmp_path: Path) -> None:
+    with pytest.raises(ModelUnavailable) as ei:
+        YoloDetector(tmp_path / "nope.pt", 640, 0.5, "cpu").load()
+    assert str(tmp_path) not in ei.value.reason
+    assert str(tmp_path) in ei.value.detail
+
+
 def test_directory_is_unavailable(tmp_path: Path) -> None:
     with pytest.raises(ModelUnavailable):
         YoloDetector(tmp_path, 640, 0.5, "cpu").load()
@@ -108,5 +124,5 @@ def test_real_model_unreachable_cuda_is_unavailable() -> None:
 
     if torch.cuda.is_available():
         pytest.skip("cuda present")
-    with pytest.raises(ModelUnavailable, match="cuda"):
+    with pytest.raises(ModelUnavailable, match="device is not available"):
         YoloDetector(DEFAULT_MODEL_PATH, 640, 0.5, "cuda:0").load()

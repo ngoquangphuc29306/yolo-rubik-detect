@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import load_settings
@@ -34,7 +35,7 @@ def test_health_ok_with_injected_detector(real_solver: Solver) -> None:
 
 
 def test_missing_weights_degrade_health_but_solve_works(
-    real_solver: Solver, tmp_path: Path
+    real_solver: Solver, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     settings = load_settings({"RUBIK_MODEL_PATH": str(tmp_path / "missing.pt")})
     with TestClient(create_app(settings, solver=real_solver)) as c:
@@ -42,7 +43,14 @@ def test_missing_weights_degrade_health_but_solve_works(
         assert body["status"] == "degraded"
         assert body["visionReady"] is False
         assert body["solverReady"] is True
-        assert "not found" in body["error"]
+        assert body["error"] == "Detection weights not found."
+        assert str(tmp_path) not in body["error"]
+        assert (
+            "\\" not in body["error"]
+            and "/" not in body["error"]
+            and ":" not in body["error"]
+        )
+        assert str(tmp_path) in caplog.text
         assert set(body) == {
             "schemaVersion", "status", "detectorMode", "visionReady", "solverReady", "error",
         }  # fmt: skip

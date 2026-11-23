@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -12,8 +10,7 @@ ALLOWED = {
 }  # fmt: skip
 
 
-def test_health_body(real_solver: Solver, tmp_path: Path) -> None:
-    absent = tmp_path / "absent" / "best.pt"
+def test_health_body(real_solver: Solver) -> None:
     with TestClient(create_app(solver=real_solver)) as c:
         r = c.get("/health")
     assert r.status_code == 200
@@ -23,7 +20,7 @@ def test_health_body(real_solver: Solver, tmp_path: Path) -> None:
         "detectorMode": "yolo",
         "visionReady": False,
         "solverReady": True,
-        "error": f"Detection weights not found at {absent}",
+        "error": "Detection weights not found.",
     }
 
 

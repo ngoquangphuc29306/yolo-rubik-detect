@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -13,6 +14,8 @@ from app.solver.service import SolveService
 from app.vision.detector import Detector, ModelUnavailable
 from app.vision.state import VisionState
 from app.vision.yolo_detector import YoloDetector
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -34,7 +37,8 @@ def create_app(
                 yolo.load()
                 app.state.vision = VisionState(yolo, None)
             except ModelUnavailable as exc:
-                app.state.vision = VisionState(None, str(exc))
+                logger.warning("Vision unavailable: %s", exc.detail)
+                app.state.vision = VisionState(None, exc.reason)
         yield
 
     app = FastAPI(lifespan=lifespan)

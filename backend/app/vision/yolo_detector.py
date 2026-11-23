@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,14 +29,19 @@ class YoloDetector:
     def load(self) -> None:
         path = self._path
         if not path.is_file():
-            raise ModelUnavailable(f"Detection weights not found at {path}")
+            raise ModelUnavailable(
+                "Detection weights not found.", f"Detection weights not found at {path}"
+            )
         try:
             digest = hashlib.sha256()
             with path.open("rb") as fh:
                 for chunk in iter(lambda: fh.read(1 << 20), b""):
                     digest.update(chunk)
         except OSError as exc:
-            raise ModelUnavailable(f"Cannot read detection weights: {exc}") from exc
+            raise ModelUnavailable(
+                "Detection weights could not be read.",
+                f"Cannot read detection weights: {exc!r}",
+            ) from exc
         self._check_device()
 
         os.environ.setdefault("YOLO_OFFLINE", "1")
@@ -47,9 +53,15 @@ class YoloDetector:
 
             model = ultralytics.YOLO(str(path))  # type: ignore[attr-defined]
         except Exception as exc:
-            raise ModelUnavailable(f"Cannot load detection weights: {exc}") from exc
+            raise ModelUnavailable(
+                "Detection weights could not be loaded.",
+                f"Cannot load detection weights: {exc!r}",
+            ) from exc
         if getattr(model, "task", None) != "detect":
-            raise ModelUnavailable(f"Model task must be 'detect', got {model.task!r}")
+            raise ModelUnavailable(
+                "The model is not a detection model.",
+                f"Model task must be 'detect', got {model.task!r}",
+            )
         names = class_map(model.names)
         ckpt: dict[str, Any] = getattr(model, "ckpt", None) or {}
         train_args: dict[str, Any] = ckpt.get("train_args") or {}
@@ -61,21 +73,29 @@ class YoloDetector:
         try:
             self.detect(np.full((640, 640, 3), 114, dtype=np.uint8))  # warm-up
         except Exception as exc:
-            raise ModelUnavailable(f"Warm-up inference failed: {exc}") from exc
+            raise ModelUnavailable(
+                "Detection weights could not be loaded.",
+                f"Warm-up inference failed: {exc!r}",
+            ) from exc
 
     def _check_device(self) -> None:
-        if not self.device.startswith("cuda:"):
+        if self.device == "cpu":
             return
-        import torch
+        reason = "The requested inference device is not available."
+        m = re.fullmatch(r"cuda:([0-9]+)", self.device)
+        if m is None:
+            raise ModelUnavailable(reason, f"Malformed device {self.device!r}")
+        try:
+            import torch
 
-        index = int(self.device.split(":")[1])
-        if not torch.cuda.is_available():
+            available = torch.cuda.is_available()
+            count = torch.cuda.device_count() if available else 0
+        except Exception as exc:
+            raise ModelUnavailable(reason, f"Cannot query cuda: {exc!r}") from exc
+        if int(m.group(1)) >= count:
             raise ModelUnavailable(
-                f"Device {self.device} requested but cuda is not available"
-            )
-        if index >= torch.cuda.device_count():
-            raise ModelUnavailable(
-                f"Device {self.device} out of range (cuda device count)"
+                reason,
+                f"Device {self.device} requested but cuda reports {count} device(s)",
             )
 
     def detect(self, image: np.ndarray) -> list[Detection]:
