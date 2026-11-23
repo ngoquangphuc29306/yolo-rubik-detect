@@ -13,7 +13,7 @@ CellStatus = Literal["ok", "missing", "ambiguous", "misaligned"]
 
 @dataclass(frozen=True)
 class GridRules:
-    min_confidence: float = 0.5
+    min_confidence: float = 0.4
     ambiguity_ratio: float = 0.6
     max_center_offset: float = 0.30
     min_box: float = 0.35

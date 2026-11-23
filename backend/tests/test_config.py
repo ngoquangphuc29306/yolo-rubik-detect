@@ -58,7 +58,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 def test_vision_defaults() -> None:
     s = load_settings({})
-    assert s.confidence == 0.5
+    assert s.confidence == 0.4
     assert s.imgsz == 640
     assert s.device == "cpu"
     assert s.max_frame_bytes == 1048576

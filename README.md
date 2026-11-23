@@ -72,7 +72,7 @@ Environment variables (read once at startup):
 | `RUBIK_SOLVER_CACHE_DIR` | `backend/.solver-cache/` | Parent directory of `tables/`. |
 | `RUBIK_SOLVER_TIMEOUT_S` | `10` | Solver time limit in whole seconds. A timeout returns 503 `SOLVER_TIMEOUT`. |
 | `RUBIK_MODEL_PATH` | `backend/weights/best.pt` | Detection weights. A relative value is resolved against `backend/`, not the current directory. |
-| `RUBIK_CONFIDENCE` | `0.5` | Detection confidence threshold, a number between 0 and 1 (exclusive). Raising it tightens detection; values below 0.5 have no effect on the grid, which applies its own 0.5 floor (`GridRules.min_confidence` in `backend/app/vision/grid.py`). |
+| `RUBIK_CONFIDENCE` | `0.4` | Detection confidence threshold, a number between 0 and 1 (exclusive). Raising it tightens detection; values below 0.4 have no effect on the grid, which applies its own 0.4 floor (`GridRules.min_confidence` in `backend/app/vision/grid.py`). |
 | `RUBIK_IMGSZ` | `640` | Inference size, a positive multiple of 32. `480` is the documented speed lever; change it only after the physical test. |
 | `RUBIK_DEVICE` | `cpu` | `cpu` or `cuda:N`. Only CPU torch is installed, so `cuda:N` makes vision unavailable. |
 | `RUBIK_MAX_FRAME_BYTES` | `1048576` | Largest accepted `/ws/scan` frame in bytes. |

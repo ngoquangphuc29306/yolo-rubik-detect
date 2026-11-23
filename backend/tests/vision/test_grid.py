@@ -84,9 +84,9 @@ def test_runner_below_ratio_keeps_best() -> None:
 
 
 def test_low_confidence_ignored_and_threshold_inclusive() -> None:
-    a = analyze(replace(nine(), 3, box(3, "orange", conf=0.49)), SIZE)
+    a = analyze(replace(nine(), 3, box(3, "orange", conf=0.39)), SIZE)
     assert a.cells[3].status == "missing"
-    b = analyze(replace(nine(), 3, box(3, "orange", conf=0.5)), SIZE)
+    b = analyze(replace(nine(), 3, box(3, "orange", conf=0.4)), SIZE)
     assert b.valid
 
 

@@ -24,7 +24,7 @@ class Settings:
     solver_cache_dir: Path
     solver_timeout_s: int
     model_path: Path = DEFAULT_MODEL_PATH
-    confidence: float = 0.5
+    confidence: float = 0.4
     imgsz: int = 640
     device: str = "cpu"
     max_frame_bytes: int = 1048576
@@ -68,7 +68,7 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
             raise ConfigError("RUBIK_MODEL_PATH must be a plain relative or absolute path")
 
     raw_conf = env.get("RUBIK_CONFIDENCE")
-    confidence = 0.5
+    confidence = 0.4
     if raw_conf is not None:
         try:
             confidence = float(raw_conf)
