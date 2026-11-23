@@ -7,13 +7,13 @@
 | Design | `docs/superpowers/specs/2026-11-23-phase-3-live-vision-design.md` (approved 2026-11-23, Q1 to Q6 and the section 15 corrections) |
 | Plan | `docs/superpowers/plans/2026-11-23-phase-3-live-vision.md` |
 | Physical checklist | `docs/superpowers/reports/phase3-physical-test-checklist.md` |
-| Status | **Implemented; awaiting the user's approval.** Two gates are still open: the whole-branch review and the controller's final gate run (section 12), and the physical webcam test, which is **NOT RUN** and is performed by the user. The performance budget was **not met** on the development machine (section 4). |
+| Status | **Implemented; awaiting the user's approval.** The whole-branch review and the controller's final gate (section 12) are done and PASS, with one defect found and fixed by the gate itself. The physical webcam test is **NOT RUN** (performed by the user). The performance budget was **not met** on the development machine (section 4). Nothing has been verified on a physical cube. |
 
 Nothing in this report was verified against a physical cube or a real webcam. The browser gate used Chrome's fake camera device playing a video made locally from labelled dataset photographs. A correct fake-camera scan means the pipeline reads those photographs correctly; it says nothing about lighting, glare, hand shake or real cubes.
 
 Evidence for the per-task and browser-gate rows comes from the ledger and task reports under `.superpowers/sdd/2026-11-23-phase-3-live-vision/` and the gate findings in its `t11/` folder. That folder is local, git-ignored scratch, not part of the repository; the numbers below are copied from it. The test counts in section 2 were produced by commands re-run on 2026-11-23 for this report.
 
-Git record when this report was written (before the two documentation commits of Task 13a): `git log --oneline main..HEAD` listed 27 commits, `1d36f70` (design and plan) to `f2ad442` (physical checklist). `git diff --stat main..HEAD`: 71 files changed, 7441 insertions, 74 deletions. `git remote -v` printed nothing (no remote). `git status --short` showed only the user's `?? .claude/`, `?? skills-lock.json` and `?? training/`.
+Git record when this report was written (before the two documentation commits of Task 13a): `git log --oneline main..HEAD` listed 27 commits, `1d36f70` (design and plan) to `f2ad442` (physical checklist). `git diff --stat main..HEAD`: 71 files changed, 7441 insertions, 74 deletions. `git remote -v` printed nothing (no remote). `git status --short` showed only the user's `?? .claude/`, `?? skills-lock.json` and `?? training/`. **Final state:** at the last verified commit `c8d603c` the branch has 32 commits ahead of `main` (`git log --oneline main..HEAD`); the commit that records the final gate (section 12) is one more, so 33 in total; section 12 is authoritative.
 
 ## 1. Summary
 
@@ -60,6 +60,8 @@ Legend: PASS, FAIL, NOT RUN, BLOCKED. Counts quoted in the evidence column were 
 | Dependency policy | PASS with a user-approved exception | `websockets==17.4` added by decision (section 7) |
 
 ## 2. Counts (commands re-run on 2026-11-23 for this report)
+
+*Snapshot taken by the documentation task, before the final fix wave. The final counts (backend 264 including slow and real-model tests; frontend 1000 passed, 4 skipped) are in section 12.2 and supersede this table.*
 
 | Command | Result |
 | --- | --- |
@@ -282,4 +284,56 @@ Place the trained checkpoint at `backend/weights/best.pt` (git-ignored). Without
 
 ## 12. Final gate (controller run at the end)
 
-NOT RUN — the controller fills this section after the whole-branch review.
+Run by the controller after the whole-branch review and its single fix wave. Backend suites ran at `42fd441`; the only later commit, `c8d603c`, changes one frontend test file and one README sentence (no backend file), and the frontend suites and live checks below ran at `c8d603c`.
+
+### 12.1 Whole-branch review
+
+An independent reviewer read `994984e..09c56d8` (29 commits): **Critical 0, Important 3, Minor several**; verdict "ready to merge with fixes". The three Important findings and the small items were fixed in one fix wave (commits `2e6d446`, `42fd441`) and a scoped re-review found every finding ADDRESSED with no new breakage:
+
+| Finding | Fix |
+| --- | --- |
+| Stale overlay and retained stability streak survived an error or reconnect, so one fresh identical grid after Retry could capture without the 5-result / 1000 ms window | New pure machine event `CLEAR_STREAK` plus `setLastResult(null)` on stop, on every connection attempt and when disabled (RED first: 4 machine and 2 hook tests) |
+| CLAUDE.md still mentioned a fixture detector / fixture backend | Rewritten; roadmap rows 3 to 6 marked superseded |
+| "6 of 7 scans" was wrong (all six scans exceed 300 ms) | "all six" in ARCHITECTURE and this report |
+| Minor items fixed in the same wave | test title; stale ARCHITECTURE sentences; `vite.config.ts` comment; README `RUBIK_CONFIDENCE` wording; comments on transitive `cv2`/`numpy` imports |
+
+### 12.2 Fresh checks
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Backend lockfile | `uv sync --locked` (from `backend/`) | PASS: 67 packages checked |
+| Backend tests, everything | `uv run pytest -m "slow or not slow"` | PASS: 264 passed in 33.99 s (260 default + 3 real-model + 1 slow 300-state cross-check) |
+| Backend default run | `uv run pytest` | PASS: 260 passed, 4 deselected (needs no weights) |
+| Backend lint / types | `uv run ruff check .` / `uv run mypy app` | PASS: all checks passed / no issues in 26 source files (strict) |
+| Frontend clean install | `npm ci` | PASS: 0 vulnerabilities |
+| Frontend strict TS | `npm run lint` | PASS: exit 0 |
+| Frontend tests | `npm run test` | PASS: 51 files, 1000 passed, 4 skipped (the Phase 2 live client block without `RUBIK_LIVE_BASE_URL`) |
+| Frontend build | `npm run build` | PASS: 2287 modules (known chunk-size warning only) |
+| Scope | `git diff --name-only main..HEAD` over `frontend/src/engine`, `frontend/src/demo`, `backend/app/cube`, `backend/app/solver`, `fixtures/solve`, `fixtures/health` | PASS: no changes |
+| Tracked artifacts | weights, solver tables, `.venv`, training data, videos | PASS: none tracked |
+| Git | `git status --short`; `git remote -v` | PASS: only the user's `.claude/`, `skills-lock.json`, `training/` untracked; no remotes |
+
+### 12.3 Live check with the documented start command only
+
+Backend started exactly as `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` (no `--with`), frontend `npm run dev`; no camera was used (`.superpowers/` evidence, git-ignored):
+
+| Check | Result |
+| --- | --- |
+| Real Chrome WebSocket to `ws://127.0.0.1:5173/ws/scan` through the Vite proxy: hello | PASS: `ready` with the same scanId, `modelVersion` ending `@93b727eca123`, `imgsz` 640 |
+| One 518×518 gray JPEG frame | PASS: `frame_result`, frameSeq 1, nine `missing` cells, `grid` null, reason `NO_FACE`, `inferenceMs` about 314; close code 1000; the scan line is in the backend log |
+| Origin `http://localhost:5173` | PASS: handshake works |
+| Origin `http://evil.example` (Python `websockets` client) | PASS: rejected with HTTP 403 |
+| Browser console | PASS: only the known `THREE.Clock` deprecation warning, 0 errors |
+| Phase 2 live client block (`RUBIK_LIVE_BASE_URL=http://127.0.0.1:5173`) | **First run FAIL (46 passed, 1 failed), fixed, then PASS 47 of 47, 0 skipped** (see below) |
+| Servers stopped, ports 8000 and 5173 closed | PASS |
+
+**Defect found by this gate and fixed.** The Phase 2 live health assertion hard-coded the Phase 2 body (`degraded`, `visionReady:false`) and failed against a backend with the model loaded. It is a stale test expectation caused by Phase 3's own `/health` change, not a protocol defect, and it was invisible to the default suites because the block skips without `RUBIK_LIVE_BASE_URL`. Commit `c8d603c` makes it accept exactly the two valid Phase 3 shapes (loaded: `ok`, `visionReady:true`, `modelVersion`, readiness `ready`; model unavailable: `degraded`, `visionReady:false`, a short path-free error, readiness `blocked`/`MODEL_UNAVAILABLE`). Proof with the documented commands: RED 46 of 47 with the old assertion; GREEN 47 of 47 with the model loaded (re-run by the controller on the final test file); GREEN 47 of 47 with `RUBIK_MODEL_PATH` pointing at a missing file (degraded body, error "Detection weights not found.").
+
+### 12.4 Verdict
+
+**Gate verdict: PASS for everything that was run.** Open items, stated plainly:
+- **Physical webcam test: NOT RUN.** It is performed by the user with `docs/superpowers/reports/phase3-physical-test-checklist.md`. No result in this report is a physical-cube result.
+- **Performance budget: NOT MET** on the development machine (section 4); the user decided to keep 640 px and let the physical test decide (`RUBIK_IMGSZ=480` is the lever).
+- Mobile: NOT RUN (out of scope).
+- Parked minor findings and observations O1 to O6 are listed in section 10 (known limitations).
+Phase 3 stops here for the user's approval; nothing is merged and no further phase has started.
