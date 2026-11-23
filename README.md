@@ -51,6 +51,8 @@ uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000
 
 `uvicorn --factory app.main:create_app` is the only supported start form; there is no module-level `app` object. There is no CORS middleware: the browser reaches the backend through the Vite dev proxy (same origin).
 
+The WebSocket library (`websockets`) is part of the locked dependencies installed by `uv sync`; no extra flags are needed for the server to serve `/ws/scan`.
+
 ```bash
 uv run pytest             # 153 tests, excludes the slow cross-check
 uv run pytest -m slow     # 300 real solves replayed in Python (about 23 s)
