@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -5,6 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
+from app.api.scan_ws import HELLO_TIMEOUT_S
+from app.api.scan_ws import router as scan_router
 from app.api.solve import router as solve_router
 from app.config import Settings, load_settings
 from app.errors import install_error_handlers
@@ -45,10 +48,13 @@ def create_app(
     if solver is not None:
         app.state.solve_service = SolveService(solver, cfg.solver_timeout_s)
     app.state.settings = cfg
+    app.state.inference_lock = asyncio.Lock()
+    app.state.hello_timeout_s = HELLO_TIMEOUT_S
     app.state.vision = VisionState(
         detector, None if detector else "Vision model has not been loaded."
     )
     install_error_handlers(app)
     app.include_router(health_router)
     app.include_router(solve_router)
+    app.include_router(scan_router)
     return app
