@@ -47,7 +47,7 @@ uv run python -m app.solver.prepare       # one-time solver table build (see war
 uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000
 ```
 
-**One-time table build.** The solver (`cube-solver` 1.1.4, MIT) needs lookup tables that are not committed. `app.solver.prepare` builds them into `backend/.solver-cache/tables/` (git-ignored). Expect roughly 5 minutes (282.8 s on the development machine), about 1.6 GB of disk and about 1.6 GB of RAM while it runs. The server does not build tables itself: without them it refuses to start and prints this command. While serving, the process uses about 1.6 GB of RAM.
+**One-time table build.** The solver (`cube-solver` 1.1.4, MIT) needs lookup tables that are not committed. `app.solver.prepare` builds them into `backend/.solver-cache/tables/` (git-ignored). Expect about 5–7 minutes (282.8 s for the Task 5 build, 386.6 s for the design benchmark's first build, both on the development machine), about 1.6 GB of disk and about 1.6 GB of RAM while it runs. The server does not build tables itself: without them it refuses to start and prints this command. While serving, the process uses about 1.6 GB of RAM.
 
 `uvicorn --factory app.main:create_app` is the only supported start form; there is no module-level `app` object. There is no CORS middleware: the browser reaches the backend through the Vite dev proxy (same origin).
 

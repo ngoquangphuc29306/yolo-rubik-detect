@@ -27,7 +27,7 @@ Legend: PASS, FAIL, NOT RUN, BLOCKED. Evidence is the recorded output of a comma
 | 7 | `GET /health` | PASS | Commit `c7c762e`; 151 passed; exact body confirmed by the controller |
 | 8 | Cross-check fixtures, recorder, 300-state slow test, frontend binder and live block | PASS | Commit `e60bbf7`; backend 153 passed plus slow 300 of 300 (p50 0.039 s, p95 0.232 s, max 0.561 s); frontend 806 passed, 4 skipped; live block against uvicorn directly 47 passed, 0 skipped |
 | 9 | Live smoke through the Vite proxy and browser pass | PASS | No commit; `t9/t9-findings.md` 9 PASS, 0 FAIL; controller read the findings and `02-scan-live.png` |
-| 10 | Documentation and this report | PASS (this task) | README, CLAUDE.md, `docs/ARCHITECTURE.md` v1.2, this report |
+| 10 | Documentation and this report | DONE — reviewed (docs review approved; two wording fixes applied in this commit) | README, CLAUDE.md, `docs/ARCHITECTURE.md` v1.2, this report |
 | 11 | Final gate | NOT RUN | Section 8 |
 
 ### 1.2 Per acceptance area
@@ -76,7 +76,7 @@ Measured in the implementation phase (not the benchmark): table build 282.8 s; `
 
 ## 4. Review record
 
-- Code tasks 1, 2, 4, 5, 6, 7 and 8 each had two independent reviewers (spec compliance and code quality, Sonnet). All reviews were clean: spec compliant and Approved, with minor findings only.
+- Code tasks 1, 2, 4, 5, 6, 7 and 8 each had two independent reviewers (spec compliance and code quality, Sonnet). All reviews were clean: spec compliant and Approved, with minor findings only (minor findings parked, see §4.1).
 - Task 3 is test-only: one combined spec and quality reviewer (ruling below). Spec compliant, Approved.
 - Task 9 has no diff: its gate was controller verification of `t9-findings.md`, the screenshots, closed ports 8000 and 5173 and a clean `git status`.
 - Task 10 is documentation only; the final whole-branch review and gate are Task 11.
@@ -112,7 +112,7 @@ Measured in the implementation phase (not the benchmark): table build 282.8 s; `
 - **Orientation risk (R1).** The solve request carries no evidence of face roll. A face scanned rotated, or U/D captured in the wrong tilt, changes the facelet string. Most such errors are illegal (422), but a legal wrong state is possible. The backend never rotates or repairs a cube. Legality is not correctness.
 - **No physical cube.** Nothing was verified on a real cube. All three oracles (TypeScript-engine fixtures, published solved and superflip strings, library solutions replayed in both engines) share the published Kociemba facelet convention; a shared conceptual error is still possible.
 - **Vision is absent.** No `/ws/scan`, detector or weights. `/health` reports `visionReady: false`, so Live scanning stays blocked by design.
-- **Resources.** The solver needs about 1.6 GB of RAM while serving and 1.6 GB of disk, plus a one-time table build of about 5 minutes (282.8 s measured). Re-check when YOLO is loaded (Phase 6).
+- **Resources.** The solver needs about 1.6 GB of RAM while serving and 1.6 GB of disk, plus a one-time table build of about 5–7 minutes (282.8 s Task 5 build, 386.6 s design benchmark first build). Re-check when YOLO is loaded (Phase 6).
 - **Wire gaps.** No wire code exists for internal faults or "solver not ready": a bare 500 maps to the client's `BACKEND_UNAVAILABLE`. A missing table cache means the process does not start.
 - **Live footer copy (observation, not a defect, Phase 1 copy, out of scope).** On the live screen with the backend connected but vision unavailable, the footer reads "Capture unavailable — no vision connection".
 - **Formatting.** `ruff format` is not enforced; only `ruff check` is a gate.
@@ -125,7 +125,7 @@ Measured in the implementation phase (not the benchmark): table build 282.8 s; `
 ```bash
 cd backend
 uv sync
-uv run python -m app.solver.prepare          # once; about 5 min, 1.6 GB
+uv run python -m app.solver.prepare          # once; about 5–7 min, 1.6 GB
 uv run pytest
 uv run pytest -m slow
 uv run ruff check .

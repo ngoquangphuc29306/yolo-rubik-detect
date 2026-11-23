@@ -81,7 +81,7 @@ The package manager is npm (`frontend/package-lock.json` is the only lockfile; B
 
 - Install: `npm ci`. Do not invent a passing baseline when a tool is missing.
 - Frontend: `npm run dev` (http://127.0.0.1:5173, loopback only), `npm run lint` (`tsc --noEmit`), `npm run test` (Vitest; one file with `npx vitest run <path>`), `npm run build`.
-- Backend (from `backend/`, uv, Python 3.12): `uv sync`; one-time `uv run python -m app.solver.prepare` (about 5 min, 1.6 GB); `uv run pytest` (`-m slow` for the 300-state cross-check); `uv run ruff check .`; `uv run mypy app`; server `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` (the only start form).
+- Backend (from `backend/`, uv, Python 3.12): `uv sync`; one-time `uv run python -m app.solver.prepare` (about 5–7 min, 1.6 GB); `uv run pytest` (`-m slow` for the 300-state cross-check); `uv run ruff check .`; `uv run mypy app`; server `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` (the only start form).
 - Verify actual browser behavior for affected flows, including 3D direction, pause mid-turn, resize, camera cleanup and missing backend/model. jsdom tests do not verify WebGL.
 - Report command, exit status, failed/passed counts, visual checks actually performed, and any remaining limitations. Keep independent reference provenance and shared JSON fixtures reviewable.
 
