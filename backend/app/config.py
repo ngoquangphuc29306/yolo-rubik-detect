@@ -30,6 +30,7 @@ class Settings:
     max_frame_bytes: int = 1048576
     max_frame_edge: int = 1280
     allowed_origins: tuple[str, ...] = DEFAULT_ORIGINS
+    debug_dir: Path | None = None
 
 
 def _positive_int(env: Mapping[str, str], name: str, default: int) -> int:
@@ -95,6 +96,9 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
         if not origins:
             raise ConfigError("RUBIK_ALLOWED_ORIGINS must not be empty")
 
+    raw_debug = env.get("RUBIK_DEBUG_DIR")
+    debug_dir = Path(raw_debug).resolve() if raw_debug and raw_debug.strip() else None
+
     return Settings(
         "yolo",
         cache_dir,
@@ -106,4 +110,5 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
         max_bytes,
         max_edge,
         origins,
+        debug_dir,
     )

@@ -29,6 +29,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 HELLO_TIMEOUT_S = 5.0
+DEBUG_EVERY = 3
+DEBUG_MAX_FILES = 300
+
+
+def _debug_dump(settings: Settings, scan_id: str, seq: int, data: bytes, detections: list[Detection], analysis: object) -> None:
+    """Opt-in diagnostics (RUBIK_DEBUG_DIR): raw crop plus raw detections and app cells, throttled and capped."""
+    folder = settings.debug_dir
+    if folder is None or seq % DEBUG_EVERY:
+        return
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        if len(list(folder.glob("*.jpg"))) >= DEBUG_MAX_FILES:
+            return
+        stem = folder / f"{scan_id[:8]}_{seq:05d}"
+        stem.with_suffix(".jpg").write_bytes(data)
+        cells = getattr(analysis, "cells", ())
+        stem.with_suffix(".json").write_text(
+            json.dumps(
+                {
+                    "detections": [
+                        {"color": d.color, "confidence": round(d.confidence, 3), "xyxy": [round(v, 1) for v in d.xyxy]}
+                        for d in detections
+                    ],
+                    "cells": [[c.color, c.confidence, c.status] for c in cells],
+                    "valid": getattr(analysis, "valid", None),
+                    "reason": getattr(analysis, "reason", None),
+                    "face": getattr(analysis, "face", None),
+                },
+                indent=1,
+            ),
+            encoding="utf-8",
+        )
+    except OSError:
+        logger.warning("debug dump failed")
 
 
 async def _send(ws: WebSocket, msg: BaseModel) -> bool:
@@ -166,6 +200,7 @@ async def _frames(
             return
         height, width = image.shape[:2]
         analysis = analyze(detections, width)
+        _debug_dump(settings, scan_id, seq, data, detections, analysis)
         result = ScanFrameResult(
             scanId=scan_id,
             frameSeq=seq,
