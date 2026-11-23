@@ -9,7 +9,7 @@ import {
   ROTATION_MS,
   type LiveScanEvent,
   type LiveScanState,
-} from '@/features/scanner/live-scan-machine';
+} from '@/lib/live-scan-machine';
 import type { ScanTransport, SendResult } from '@/services/scan-transport';
 import type { FrameResult } from '@/types/api';
 import type { ColorName, FaceGrid, FaceId } from '@/types/cube';

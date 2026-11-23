@@ -77,8 +77,6 @@ function scanLegacy(roots: readonly string[], exclude: readonly string[] = []): 
 // Deliberately NOT forbidden: stores importing hooks (demo-session legitimately uses hooks/useSolveSession runSolve).
 const UP_LAYERS = ['stores', 'hooks'];
 const UI_IMPORT = /['"`](?:@\/|(?:\.\.?\/)+)(?:features|components)(?:\/[^'"`]*)?['"`]/;
-// The pure (React-free) scan machine lives in features/scanner; useLiveScan is its only hook consumer.
-const PURE_FEATURE_IMPORT = /['"`]@\/features\/scanner\/live-scan-machine['"`]/;
 
 function scanUpward(srcRoot: string, layers: readonly string[] = UP_LAYERS): string[] {
   const offenders: string[] = [];
@@ -89,7 +87,7 @@ function scanUpward(srcRoot: string, layers: readonly string[] = UP_LAYERS): str
       stripComments(fs.readFileSync(file, 'utf8'))
         .split('\n')
         .forEach((line, i) => {
-          if (UI_IMPORT.test(line) && !(file.endsWith('useLiveScan.ts') && PURE_FEATURE_IMPORT.test(line))) offenders.push(`${path.relative(srcRoot, file)}:${i + 1}: ${line.trim()}`);
+          if (UI_IMPORT.test(line)) offenders.push(`${path.relative(srcRoot, file)}:${i + 1}: ${line.trim()}`);
         });
     }
   }

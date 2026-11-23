@@ -8,7 +8,7 @@ import {
   stabilityProgress,
   type LiveScanEvent,
   type LiveScanState,
-} from '@/features/scanner/live-scan-machine';
+} from '@/lib/live-scan-machine';
 import type { FrameResult } from '@/types/api';
 import type { ColorName } from '@/types/cube';
 

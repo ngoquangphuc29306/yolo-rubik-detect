@@ -3,7 +3,7 @@ import { StrictMode, type JSXElementConstructor, type ReactNode } from 'react';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLiveScan, type UseLiveScanOptions } from '@/hooks/useLiveScan';
-import { ROTATION_MS } from '@/features/scanner/live-scan-machine';
+import { ROTATION_MS } from '@/lib/live-scan-machine';
 import { clientError } from '@/services/parsers';
 import type { ConnectResult, ScanTransport, SendResult } from '@/services/scan-transport';
 import type { FrameResult, SolveError } from '@/types/api';
