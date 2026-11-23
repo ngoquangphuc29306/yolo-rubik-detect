@@ -1,6 +1,5 @@
-// Pure presentational 3x3 scanning guide: props in, markup out. No timers, no store, no claims of verification.
-import { Check } from 'lucide-react';
-import { COLOR_META, colorNameToCode } from '@/lib/colors';
+// Pure presentational scanning guide (placement zone, raw YOLO boxes, arrow): props in, markup out. No timers, no store, no claims of verification.
+import { COLOR_META } from '@/lib/colors';
 import { MIRROR_STYLE } from '@/lib/mirror';
 import { cn } from '@/lib/utils';
 import type { ArrowDirection } from '@/lib/rotation-steps';
@@ -26,18 +25,8 @@ export interface LiveScanGuideProps {
   arrow?: ArrowDirection | null;
 }
 
-function rgba(hex: string, alpha: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-}
-
-const LETTER = 'text-[11px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]';
-const EMPTY: FrameCell = { color: null, confidence: null, status: 'missing' };
-
-export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hint, capturedGrid, arrow }: LiveScanGuideProps) {
+export function LiveScanGuide({ square, face, boxes, progress, phase, hint, arrow }: LiveScanGuideProps) {
   if (!square) return null;
-  const locked = phase === 'captured' || phase === 'rotating' || phase === 'done';
-  const solid = locked && capturedGrid && capturedGrid.length === 9 ? capturedGrid : null;
   const full = progress >= 1 || phase === 'captured';
   const searching = phase === 'aligning' || phase === 'stabilizing';
   const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100);
@@ -45,19 +34,23 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
   return (
     // Mirror layer: boxes, zone and lattice follow the mirrored video; every piece of text flips back.
     <div data-testid="mirror-layer" className="absolute inset-0 pointer-events-none" style={MIRROR_STYLE}>
+      {/* Raw YOLO detections in the familiar style: coloured box plus a "colour 0.88" label chip. */}
       {boxes.map((b, i) => (
         <div
           key={i}
+          data-testid="yolo-box"
           title={`${b.color} ${Math.round(b.confidence * 100)}%`}
-          className="absolute border"
-          style={{
-            left: b.rect.x,
-            top: b.rect.y,
-            width: b.rect.w,
-            height: b.rect.h,
-            borderColor: COLOR_META[b.color].hex,
-          }}
-        />
+          className="absolute border-2"
+          style={{ left: b.rect.x, top: b.rect.y, width: b.rect.w, height: b.rect.h, borderColor: COLOR_META[b.color].hex }}
+        >
+          <span
+            aria-hidden="true"
+            className="absolute right-0 bottom-full whitespace-nowrap px-1 text-[10px] leading-4 font-semibold text-white"
+            style={{ backgroundColor: COLOR_META[b.color].hex, ...MIRROR_STYLE }}
+          >
+            {b.color} {b.confidence.toFixed(2)}
+          </span>
+        </div>
       ))}
 
       <div
@@ -68,84 +61,6 @@ export function LiveScanGuide({ square, face, cells, boxes, progress, phase, hin
         )}
         style={{ left: square.x, top: square.y, width: square.w, height: square.h }}
       />
-
-      {face && (
-       <div
-        data-testid="face-lattice"
-        role="group"
-        aria-label="Scan grid, 3 by 3"
-        className="absolute grid grid-cols-3 grid-rows-3 gap-px p-px border border-white/70 shadow-[0_0_0_1px_rgba(0,0,0,0.6)]"
-        style={{ left: face.x, top: face.y, width: face.w, height: face.h }}
-       >
-        {Array.from({ length: 9 }, (_, i) => {
-          const label = `Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}`;
-          const solidColor = solid?.[i];
-          if (solidColor) {
-            return (
-              <div
-                key={i}
-                role="img"
-                aria-label={`${label}: ${solidColor}`}
-                className="flex items-center justify-center border border-white/60"
-                style={{ backgroundColor: COLOR_META[solidColor].hex }}
-              >
-                <Check data-check aria-hidden="true" className="w-4 h-4 text-white drop-shadow" />
-                <span aria-hidden="true" className={LETTER} style={MIRROR_STYLE}>
-                  {colorNameToCode(solidColor)}
-                </span>
-              </div>
-            );
-          }
-          const cell = cells?.[i] ?? EMPTY;
-          if (cell.status === 'ok' && cell.color) {
-            return (
-              <div
-                key={i}
-                role="img"
-                aria-label={`${label}: ${cell.color}`}
-                className="flex items-center justify-center border border-white/60"
-                style={{ backgroundColor: rgba(COLOR_META[cell.color].hex, 0.75) }}
-              >
-                <span aria-hidden="true" className={LETTER} style={MIRROR_STYLE}>
-                  {colorNameToCode(cell.color)}
-                </span>
-              </div>
-            );
-          }
-          if (cell.status === 'ambiguous') {
-            return (
-              <div
-                key={i}
-                role="img"
-                aria-label={`${label}: unclear`}
-                className="flex items-center justify-center border-2 border-amber-400 bg-black/50 text-amber-300 font-bold text-lg"
-              >
-                <span aria-hidden="true" className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" style={MIRROR_STYLE}>?</span>
-              </div>
-            );
-          }
-          if (cell.status === 'misaligned') {
-            return (
-              <div
-                key={i}
-                role="img"
-                aria-label={`${label}: out of position`}
-                className="flex items-center justify-center border-2 border-amber-400 bg-black/30"
-              >
-                {cell.color && (
-                  <span aria-hidden="true" className={LETTER} style={MIRROR_STYLE}>
-                    {colorNameToCode(cell.color)}
-                  </span>
-                )}
-              </div>
-            );
-          }
-          return (
-            <div key={i} role="img" aria-label={`${label}: not detected`} className="border border-dashed border-white/60 shadow-[0_0_0_1px_rgba(0,0,0,0.5)]" />
-          );
-        })}
-       </div>
-      )}
 
       {arrow && (
         <RotationArrow

@@ -99,10 +99,12 @@ afterEach(() => {
 });
 
 describe('Live scanning screen', () => {
-  it('shows the guide with nine cells and no Capture Face button', () => {
+  it('shows the guide zone, the raw boxes and no Capture Face button', () => {
+    const withBox = { ...frame(), detections: [{ classId: 0, color: 'green' as const, confidence: 0.9, xyxy: [0, 0, 10, 10] as [number, number, number, number] }] };
+    setLive({ lastResult: withBox });
     render(<ScanningScreen />);
     expect(screen.getByTestId('guide-square')).toBeTruthy();
-    expect(screen.getAllByRole('img', { name: /Row \d, column \d: green/ })).toHaveLength(9);
+    expect(screen.getAllByTestId('yolo-box').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(screen.queryByText(/Capture unavailable/)).toBeNull();
   });
@@ -115,17 +117,15 @@ describe('Live scanning screen', () => {
     expect(video.style.transform).toBe('scaleX(-1)');
     expect(layer.style.transform).toBe('scaleX(-1)');
     expect(layer.parentElement).toBe(video.parentElement);
-    expect(netMirror(screen.getByTestId('face-lattice'))).toBe(-1);
+    expect(netMirror(screen.getByTestId('guide-square'))).toBe(-1);
     expect(netMirror(screen.getByText('Place the Front face inside the square.'))).toBe(1);
     expect(netMirror(screen.getByText('Hold the face steady inside the square.'))).toBe(1);
   });
 
-  it('the lattice follows the fitted face from the result, inside the placement zone', () => {
+  it('shows no 3x3 lattice, only the placement zone', () => {
     render(<ScanningScreen />);
-    const lat = screen.getByTestId('face-lattice');
-    const zone = screen.getByTestId('guide-square');
-    expect(parseFloat(lat.style.left)).toBeGreaterThan(parseFloat(zone.style.left));
-    expect(parseFloat(lat.style.width)).toBeLessThan(parseFloat(zone.style.width));
+    expect(screen.queryByTestId('face-lattice')).toBeNull();
+    expect(screen.getByTestId('guide-square')).toBeTruthy();
   });
 
   it('rotating shows the cue and the next stage panel', () => {
@@ -235,9 +235,10 @@ describe('Live scanning screen', () => {
     setLive({}, { stage: 'R', phase: 'aligning', step: 1 });
     render(<ScanningScreen />);
     const arrow = screen.getByTestId('rotation-arrow');
-    const lat = screen.getByTestId('face-lattice');
+    const zone = screen.getByTestId('guide-square');
     const cx = parseFloat(arrow.style.left) + parseFloat(arrow.style.width) / 2;
-    expect(cx).toBeCloseTo(parseFloat(lat.style.left) + parseFloat(lat.style.width) / 2);
+    expect(cx).toBeGreaterThan(parseFloat(zone.style.left));
+    expect(cx).toBeLessThan(parseFloat(zone.style.left) + parseFloat(zone.style.width));
     expect(netMirror(arrow)).toBe(1);
   });
 
