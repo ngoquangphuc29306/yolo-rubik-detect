@@ -23,6 +23,21 @@ def test_class_map_permuted_names_map_by_name() -> None:
     assert class_map(permuted) == permuted
 
 
+def test_class_map_accepts_capitalised_names() -> None:
+    caps = {0: "Blue", 1: "Green", 2: "Orange", 3: "Red", 4: "White", 5: "Yellow"}
+    assert class_map(caps) == REAL
+
+
+def test_class_map_accepts_single_letter_names() -> None:
+    letters = {0: "b", 1: "g", 2: "o", 3: "r", 4: "w", 5: "y"}
+    assert class_map(letters) == REAL
+
+
+def test_class_map_rejects_duplicates_after_normalising() -> None:
+    with pytest.raises(ModelUnavailable):
+        class_map({0: "blue", 1: "B", 2: "orange", 3: "red", 4: "white", 5: "yellow"})
+
+
 def test_class_map_rejects_five_names() -> None:
     with pytest.raises(ModelUnavailable):
         class_map({k: v for k, v in REAL.items() if k != 5})

@@ -31,12 +31,19 @@ class Detector(Protocol):
     def detect(self, image: np.ndarray) -> list[Detection]: ...
 
 
+def _normalise(name: str) -> str:
+    key = name.strip().lower()
+    return {c[0]: c for c in COLOR_NAMES}.get(key, key) if len(key) == 1 else key
+
+
 def class_map(names: Mapping[int, str]) -> dict[int, ColorName]:
-    """Map model class ids to colours by NAME; the names must be exactly the six colours."""
-    if sorted(names.values()) != sorted(COLOR_NAMES):
+    """Map model class ids to colours by NAME (case-insensitive; one-letter initials allowed);
+    after normalising, the names must be exactly the six colours."""
+    normal = {int(i): _normalise(n) for i, n in names.items()}
+    if sorted(normal.values()) != sorted(COLOR_NAMES):
         raise ModelUnavailable(
             "The model's class names are not the six cube colours.",
-            f"Model class names must be exactly {sorted(COLOR_NAMES)}, got {sorted(names.values())}",
+            f"Model class names must be the six colours, got {sorted(names.values())}",
         )
     valid = set(get_args(ColorName))
-    return {int(i): n for i, n in names.items() if n in valid}  # type: ignore[misc]
+    return {i: n for i, n in normal.items() if n in valid}  # type: ignore[misc]
