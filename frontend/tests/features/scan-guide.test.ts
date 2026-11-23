@@ -12,7 +12,7 @@ const PATTERNS: Record<string, Partial<Record<FaceId, ColorName>>> = {
   'nothing known': {},
 };
 
-const text = (g: ReturnType<typeof scanGuide>) => `${g.heading} ${g.instruction} ${g.rotationHint}`;
+const text = (g: ReturnType<typeof scanGuide>) => `${g.heading} ${g.instruction} ${g.rotationHint} ${(g.steps ?? []).join(' ')}`;
 
 describe('scanGuide', () => {
   describe.each(Object.entries(PATTERNS))('%s', (_name, known) => {
@@ -43,6 +43,7 @@ describe('scanGuide', () => {
     expect(g.rotationHint).toBe(m.rotationHint);
     expect(g.arrowDirection).toBe(m.arrowDirection);
     expect(g.referenceRotation).toEqual(m.referenceRotation);
+    expect(g.steps).toEqual('steps' in m ? m.steps : undefined);
   });
 
   it.each(SCAN_FACE_ORDER)('%s: arrow and reference rotation do not depend on known centres', (stage) => {

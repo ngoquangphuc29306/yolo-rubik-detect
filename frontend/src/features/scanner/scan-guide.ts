@@ -10,12 +10,16 @@ export interface ScanGuide {
   rotationHint: string;
   arrowDirection: ScanArrow;
   referenceRotation: [number, number, number];
+  /** U and D only: return to the front face, then tilt. */
+  steps?: readonly [string, string];
 }
 
 export function scanGuide(stage: FaceId, knownCenters: Partial<Record<FaceId, ColorName>>): ScanGuide {
   /** "green center" when the colour is known, else the supplied face-direction phrase. */
   const center = (face: FaceId, unknown: string) =>
     knownCenters[face] ? `${knownCenters[face]} center` : unknown;
+
+  const backToFront = `Turn back so the ${knownCenters.F ? `${knownCenters.F} ` : 'front '}face looks at the camera`;
 
   switch (stage) {
     case 'F':
@@ -52,16 +56,18 @@ export function scanGuide(stage: FaceId, knownCenters: Partial<Record<FaceId, Co
       };
     case 'U':
       return {
-        heading: 'Return to Front, then tilt downward for the Top face',
-        instruction: `Turn back to ${knownCenters.F ? `${knownCenters.F} front` : 'the front face'}, then tilt the top of the whole cube forward toward the camera to show the ${center('U', 'top face')}.`,
+        heading: 'Return to Front, then tilt the top toward you for the Top face',
+        instruction: `Turn back to ${knownCenters.F ? `${knownCenters.F} front` : 'the front face'}, then tilt the top of the whole cube toward the camera so the ${center('U', 'top face')} faces straight ahead and the back face ends at the top of the image.`,
+        steps: [backToFront, 'Tilt the top of the whole cube toward the camera'],
         rotationHint: 'Tilt whole cube top toward camera',
         arrowDirection: 'down',
         referenceRotation: [Math.PI / 2 + 0.18, -0.22, 0],
       };
     case 'D':
       return {
-        heading: 'Tilt upward to show the Bottom face',
-        instruction: `Tilt the bottom of the whole cube upward toward the camera so the ${center('D', 'bottom face')} faces straight ahead.`,
+        heading: 'Return to Front, then tilt the bottom toward you for the Bottom face',
+        instruction: `Turn back to ${knownCenters.F ? `${knownCenters.F} front` : 'the front face'}, then tilt the bottom of the whole cube toward the camera so the ${center('D', 'bottom face')} faces straight ahead and the front face ends at the top of the image.`,
+        steps: [backToFront, 'Tilt the bottom of the whole cube toward the camera'],
         rotationHint: 'Tilt whole cube bottom toward camera',
         arrowDirection: 'up',
         referenceRotation: [-Math.PI / 2 + 0.18, -0.22, 0],
