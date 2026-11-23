@@ -6,7 +6,7 @@
 | Branch | `feat/phase-2-backend` (from `main` `cae4df6`) |
 | Design | `docs/superpowers/specs/2026-11-22-phase-2-backend-design.md` (approved 2026-11-23, Q1 to Q5 and section 13 corrections) |
 | Plan | `docs/superpowers/plans/2026-11-22-phase-2-backend.md` |
-| Status | Implemented; awaiting the user's approval. Final gate (Task 11) not yet run. |
+| Status | **Gate passed; the user approved it subject to a reconciliation, which this commit completes. The fast-forward merge into `main` follows this commit.** Task 11 ran twice: at `47d7c88` and again at `ea448fc` after the documentation reconciliation (section 8). |
 
 Nothing in this report was verified against a physical cube. A passing solve means the library's move list replays to solved in two independent engines, not that a real cube was scanned correctly.
 
@@ -28,7 +28,7 @@ Legend: PASS, FAIL, NOT RUN, BLOCKED. Evidence is the recorded output of a comma
 | 8 | Cross-check fixtures, recorder, 300-state slow test, frontend binder and live block | PASS | Commit `e60bbf7`; backend 153 passed plus slow 300 of 300 (p50 0.039 s, p95 0.232 s, max 0.561 s); frontend 806 passed, 4 skipped; live block against uvicorn directly 47 passed, 0 skipped |
 | 9 | Live smoke through the Vite proxy and browser pass | PASS | No commit; `t9/t9-findings.md` 9 PASS, 0 FAIL; controller read the findings and `02-scan-live.png` |
 | 10 | Documentation and this report | DONE — reviewed (docs review approved; two wording fixes applied in this commit) | README, CLAUDE.md, `docs/ARCHITECTURE.md` v1.2, this report |
-| 11 | Final gate | NOT RUN | Section 8 |
+| 11 | Final gate | PASS | Section 8: run 1 at `47d7c88`, run 2 (re-run) at `ea448fc`; independent whole-branch review clean |
 
 ### 1.2 Per acceptance area
 
@@ -137,25 +137,35 @@ Live client check (backend and `npm run dev` running, from `frontend/`): set `RU
 
 ## 8. Final gate (Task 11)
 
-Run by the controller on 2026-11-23 at HEAD `47d7c88` (branch `feat/phase-2-backend`). Every result below comes from a command run in this gate.
+The gate ran twice. Run 1 was done by the controller at `47d7c88`. The user then approved the gate subject to a reconciliation: the report recorded `47d7c88` while the branch had moved on (`da5cc75`, then the YOLO26s documentation commit `ea448fc`). Run 2 re-ran every check on the actual HEAD `ea448fc`, which is why this section shows both. Commits after run 1 changed documentation only (`da5cc75`: this report; `ea448fc`: YOLO26s naming in ARCHITECTURE, CLAUDE.md and this report).
+
+### 8.1 Run 2: re-run on HEAD `ea448fc` (2026-11-23)
 
 | Check | Command | Result |
 | --- | --- | --- |
+| HEAD | `git rev-parse --short HEAD` (in `backend/` and `frontend/`) | `ea448fc` |
 | Backend lockfile | `uv sync --locked` (from `backend/`) | PASS: exit 0, 36 packages checked |
-| Backend tests incl. slow | `uv run pytest -m "slow or not slow"` | PASS: 154 passed in 26.40 s (153 regular + the 300-state slow cross-check) |
+| Backend tests incl. slow | `uv run pytest -m "slow or not slow"` | PASS: 154 passed in 33.58 s (153 regular + the 300-state slow cross-check) |
 | Backend lint | `uv run ruff check .` | PASS: "All checks passed!" |
 | Backend types | `uv run mypy app` | PASS: "no issues found in 19 source files" (strict) |
 | Frontend clean install | `npm ci` (from `frontend/`) | PASS: exit 0, 0 vulnerabilities |
 | Frontend strict TS | `npm run lint` | PASS: exit 0 |
 | Frontend tests | `npm run test` | PASS: 39 files, 806 passed, 4 skipped (the live block without `RUBIK_LIVE_BASE_URL`), exit 0 |
 | Frontend build | `npm run build` | PASS: 2278 modules, exit 0 (known chunk-size warning only) |
-| Live client integration | backend `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` + `npm run dev`; `RUBIK_LIVE_BASE_URL=http://127.0.0.1:5173 npx vitest run tests/crosscheck/backend-solutions.test.ts` | PASS: 47 passed (47), 0 skipped; `/health` through the proxy returned the Phase 2 body |
+| Live client integration | backend `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` + `npm run dev`; `RUBIK_LIVE_BASE_URL=http://127.0.0.1:5173 npx vitest run tests/crosscheck/backend-solutions.test.ts` | PASS: 47 passed (47), 0 skipped; `/health` through the proxy returned `{"schemaVersion":1,"status":"degraded","detectorMode":"yolo","visionReady":false,"solverReady":true,"error":"Vision is not available in this build."}` |
 | Server cleanup | servers stopped by PID (process trees) | PASS: ports 8000 and 5173 closed |
-| Scope | `git diff --stat main..HEAD` over `frontend/src`, `frontend/package*.json`, existing `fixtures/solve` and `fixtures/health` files | PASS: no changes |
-| Artifacts | `git ls-files backend` for solver cache, `.npz`, `.venv` | PASS: none tracked |
-| Git | `git status --short`; `git remote -v`; `git log --oneline main..HEAD` | PASS: only the user's `.claude/` and `skills-lock.json` untracked; no remotes; 11 commits `dac19a9..47d7c88` on the branch; nothing merged or pushed |
-| Whole-branch review | independent reviewer over `cae4df6..47d7c88` | PASS: Critical 0, Important 0, 5 Minor (all optional, listed below); verdict "ready to merge" |
+| Scope | `git diff --name-only main..HEAD` over `frontend/src`, `frontend/package*.json`, the existing `fixtures/solve` and `fixtures/health` files | PASS: 0 files changed |
+| Artifacts | `git ls-files backend` matching solver cache, `.npz`, `.venv` | PASS: 0 tracked |
+| Git | `git status --short`; `git remote -v`; `git log --oneline main..HEAD` | PASS: only the user's `.claude/` and `skills-lock.json` untracked; no remotes; 13 commits `dac19a9..ea448fc` verified (the record of this run is one further documentation-only commit, 14 in total) |
+
+### 8.2 Run 1: at `47d7c88` (superseded, kept for the record)
+
+The same checks, with the same results: backend 154 passed in 26.40 s, ruff and mypy clean, `npm ci` / lint / build exit 0, frontend 806 passed and 4 skipped, live block 47 passed with 0 skipped, ports closed, scope clean, 11 commits `dac19a9..47d7c88` at that time.
+
+### 8.3 Independent whole-branch review
+
+An independent reviewer read `cae4df6..47d7c88`: Critical 0, Important 0, 5 Minor (all optional), verdict "ready to merge". The two later commits are documentation only (naming and this report), so no code changed after that review.
 
 Whole-branch review minors (not fixed, recorded as follow-ups): `_import_library()` (with `warnings.catch_warnings`) is called before the adapter lock in `cube_solver_adapter.py`; `faces_from_state` raises a bare `KeyError` on a bad character (tests/recorder only); `.gitignore` lacks a blank line before `# Backend`; no request-body size cap (loopback only; Phase 3 owns frame limits); `/health` hard-codes `solverReady=true`, correct while startup fails without tables.
 
-**Gate verdict: PASS.** Not verified (out of scope or impossible here): vision and YOLO inference, WebSocket scanning, and any physical-cube solve. Phase 2 stops here for the user's approval; nothing is merged, and Phase 3 has not started.
+**Gate verdict: PASS.** Not verified (out of scope or impossible here): vision and YOLO inference, WebSocket scanning, and any physical-cube solve. The user's YOLO26s model was trained externally and is not integrated. Phase 3 has not started.
