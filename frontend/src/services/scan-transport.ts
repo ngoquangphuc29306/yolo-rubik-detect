@@ -52,6 +52,7 @@ export class WebSocketScanTransport implements ScanTransport {
   private state: State = 'idle';
   private pending: Pending | null = null;
   private scanId = '';
+  private lastSeq = 0;
   private readonly timeoutMs: number;
 
   constructor(
@@ -172,12 +173,12 @@ export class WebSocketScanTransport implements ScanTransport {
       if (typeof data !== 'string') throw new Error('binary');
       json = JSON.parse(data);
     } catch {
-      this.badResponse(p, 'Vision service sent an unreadable message.');
+      this.badResponse('Vision service sent an unreadable message.');
       return;
     }
     const parsed = parseScanServerMessage(json);
     if (!parsed.ok) {
-      this.badResponse(p, parsed.error.message);
+      this.badResponse(parsed.error.message);
       return;
     }
     const m = parsed.value;
@@ -189,17 +190,17 @@ export class WebSocketScanTransport implements ScanTransport {
       this.state = 'ready';
       this.take();
       p.settle({ ok: true, ready: m });
-    } else if (p.kind === 'frame' && m.type === 'frame_result' && m.scanId === this.scanId) {
+    } else if (p.kind === 'frame' && m.type === 'frame_result' && m.scanId === this.scanId && m.frameSeq > this.lastSeq) {
+      this.lastSeq = m.frameSeq;
       this.take();
       p.settle({ ok: true, result: m });
     } else {
-      this.badResponse(p, 'Vision service sent an unexpected message.');
+      this.badResponse('Vision service sent an unexpected message.');
     }
   }
 
-  private badResponse(p: Pending, message: string): void {
-    const error = clientError('BAD_RESPONSE', message);
-    if (p.kind === 'connect') this.fail(error);
-    else this.settleFailure(error);
+  /** A malformed or out-of-sequence reply desynchronises request and response: fatal, so a late real reply cannot resolve a newer request. */
+  private badResponse(message: string): void {
+    this.fail(clientError('BAD_RESPONSE', message));
   }
 }

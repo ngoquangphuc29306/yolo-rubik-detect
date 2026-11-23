@@ -57,6 +57,16 @@ async function connected(t = mk()) {
   return t;
 }
 
+/** After a fatal BAD_RESPONSE: later sends are rejected, the socket is closed, and late results are ignored. */
+async function expectFatal(t: WebSocketScanTransport, ws: FakeWS) {
+  expect(ws.closedWith).toBe(1000);
+  expect(vi.getTimerCount()).toBe(0);
+  expect(await t.send(new Blob(['n']))).toMatchObject({ ok: false, error: { kind: 'client', code: 'REQUEST_INVALID' } });
+  ws.msg(fx('frame_result_valid', { frameSeq: 99 })); // late real result: ignored
+  await vi.advanceTimersByTimeAsync(0);
+  expect(vi.getTimerCount()).toBe(0);
+}
+
 beforeEach(() => {
   FakeWS.instances = [];
   vi.useFakeTimers();
@@ -94,6 +104,15 @@ describe('WebSocketScanTransport.connect', () => {
     expect(await p).toMatchObject({ ok: false, error: { kind: 'client', code: 'NETWORK', retryable: true } });
   });
 
+  it('rejects a non-ready message while connecting', async () => {
+    const t = mk();
+    const p = t.connect();
+    sock().open();
+    sock().msg(fx('frame_result_valid'));
+    expect(await p).toMatchObject({ ok: false, error: { kind: 'client', code: 'BAD_RESPONSE' } });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('rejects a ready for another scanId', async () => {
     const t = mk();
     const p = t.connect();
@@ -126,6 +145,7 @@ describe('WebSocketScanTransport.send', () => {
     sock().msg(fx('frame_result_valid'));
     const r = await p;
     expect(r).toMatchObject({ ok: true, result: { type: 'frame_result', frameSeq: 1 } });
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('rejects a second send while one is pending and sends nothing', async () => {
@@ -145,17 +165,53 @@ describe('WebSocketScanTransport.send', () => {
   it('maps a frame_result for another scanId to BAD_RESPONSE', async () => {
     const t = await connected();
     const p = t.send(new Blob(['x']));
-    sock().msg(fx('frame_result_valid', { scanId: 'other' }));
+    const ws = sock();
+    ws.msg(fx('frame_result_valid', { scanId: 'other' }));
     expect(await p).toMatchObject({ ok: false, error: { kind: 'client', code: 'BAD_RESPONSE' } });
+    await expectFatal(t, ws);
   });
 
   it('maps an unparsable message to BAD_RESPONSE', async () => {
     for (const raw of ['not json', { type: 'frame_result' }]) {
       const t = await connected();
+      const ws = sock();
       const p = t.send(new Blob(['x']));
-      sock().msg(raw);
+      ws.msg(raw);
       expect(await p).toMatchObject({ ok: false, error: { kind: 'client', code: 'BAD_RESPONSE' } });
+      await expectFatal(t, ws);
     }
+  });
+
+  it('treats a frameSeq that does not advance as a fatal BAD_RESPONSE', async () => {
+    const t = await connected();
+    const ws = sock();
+    const p1 = t.send(new Blob(['a']));
+    ws.msg(fx('frame_result_valid', { frameSeq: 5 }));
+    expect((await p1).ok).toBe(true);
+    for (const seq of [5, 4]) {
+      const t2 = await connected();
+      const w2 = sock();
+      const a = t2.send(new Blob(['a']));
+      w2.msg(fx('frame_result_valid', { frameSeq: 5 }));
+      await a;
+      const b = t2.send(new Blob(['b']));
+      w2.msg(fx('frame_result_valid', { frameSeq: seq }));
+      expect(await b).toMatchObject({ ok: false, error: { kind: 'client', code: 'BAD_RESPONSE' } });
+      await expectFatal(t2, w2);
+    }
+    const p2 = t.send(new Blob(['b']));
+    ws.msg(fx('frame_result_valid', { frameSeq: 6 }));
+    expect((await p2).ok).toBe(true);
+  });
+
+  it('treats an unexpected ready during a frame as fatal and ignores a ready when idle', async () => {
+    const t = await connected();
+    const ws = sock();
+    ws.msg(fx('ready')); // nothing pending: ignored
+    const p = t.send(new Blob(['x']));
+    ws.msg(fx('ready')); // pending frame: wrong message
+    expect(await p).toMatchObject({ ok: false, error: { kind: 'client', code: 'BAD_RESPONSE' } });
+    await expectFatal(t, ws);
   });
 
   it('maps a server error to an api error and stays usable', async () => {
@@ -163,6 +219,7 @@ describe('WebSocketScanTransport.send', () => {
     const p = t.send(new Blob(['x']));
     sock().msg(fx('error_invalid_frame'));
     expect(await p).toMatchObject({ ok: false, error: { kind: 'api', code: 'INVALID_FRAME', retryable: true } });
+    expect(vi.getTimerCount()).toBe(0);
     const p2 = t.send(new Blob(['y']));
     sock().msg(fx('frame_result_valid'));
     expect((await p2).ok).toBe(true);
@@ -177,6 +234,7 @@ describe('WebSocketScanTransport.send', () => {
     ws.msg(fx('frame_result_valid')); // late: must be ignored, never throw
     expect(await t.send(new Blob(['y']))).toMatchObject({ ok: false });
     expect(ws.sent.filter((s) => s instanceof Blob)).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('resolves a pending send with BACKEND_UNAVAILABLE when the socket closes', async () => {
@@ -195,6 +253,7 @@ describe('WebSocketScanTransport.close', () => {
     t.close();
     expect(await p).toMatchObject({ ok: false, error: { kind: 'client', code: 'REQUEST_CANCELLED' } });
     expect(ws.closedWith).toBe(1000);
+    expect(vi.getTimerCount()).toBe(0);
     expect(() => {
       ws.msg(fx('frame_result_valid'));
       ws.onclose?.({});
@@ -209,6 +268,7 @@ describe('WebSocketScanTransport.close', () => {
     const p = t.connect();
     t.close();
     expect(await p).toMatchObject({ ok: false, error: { kind: 'client', code: 'REQUEST_CANCELLED' } });
+    expect(vi.getTimerCount()).toBe(0);
     sock().open();
     expect(sock().sent).toEqual([]);
   });
@@ -222,7 +282,7 @@ describe('WebSocketScanTransport.close', () => {
     wsA.msg(fx('frame_result_valid', { frameSeq: 9 }));
     let settled = false;
     void p.then(() => (settled = true));
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
     expect(settled).toBe(false);
     sock().msg(fx('frame_result_valid', { frameSeq: 1 }));
     expect(await p).toMatchObject({ ok: true, result: { frameSeq: 1 } });
