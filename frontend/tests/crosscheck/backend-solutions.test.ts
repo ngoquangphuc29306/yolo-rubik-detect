@@ -41,17 +41,30 @@ describe.runIf(baseUrl)('live backend via frontend clients', () => {
   const scrambleA = readJson('../../../fixtures/solve/scramble-a.request.json') as SolveRequest;
   const signal = new AbortController().signal;
 
-  it('health matches the Phase 2 body and readiness is MODEL_UNAVAILABLE', async () => {
+  it('health is the Phase 3 loaded or degraded shape and readiness follows it', async () => {
     const health = await getHealth({ signal, baseUrl });
-    expect(health).toEqual({
-      schemaVersion: 1,
-      status: 'degraded',
-      detectorMode: 'yolo',
-      visionReady: false,
-      solverReady: true,
-      error: 'Vision is not available in this build.',
-    });
-    expect(deriveLiveReadiness(health)).toEqual({ kind: 'blocked', reason: 'MODEL_UNAVAILABLE', solverReady: true });
+    expect(health).not.toBeNull();
+    const h = health as unknown as Record<string, unknown>;
+    expect(h.schemaVersion).toBe(1);
+    expect(h.detectorMode).toBe('yolo');
+    expect(h.solverReady).toBe(true); // the solver is always loaded while the process serves
+    if (h.visionReady === true) {
+      // (a) vision loaded
+      expect(Object.keys(h).sort()).toEqual(['detectorMode', 'device', 'modelVersion', 'schemaVersion', 'solverReady', 'status', 'visionReady']);
+      expect(h.status).toBe('ok');
+      expect(h.modelVersion).toMatch(/^[\w.-]+@[0-9a-f]{12}$/);
+      expect(typeof h.device).toBe('string');
+      expect(deriveLiveReadiness(health)).toEqual({ kind: 'ready' });
+    } else {
+      // (b) vision unavailable: a reason without any filesystem path
+      expect(Object.keys(h).sort()).toEqual(['detectorMode', 'error', 'schemaVersion', 'solverReady', 'status', 'visionReady']);
+      expect(h.visionReady).toBe(false);
+      expect(h.status).toBe('degraded');
+      expect(typeof h.error).toBe('string');
+      expect((h.error as string).length).toBeGreaterThan(0);
+      expect(h.error).not.toMatch(/[\\/]|[A-Za-z]:/);
+      expect(deriveLiveReadiness(health)).toEqual({ kind: 'blocked', reason: 'MODEL_UNAVAILABLE', solverReady: true });
+    }
   });
 
   it('solves the solved cube with no moves', async () => {

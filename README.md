@@ -102,7 +102,7 @@ npx vitest run tests/crosscheck/backend-solutions.test.ts
 Remove-Item Env:RUBIK_LIVE_BASE_URL
 ```
 
-Without the variable that block is skipped (4 tests). A passing solve means the server's solution replays to solved in two engines; it does not mean a real cube was scanned correctly.
+Without the variable that block is skipped (4 tests). The health check in that block accepts exactly two shapes: vision loaded (`status: "ok"`, `visionReady: true`) or vision unavailable (`status: "degraded"`, `visionReady: false`, readiness `MODEL_UNAVAILABLE`). A passing solve means the server's solution replays to solved in two engines; it does not mean a real cube was scanned correctly.
 
 ## Demo and Live
 
