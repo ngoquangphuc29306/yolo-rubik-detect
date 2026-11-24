@@ -5,10 +5,11 @@ import { cn } from '@/lib/utils';
 import type { CameraState } from '@/hooks/useCamera';
 import { useElementSize, useVideoFrameSize } from '@/hooks/useElementSize';
 import type { LiveConnection } from '@/hooks/useLiveScan';
-import { stabilityProgress, type LiveScanState } from '@/lib/live-scan-machine';
+import { isReasonHint, stabilityProgress, type LiveScanState } from '@/lib/live-scan-machine';
 import { rotationStep } from '@/lib/rotation-steps';
 import { MIRROR_STYLE } from '@/lib/mirror';
 import { guideOverlay } from '@/lib/scan-roi';
+import { coachFrame } from '@/lib/scan-coaching';
 import type { FrameResult } from '@/types/api';
 import { LiveScanGuide } from './LiveScanGuide';
 import { RotationCue } from './RotationCue';
@@ -89,6 +90,14 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
     [frameSize, viewSize, showGuide, searching, captured, scan?.lastResult],
   );
 
+  // Coaching replaces only the generic per-frame hints; colour-gate, rotation and save hints keep priority.
+  const coaching = React.useMemo(
+    () => (showGuide && searching ? coachFrame(scan.lastResult) : { count: null, line: null }),
+    [showGuide, searching, scan?.lastResult],
+  );
+  const machineHint = scan?.state.hint ?? null;
+  const hint = machineHint !== null && !isReasonHint(machineHint) ? machineHint : (coaching.line ?? machineHint);
+
   return (
     <>
     <div ref={setBox} className={FRAME_CLASS}>
@@ -149,10 +158,17 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
           cells={searching ? (scan.lastResult?.cells ?? null) : null}
           progress={searching ? stabilityProgress(scan.state, now) : 0}
           phase={scan.state.phase}
-          hint={scan.state.hint}
+          hint={hint}
           capturedGrid={phase === 'captured' ? (scan.state.pendingCapture?.grid ?? null) : null}
           arrow={showCue ? step.arrow : null}
         />
+      )}
+
+      {/* Outside the mirrored layer, so the text reads normally. */}
+      {coaching.count !== null && (
+        <span className="absolute left-3 top-3 z-10 rounded-md bg-black/65 px-2 py-1 text-xs font-semibold text-zinc-100 tabular-nums">
+          {coaching.count} of 9 stickers seen
+        </span>
       )}
     </div>
 

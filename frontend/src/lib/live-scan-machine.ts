@@ -71,6 +71,12 @@ export function hintForReason(reason: string | undefined): string {
   }
 }
 
+const REASONS = ['NO_FACE', 'INCOMPLETE', 'AMBIGUOUS', 'MISALIGNED', 'TILTED', undefined] as const;
+/** True for the generic per-frame quality hints (not colour-gate, rotation or save-failure hints). */
+export function isReasonHint(hint: string | null): boolean {
+  return hint !== null && REASONS.some((r) => hintForReason(r) === hint);
+}
+
 export function stabilityProgress(state: LiveScanState, at: number): number {
   const s = state.streak;
   if (!s) return 0;
