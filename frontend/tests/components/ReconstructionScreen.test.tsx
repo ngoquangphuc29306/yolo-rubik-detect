@@ -123,6 +123,20 @@ describe('ReconstructionScreen - demo happy path', () => {
     expect(cube.props?.mode).toBe('interactive');
   });
 
+  it('3D twin camera is far enough back that the whole cube stays in the frame', async () => {
+    capture('demo');
+    render(<ReconstructionScreen />);
+    await flush();
+    await advance(STEP * 6);
+    fireEvent.click(screen.getByRole('button', { name: '3D Twin' }));
+    const [x, y, z] = cube.props?.cameraPosition as [number, number, number];
+    const distance = Math.hypot(x, y, z);
+    const fov = (cube.props?.fov as number | undefined) ?? 38; // RubiksCube3D default
+    const halfHeight = distance * Math.tan((fov * Math.PI) / 360);
+    const cornerRadius = (3 * Math.sqrt(3)) / 2; // half the cube's space diagonal
+    expect(halfHeight).toBeGreaterThan(cornerRadius * 1.05);
+  });
+
   it('Prepare to Solve goes to alignment', async () => {
     capture('demo');
     render(<ReconstructionScreen />);

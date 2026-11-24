@@ -304,7 +304,9 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
                 {!isDemo
                   ? liveScan.connection === 'live'
                     ? 'Auto-capture on'
-                    : 'Waiting for the vision service'
+                    : liveScan.connection === 'idle'
+                      ? 'Auto-capture starts with the camera'
+                      : 'Waiting for the vision service'
                   : autoCaptureEnabled
                     ? 'Auto-capture on'
                     : 'Manual capture'}

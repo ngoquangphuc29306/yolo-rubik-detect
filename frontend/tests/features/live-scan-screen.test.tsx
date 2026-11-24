@@ -261,9 +261,13 @@ describe('Live scanning screen', () => {
     const strip = (text: string) => screen.getByText(text).closest('[role="status"]');
     it('camera off', () => {
       h.cameraStatus = 'idle';
+      setLive({ connection: 'idle' }); // the real hook is idle while the camera is off
       render(<ScanningScreen />);
       expect(strip('Enable the camera to start scanning')).toBeTruthy();
       expect(screen.queryByTestId('guide-square')).toBeNull();
+      // idle is not a fault: the header must not claim the vision service is being waited for
+      expect(screen.queryByText('Waiting for the vision service')).toBeNull();
+      expect(screen.getByText('Auto-capture starts with the camera')).toBeTruthy();
     });
     it('connecting', () => {
       setLive({ connection: 'connecting' });
