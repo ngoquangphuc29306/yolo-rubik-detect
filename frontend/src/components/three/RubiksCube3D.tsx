@@ -545,6 +545,25 @@ export interface RubiksCube3DProps extends ControlledProps {
   className?: string;
 }
 
+const POSITIONED = ['absolute', 'fixed', 'sticky', 'relative'];
+
+/** Longest the skeleton may stay when no frame is confirmed (never leaves the view covered). */
+export const READY_FALLBACK_MS = 5000;
+
+/** Placeholder over the canvas until WebGL has produced its first frames; same box as the canvas wrapper. */
+function CubeSkeleton() {
+  return (
+    <div
+      data-testid="cube-skeleton"
+      role="status"
+      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-[#111113]/90"
+    >
+      <div className="h-16 w-16 rounded-xl border border-zinc-700/70 bg-zinc-800/60 animate-skeleton-pulse" aria-hidden="true" />
+      <p className="text-xs text-zinc-400 text-center px-2">Preparing 3D view…</p>
+    </div>
+  );
+}
+
 export function RubiksCube3D({
   cubies,
   frameRef,
@@ -564,6 +583,29 @@ export function RubiksCube3D({
   className = 'w-full h-full',
 }: RubiksCube3DProps) {
   const [contextLost, setContextLost] = React.useState(false);
+  const [ready, setReady] = React.useState(false);
+  const rafs = React.useRef<number[]>([]);
+
+  // The canvas is created before WebGL has drawn (PMREM environment, shaders): wait two frames after creation.
+  const markCreated = React.useCallback(() => {
+    const first = requestAnimationFrame(() => {
+      const second = requestAnimationFrame(() => setReady(true));
+      rafs.current.push(second);
+    });
+    rafs.current.push(first);
+  }, []);
+  React.useEffect(() => {
+    if (ready || contextLost) return;
+    const fallback = setTimeout(() => setReady(true), READY_FALLBACK_MS);
+    return () => clearTimeout(fallback);
+  }, [ready, contextLost]);
+  React.useEffect(
+    () => () => {
+      rafs.current.forEach((id) => cancelAnimationFrame(id));
+      rafs.current = [];
+    },
+    [],
+  );
 
   const defaultCam = React.useMemo<[number, number, number]>(
     () =>
@@ -599,7 +641,8 @@ export function RubiksCube3D({
   }
 
   return (
-    <div className={className}>
+    <div className={className.split(' ').some((c) => POSITIONED.includes(c)) ? className : `${className} relative`}>
+      {!ready && <CubeSkeleton />}
       {/* frameloop must stay 'always': the controlled renderer reads frameRef every frame and the
           pivot, arrow pulse and camera damping all depend on a continuous loop ('demand' would freeze them). */}
       <Canvas
@@ -614,9 +657,11 @@ export function RubiksCube3D({
           alpha: true,
         }}
         onCreated={({ gl }) => {
+          markCreated();
           gl.domElement.addEventListener('webglcontextlost', (e) => {
             e.preventDefault();
             setContextLost(true);
+            setReady(false);
           });
           gl.domElement.addEventListener('webglcontextrestored', () => {
             setContextLost(false);

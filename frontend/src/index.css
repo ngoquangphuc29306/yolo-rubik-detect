@@ -106,3 +106,11 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-capture-flash, .animate-capture-check { animation: none; }
 }
+
+/* 3D loading skeleton: a gentle pulse, still under reduced motion. */
+@keyframes skeletonPulse { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.4; } }
+.animate-skeleton-pulse { animation: skeletonPulse 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-skeleton-pulse { animation: none; }
+}
