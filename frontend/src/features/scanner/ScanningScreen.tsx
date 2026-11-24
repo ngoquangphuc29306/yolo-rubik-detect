@@ -91,6 +91,7 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
   const isDemo = mode === 'demo';
   const sessionId = useSessionStore((s) => s.sessionId);
   const screenNow = useSessionStore((s) => s.screen);
+  const soundEnabled = useSessionStore((s) => s.settings.soundEnabled);
   const autoCaptureEnabled = useSessionStore((s) => s.settings.autoCaptureEnabled);
   const stageIndex = useScanStore((s) => s.stageIndex);
   const faceStatuses = useScanStore((s) => s.faceStatuses);
@@ -121,12 +122,17 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
     }
     return centers;
   }, [captured]);
+  const [lastCapturedFace, setLastCapturedFace] = React.useState<FaceId | null>(null);
   // Called unconditionally (hooks rule); with enabled:false (Demo, no camera) it constructs nothing.
   const liveScan = useLiveScan({
     enabled: liveCameraActive,
     video: videoEl,
     createTransport: () => new WebSocketScanTransport(scanSocketUrl(window.location)),
-    onCapture: (face, grid) => useScanStore.getState().captureFace(face, grid, 'live'),
+    onCapture: (face, grid) => {
+      const stored = useScanStore.getState().captureFace(face, grid, 'live');
+      if (stored) setLastCapturedFace(face);
+      return stored;
+    },
     initialCenters: capturedCenters,
   });
   const resetLiveScan = liveScan.reset;
@@ -324,6 +330,7 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
               videoRef={combinedVideoRef}
               onEnableCamera={camera.start}
               scan={scanView}
+              capture={{ count: capturedCount, face: lastCapturedFace, soundEnabled }}
             />
           )}
 

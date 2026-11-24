@@ -390,3 +390,15 @@ describe('Demo isolation', () => {
     expect(h.ctor).not.toHaveBeenCalled();
   });
 });
+
+describe('Live capture feedback wiring', () => {
+  it('shows the confirmation when a live face is stored, not on mount', () => {
+    useScanStore.getState().captureFace('F', grid('green'), 'live');
+    setLive({}, { stage: 'R', phase: 'rotating', step: 1 });
+    const { rerender } = render(<ScanningScreen />);
+    expect(screen.queryByTestId('capture-check')).toBeNull();
+    act(() => void useScanStore.getState().captureFace('R', grid('red'), 'live'));
+    rerender(<ScanningScreen />);
+    expect(screen.getByTestId('capture-check')).toBeTruthy();
+  });
+});

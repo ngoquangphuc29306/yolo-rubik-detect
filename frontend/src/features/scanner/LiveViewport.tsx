@@ -11,9 +11,11 @@ import { MIRROR_STYLE } from '@/lib/mirror';
 import { guideOverlay } from '@/lib/scan-roi';
 import { coachFrame } from '@/lib/scan-coaching';
 import type { FrameResult } from '@/types/api';
+import { CaptureFeedback } from './CaptureFeedback';
 import { LiveScanGuide } from './LiveScanGuide';
 import { RotationCue } from './RotationCue';
 import { FACE_NAMES } from './scan-guide';
+import type { FaceId } from '@/types/cube';
 
 const TICK_MS = 100; // progress bar refresh: never faster than ~10 Hz
 
@@ -34,6 +36,8 @@ export interface LiveViewportProps {
   onEnableCamera: () => void;
   /** null until the vision service is ready: then no guide and no strip detail. */
   scan: LiveScanView | null;
+  /** Capture confirmation inputs; the confirmation shows when `count` rises. */
+  capture?: { count: number; face: FaceId | null; soundEnabled: boolean };
 }
 
 /** Strip text for connection/camera/phase messages only; the guide owns the hint live region. */
@@ -53,7 +57,7 @@ function stripText(active: boolean, scan: LiveScanView | null): string {
   }
 }
 
-function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewportProps) {
+function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan, capture }: LiveViewportProps) {
   const active = camera.status === 'active';
   const requesting = camera.status === 'requesting';
   const [box, setBox] = React.useState<HTMLDivElement | null>(null);
@@ -161,6 +165,15 @@ function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan }: LiveViewpo
           hint={hint}
           capturedGrid={phase === 'captured' ? (scan.state.pendingCapture?.grid ?? null) : null}
           arrow={showCue ? step.arrow : null}
+        />
+      )}
+
+      {showGuide && capture && (
+        <CaptureFeedback
+          capturedCount={capture.count}
+          face={capture.face}
+          soundEnabled={capture.soundEnabled}
+          zone={overlay.square}
         />
       )}
 

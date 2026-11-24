@@ -4,6 +4,7 @@ import { RubiksCube3D } from '@/components/three/RubiksCube3D';
 import { toCubies } from '@/engine/cubie-adapter';
 import { SOLVED } from '@/engine/cube-state';
 import { DEMO_CENTER_COLORS } from '@/demo/demo-fixtures';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { MIRROR_STYLE } from '@/lib/mirror';
 import { loopProgress, referenceRotationAt, stepEndPose, stepStartPose, stepTargetFace, type Rotation3 } from '@/lib/reference-motion';
 import { stepCaption, type RotationStep } from '@/lib/rotation-steps';
@@ -42,21 +43,6 @@ interface ScanGuidePanelProps {
 }
 
 const ARROW_ICON = { left: ArrowLeft, right: ArrowRight, up: ArrowUp, down: ArrowDown } as const;
-
-function usePrefersReducedMotion(): boolean {
-  const query = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(prefers-reduced-motion: reduce)')
-    : null;
-  const [reduced, setReduced] = React.useState(query?.matches ?? false);
-  React.useEffect(() => {
-    if (!query) return;
-    const on = () => setReduced(query.matches);
-    on();
-    query.addEventListener?.('change', on);
-    return () => query.removeEventListener?.('change', on);
-  }, [query]);
-  return reduced;
-}
 
 /** Loops rest, turn, hold, snap back for `step` into `ref`; no React state per frame, paused while hidden. */
 function useReferenceLoop(step: RotationStep | null, enabled: boolean, ref: React.MutableRefObject<Rotation3>) {
