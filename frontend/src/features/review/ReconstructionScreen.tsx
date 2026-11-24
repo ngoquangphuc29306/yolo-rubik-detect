@@ -287,7 +287,7 @@ export function ReconstructionScreen() {
                   <RubiksCube3D
                     cubies={cubies}
                     mode="interactive"
-                    cameraPosition={[4.3, 3.2, 4.8]}
+                    cameraPosition={[4.9, 3.7, 5.5]}
                     className="w-full h-full"
                   />
                 </div>

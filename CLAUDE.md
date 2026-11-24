@@ -2,9 +2,9 @@
 
 ## Project mission
 
-RubikVision helps users solve a physical 3×3 Rubik's Cube: guided webcam scanning → YOLO26s facelet detection (trained externally; weights not yet integrated) → cube reconstruction and Kociemba → Three.js digital twin with timed auto-guidance.
+RubikVision helps users solve a physical 3×3 Rubik's Cube: guided webcam scanning → YOLO26s facelet detection (trained externally; the git-ignored `backend/weights/best.pt` is now integrated for live scanning) → cube reconstruction and Kociemba → Three.js digital twin with timed auto-guidance.
 
-Build the software first using deterministic fixtures; train six-color YOLO weights last. Preserve the existing Google AI Studio visual design and six-screen flow unless the user explicitly requests changes. Do not mistake a prototype, fixture result, or digital replay for physical verification.
+Software was built first using deterministic fixtures; the externally trained six-color YOLO26s weights joined in Phase 3. Preserve the existing Google AI Studio visual design and six-screen flow unless the user explicitly requests changes. Do not mistake a prototype, fixture result, or digital replay for physical verification.
 
 ## Read before working
 
@@ -32,12 +32,12 @@ If paths differ, locate the actual documents rather than creating duplicate spec
 | 0 | Baseline, reproducible setup, actual build/typecheck and browser observations |
 | 1 | Frontend migration/refactor, deterministic engine and timed coach, explicit demo; typed clients |
 | 2 | FastAPI, canonical reconstruction/validation, real Kociemba and shared fixtures |
-| 3 | Detector interface, fixture detector, geometry and WebSocket protocol |
-| 4 | Full-stack fixture integration and YOLO adapter (software-ready gate) |
-| 5 | Dataset audit, six-color label mapping, training and evaluation |
-| 6 | Load `backend/weights/best.pt`, benchmark real webcam and physical end-to-end recovery (model-ready gate) |
+| 3 | Detector interface, fixture detector, geometry and WebSocket protocol (superseded, see ARCHITECTURE §13) |
+| 4 | Full-stack fixture integration and YOLO adapter (software-ready gate) (superseded, see ARCHITECTURE §13) |
+| 5 | Dataset audit, six-color label mapping, training and evaluation (superseded, see ARCHITECTURE §13) |
+| 6 | Load `backend/weights/best.pt`, benchmark real webcam and physical end-to-end recovery (model-ready gate) (superseded, see ARCHITECTURE §13) |
 
-Current authorization is determined by the user's latest approval, not by this roadmap. Phase 1 is merged into `main` (plan `docs/superpowers/plans/2026-11-19-frontend-refactor.md`; evidence in `docs/superpowers/reports/phase1-verification.md`). Phase 2 (backend) is implemented on branch `feat/phase-2-backend` (plan `docs/superpowers/plans/2026-11-22-phase-2-backend.md`) and awaits the user's approval; evidence is in `docs/superpowers/reports/phase2-verification.md`. Phase 3 is not started.
+Current authorization is determined by the user's latest approval, not by this roadmap. Phase 1 is merged into `main` (plan `docs/superpowers/plans/2026-11-19-frontend-refactor.md`; evidence in `docs/superpowers/reports/phase1-verification.md`). Phase 2 (backend) is merged (plan `docs/superpowers/plans/2026-11-22-phase-2-backend.md`; evidence in `docs/superpowers/reports/phase2-verification.md`). Phase 3 (real YOLO26s live scanning; plan `docs/superpowers/plans/2026-11-23-phase-3-live-vision.md`) is implemented on branch `feat/phase-3-live-vision` and awaits the user's approval; evidence is in `docs/superpowers/reports/phase3-verification.md`. The physical webcam test is NOT RUN (user-run, `docs/superpowers/reports/phase3-physical-test-checklist.md`). The Phase 3 to 6 rows above are superseded by that reframing (`docs/ARCHITECTURE.md` §13); do not start another phase automatically.
 
 ## Architecture boundaries
 
@@ -45,7 +45,7 @@ Current authorization is determined by the user's latest approval, not by this r
 - Pure `engine/`: cube state, integer facelet geometry, move permutations and playback reducer; no React, DOM, timers, Three.js, network or store dependencies.
 - `components/three/`: controlled renderer and camera viewpoint; no independent mutation of cube state or authoritative playback clock.
 - `features/`: product workflows; `hooks/`: browser lifecycle and orchestration; `stores/`: session/application state; `services/`: typed, validated transport boundaries; `demo/`: explicit deterministic fixtures.
-- Backend: Python/FastAPI, Pydantic, OpenCV/NumPy, Kociemba, Ultralytics/PyTorch. Detector returns the same typed detections for fixture and YOLO implementations. Frontend owns scan sequence/stability; backend owns frame geometry, physical legality and solution generation.
+- Backend: Python/FastAPI, Pydantic, OpenCV/NumPy, Kociemba, Ultralytics/PyTorch. A `Detector` protocol returns typed detections; the YOLO26s detector is the only runtime implementation, and tests inject doubles. Frontend owns scan sequence/stability; backend owns frame geometry, physical legality and solution generation.
 - Training is isolated from runtime. Do not add a database, authentication, cloud inference, LLM, segmentation or true AR for the MVP without an approved design change.
 
 ## Canonical cube invariants — never change casually
@@ -59,7 +59,7 @@ Current authorization is determined by the user's latest approval, not by this r
 
 ## Vision and transport
 
-- Demo and live are disjoint. Demo fixtures must be visibly labeled, never presented over live webcam as inferred boxes, confidences or captured grids. Fixture backend is opt-in and explicitly visible; never silently fall back to fixtures or COCO weights.
+- Demo and live are disjoint. Demo fixtures must be visibly labeled, never presented over live webcam as inferred boxes, confidences or captured grids. No fixture backend exists; any future one must be opt-in and visibly labelled. Never silently fall back to fixtures or COCO weights.
 - Guided scanning captures one front-facing 3×3 grid at a time. Only rotate the whole physical cube during scan. Nine detected stickers and a center color do not prove roll or hidden neighbor identity.
 - Use unmirrored frame coordinates, consistent contain-fit overlay transform and agreed ROI contract from Architecture. One in-flight frame per connection; discard stale connection/stage/frame results. Reject incomplete, duplicate, unstable or ambiguous grids.
 - Endpoints: `GET /health`, `POST /api/solve`, `/ws/scan`. Keep schema/version, fixtures and Python/TypeScript contracts aligned. Validate runtime payloads, not just TypeScript types. Abort/ignore stale requests, including retries within one session.
@@ -81,7 +81,7 @@ The package manager is npm (`frontend/package-lock.json` is the only lockfile; B
 
 - Install: `npm ci`. Do not invent a passing baseline when a tool is missing.
 - Frontend: `npm run dev` (http://127.0.0.1:5173, loopback only), `npm run lint` (`tsc --noEmit`), `npm run test` (Vitest; one file with `npx vitest run <path>`), `npm run build`.
-- Backend (from `backend/`, uv, Python 3.12): `uv sync`; one-time `uv run python -m app.solver.prepare` (about 5–7 min, 1.6 GB); `uv run pytest` (`-m slow` for the 300-state cross-check); `uv run ruff check .`; `uv run mypy app`; server `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` (the only start form).
+- Backend (from `backend/`, uv, Python 3.12): `uv sync`; one-time `uv run python -m app.solver.prepare` (about 5–7 min, 1.6 GB); `uv run pytest` (default run excludes `slow` and `model`; `-m slow` for the 300-state cross-check; `-m model` for the real-checkpoint tests, which need `backend/weights/best.pt` and fail with an instruction when it is missing); `uv run ruff check .` (`ruff format` is not a gate; do not reformat files you did not change); `uv run mypy app`; server `uv run uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000` (the only start form).
 - Verify actual browser behavior for affected flows, including 3D direction, pause mid-turn, resize, camera cleanup and missing backend/model. jsdom tests do not verify WebGL.
 - Report command, exit status, failed/passed counts, visual checks actually performed, and any remaining limitations. Keep independent reference provenance and shared JSON fixtures reviewable.
 

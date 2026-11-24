@@ -292,12 +292,11 @@ describe('ScanningScreen - LIVE', () => {
     useSessionStore.getState().startSession('live', 'scanning');
   });
 
-  it('no backend: unavailable panel, capture present but disabled, no overlay, no picker, no fake loading', async () => {
+  it('no backend: unavailable panel, no capture button, no overlay, no picker, no fake loading', async () => {
     stubHealth(() => Promise.reject(new Error('down')));
     render(<ScanningScreen />);
     expect(await screen.findByText('Vision service is not running')).toBeTruthy();
-    const capture = screen.getByRole('button', { name: /capture face/i }) as HTMLButtonElement;
-    expect(capture.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(screen.queryAllByTestId('detection-label')).toHaveLength(0);
     expect(screen.queryByText(/Simulate Computer Vision State/)).toBeNull();
     expect(screen.queryByRole('button', { name: /preview scan states/i })).toBeNull();
@@ -307,14 +306,13 @@ describe('ScanningScreen - LIVE', () => {
     expect(screen.queryByText(/confidence/i)).toBeNull();
   });
 
-  it('the disabled Capture button is described by the "Capture unavailable" text', async () => {
+  it('the footer is a status strip, with no Capture button and no "Capture unavailable" text', async () => {
     stubHealth(() => Promise.reject(new Error('down')));
     render(<ScanningScreen />);
     await flushReal();
-    const capture = screen.getByRole('button', { name: /capture face/i });
-    const id = capture.getAttribute('aria-describedby');
-    expect(id).toBeTruthy();
-    expect(document.getElementById(id!)?.textContent).toMatch(/Capture unavailable/);
+    expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
+    expect(screen.queryByText(/Capture unavailable/)).toBeNull();
+    expect(screen.getByText('Enable the camera to start scanning').closest('[role="status"]')).toBeTruthy();
   });
 
   it('Retry re-checks the backend', async () => {
@@ -344,22 +342,24 @@ describe('ScanningScreen - LIVE', () => {
     ).toBeTruthy();
   });
 
-  it('fixture detector: labelled banner, capture still disabled', async () => {
+  it('fixture detector: labelled banner and no capture control', async () => {
     stubHealth(() => jsonResponse(loadFixture('health/fixture-mode.json')));
     render(<ScanningScreen />);
     expect(await screen.findByText('Fixture detector — not real inference')).toBeTruthy();
-    const capture = screen.getByRole('button', { name: /capture face/i }) as HTMLButtonElement;
-    expect(capture.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(screen.queryAllByTestId('detection-label')).toHaveLength(0);
   });
 
-  it('a ready vision service still cannot capture in Phase 1', async () => {
+  it('a ready vision service shows no unavailable panel and nothing is captured before the camera is on', async () => {
     stubHealth(() => jsonResponse(loadFixture('health/ok.json')));
     render(<ScanningScreen />);
     await flushReal();
-    const capture = screen.getByRole('button', { name: /capture face/i }) as HTMLButtonElement;
-    expect(capture.disabled).toBe(true);
+    expect(screen.queryByText(/Vision service is connected/)).toBeNull();
+    expect(screen.queryByText(/not available in this version/)).toBeNull();
+    expect(screen.queryByText(/Checking vision service/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /capture face/i })).toBeNull();
     expect(useScanStore.getState().stability).toBe(0);
+    expect(Object.keys(useScanStore.getState().captured)).toHaveLength(0);
   });
 
   it('guide names only the centres it knows (F green, U white, plus captured faces)', async () => {
@@ -367,8 +367,8 @@ describe('ScanningScreen - LIVE', () => {
     render(<ScanningScreen />);
     await flushReal();
     const panel = () => screen.getByTestId('scan-guide-panel');
-    expect(panel().textContent).toMatch(/green center/);
-    expect(panel().textContent).toMatch(/white center/);
+    expect(panel().textContent).toMatch(/green cent(er|re)/);
+    expect(panel().textContent).toMatch(/white cent(er|re)/);
     expect(panel().textContent).not.toMatch(/\b(red|blue|orange|yellow)\b/i);
     const greenFace = Array(9).fill('green') as unknown as FaceGrid;
     act(() => { useScanStore.getState().captureFace('F', greenFace, 'live'); });
@@ -391,7 +391,7 @@ describe('ScanningScreen - LIVE', () => {
       expect(getUserMedia).toHaveBeenCalledTimes(1);
     });
 
-    it('video is unmirrored, letterboxed (object-contain) and labelled', async () => {
+    it('video is mirrored for display only, letterboxed (object-contain) and labelled', async () => {
       const { container } = render(<ScanningScreen />);
       const { stream } = fakeStream();
       getUserMedia.mockResolvedValue(stream);
@@ -400,8 +400,7 @@ describe('ScanningScreen - LIVE', () => {
       const video = container.querySelector('video')!;
       expect(video).toBeTruthy();
       expect(video.className).toContain('object-contain');
-      expect(video.className).not.toMatch(/scale-x|-scale|mirror|rotate-y/);
-      expect(video.style.transform).toBe('');
+      expect(video.style.transform).toBe('scaleX(-1)'); // display only; the crop sent to the backend is unmirrored
       expect(video.srcObject).toBe(stream);
       expect(video.getAttribute('aria-label')).toMatch(/camera/i);
     });

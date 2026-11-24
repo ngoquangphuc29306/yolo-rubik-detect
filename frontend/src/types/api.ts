@@ -67,7 +67,39 @@ export type LiveReadiness =
   | { kind: 'fixture-only'; solverReady: boolean }
   | { kind: 'blocked'; reason: 'MODEL_UNAVAILABLE' | 'BACKEND_UNAVAILABLE'; solverReady: boolean };
 
-// Types only in Phase 1 (no scan transport yet).
+export interface FrameCell {
+  color: ColorName | null;
+  confidence: number | null;
+  status: 'ok' | 'missing' | 'ambiguous' | 'misaligned';
+}
+
+export interface ScanReady {
+  type: 'ready';
+  schemaVersion: 1;
+  scanId: string;
+  modelVersion: string;
+  imgsz: number;
+  maxFrameBytes: number;
+  maxFrameEdge: number;
+}
+
+export interface ScanServerError {
+  type: 'error';
+  schemaVersion: 1;
+  code: 'FRAME_TOO_LARGE' | 'INVALID_FRAME' | 'MODEL_UNAVAILABLE';
+  message: string;
+  retryable: boolean;
+}
+
+export type ScanServerMessage = ScanReady | FrameResult | ScanServerError;
+
+export interface FaceBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 export interface FrameResult {
   type: 'frame_result';
   schemaVersion: 1;
@@ -76,7 +108,10 @@ export interface FrameResult {
   width: number;
   height: number;
   detections: { classId: number; color: ColorName; confidence: number; xyxy: [number, number, number, number] }[];
+  cells: FrameCell[];
   grid: ColorName[] | null;
+  /** Fitted 3x3 lattice bounding box in crop pixels (unmirrored); null when no lattice could be fitted. */
+  face: FaceBox | null;
   quality: { valid: boolean; reason?: string };
   inferenceMs: number;
 }

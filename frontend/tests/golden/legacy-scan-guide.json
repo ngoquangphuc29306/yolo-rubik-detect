@@ -48,8 +48,9 @@
    ]
   },
   "U": {
-   "scanHeading": "Return to Front, then tilt downward for the Top face",
-   "scanInstruction": "Turn back to green front, then tilt the top of the whole cube forward toward the camera to show the white center.",
+   "scanHeading": "Return to Front, then tilt the top toward you for the Top face",
+   "scanInstruction": "Turn back to green front, then tilt the top of the whole cube toward the camera so the white center faces straight ahead and the back face ends at the top of the image.",
+   "steps": ["Turn back so the green face looks at the camera", "Tilt the top of the whole cube toward the camera"],
    "rotationHint": "Tilt whole cube top toward camera",
    "arrowDirection": "down",
    "referenceRotation": [
@@ -59,8 +60,9 @@
    ]
   },
   "D": {
-   "scanHeading": "Tilt upward to show the Bottom face",
-   "scanInstruction": "Tilt the bottom of the whole cube upward toward the camera so the yellow center faces straight ahead.",
+   "scanHeading": "Return to Front, then tilt the bottom toward you for the Bottom face",
+   "scanInstruction": "Turn back to green front, then tilt the bottom of the whole cube toward the camera so the yellow center faces straight ahead and the front face ends at the top of the image.",
+   "steps": ["Turn back so the green face looks at the camera", "Tilt the bottom of the whole cube toward the camera"],
    "rotationHint": "Tilt whole cube bottom toward camera",
    "arrowDirection": "up",
    "referenceRotation": [

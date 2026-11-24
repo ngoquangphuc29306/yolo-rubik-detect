@@ -1,6 +1,17 @@
 // Strict hand-written runtime validators for wire payloads. Reject extra keys, wrong types and illegal values.
 import { SOLVER_FACE_ORDER, type CenterColors, type ColorName, type FaceId } from '@/types/cube';
-import type { ApiErrorCode, ApiErrorEnvelope, HealthResponse, SolveError, SolveResponse } from '@/types/api';
+import type {
+  ApiErrorCode,
+  ApiErrorEnvelope,
+  FrameCell,
+  FrameResult,
+  HealthResponse,
+  ScanReady,
+  ScanServerError,
+  ScanServerMessage,
+  SolveError,
+  SolveResponse,
+} from '@/types/api';
 import { COLOR_NAMES } from '@/lib/colors';
 import { validateFaceletString } from '@/engine/cube-state';
 import { parseMoveToken } from '@/engine/move-engine';
@@ -101,6 +112,124 @@ export function parseHealthResponse(json: unknown): ParseResult<HealthResponse> 
       if (Object.hasOwn(o, k) && typeof o[k] !== 'string') bad(`${k} must be a string`);
     }
     return o as unknown as HealthResponse;
+  });
+}
+
+const finite = (v: unknown, what: string): number => (typeof v === 'number' && Number.isFinite(v) ? v : bad(`${what} must be a finite number`));
+const nonNegInt = (v: unknown, what: string): number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : bad(`${what} must be a non-negative integer`);
+const str = (v: unknown, what: string): string => (typeof v === 'string' ? v : bad(`${what} must be a string`));
+const color = (v: unknown, what: string): ColorName => (isColor(v) ? v : bad(`${what} is not a known colour`));
+const arr = (v: unknown, what: string): unknown[] => (Array.isArray(v) ? v : bad(`${what} must be an array`));
+
+const CELL_STATUSES: readonly FrameCell['status'][] = ['ok', 'missing', 'ambiguous', 'misaligned'];
+const SCAN_ERROR_CODES: readonly ScanServerError['code'][] = ['FRAME_TOO_LARGE', 'INVALID_FRAME', 'MODEL_UNAVAILABLE'];
+
+function parseScanReady(json: unknown): ScanReady {
+  const o = exactObject(json, ['type', 'schemaVersion', 'scanId', 'modelVersion', 'imgsz', 'maxFrameBytes', 'maxFrameEdge'], [], 'ready');
+  return {
+    type: 'ready',
+    schemaVersion: 1,
+    scanId: str(o.scanId, 'scanId'),
+    modelVersion: str(o.modelVersion, 'modelVersion'),
+    imgsz: nonNegInt(o.imgsz, 'imgsz'),
+    maxFrameBytes: nonNegInt(o.maxFrameBytes, 'maxFrameBytes'),
+    maxFrameEdge: nonNegInt(o.maxFrameEdge, 'maxFrameEdge'),
+  };
+}
+
+function parseScanError(json: unknown): ScanServerError {
+  const o = exactObject(json, ['type', 'schemaVersion', 'code', 'message', 'retryable'], [], 'scan error');
+  if (typeof o.code !== 'string' || !(SCAN_ERROR_CODES as readonly string[]).includes(o.code)) bad('unknown error code');
+  if (typeof o.retryable !== 'boolean') bad('retryable must be a boolean');
+  return {
+    type: 'error',
+    schemaVersion: 1,
+    code: o.code as ScanServerError['code'],
+    message: str(o.message, 'message'),
+    retryable: o.retryable as boolean,
+  };
+}
+
+function parseCell(v: unknown): FrameCell {
+  const o = exactObject(v, ['color', 'confidence', 'status'], [], 'cell');
+  if (typeof o.status !== 'string' || !(CELL_STATUSES as readonly string[]).includes(o.status)) bad('invalid cell status');
+  if ((o.color === null) !== (o.confidence === null)) bad('cell colour and confidence must both be null or both set');
+  return {
+    color: o.color === null ? null : color(o.color, 'cell colour'),
+    confidence: o.confidence === null ? null : finite(o.confidence, 'cell confidence'),
+    status: o.status as FrameCell['status'],
+  };
+}
+
+function parseFrameResult(json: unknown): FrameResult {
+  const o = exactObject(
+    json,
+    ['type', 'schemaVersion', 'scanId', 'frameSeq', 'width', 'height', 'detections', 'cells', 'grid', 'face', 'quality', 'inferenceMs'],
+    [],
+    'frame result',
+  );
+  const frameSeq = nonNegInt(o.frameSeq, 'frameSeq');
+  if (frameSeq < 1) bad('frameSeq must be positive');
+  const detections = arr(o.detections, 'detections').map((d) => {
+    const e = exactObject(d, ['classId', 'color', 'confidence', 'xyxy'], [], 'detection');
+    const box = arr(e.xyxy, 'xyxy');
+    if (box.length !== 4) bad('xyxy must have four numbers');
+    return {
+      classId: nonNegInt(e.classId, 'classId'),
+      color: color(e.color, 'detection colour'),
+      confidence: finite(e.confidence, 'detection confidence'),
+      xyxy: box.map((n) => finite(n, 'xyxy')) as [number, number, number, number],
+    };
+  });
+  const cellsRaw = arr(o.cells, 'cells');
+  if (cellsRaw.length !== 9) bad('cells must have exactly 9 entries');
+  let grid: ColorName[] | null = null;
+  if (o.grid !== null) {
+    const g = arr(o.grid, 'grid');
+    if (g.length !== 9) bad('grid must be null or have exactly 9 colours');
+    grid = g.map((c) => color(c, 'grid colour'));
+  }
+  let face: FrameResult['face'] = null;
+  if (o.face !== null) {
+    const f = exactObject(o.face, ['x0', 'y0', 'x1', 'y1'], [], 'face');
+    face = { x0: finite(f.x0, 'face.x0'), y0: finite(f.y0, 'face.y0'), x1: finite(f.x1, 'face.x1'), y1: finite(f.y1, 'face.y1') };
+  }
+  const q = exactObject(o.quality, ['valid'], ['reason'], 'quality');
+  if (typeof q.valid !== 'boolean') bad('quality.valid must be a boolean');
+  if (q.valid === Object.hasOwn(q, 'reason')) bad('quality.reason must be present exactly when valid is false');
+  const quality: FrameResult['quality'] = q.valid ? { valid: true } : { valid: false, reason: str(q.reason, 'quality.reason') };
+  return {
+    type: 'frame_result',
+    schemaVersion: 1,
+    scanId: str(o.scanId, 'scanId'),
+    frameSeq,
+    width: nonNegInt(o.width, 'width'),
+    height: nonNegInt(o.height, 'height'),
+    detections,
+    cells: cellsRaw.map(parseCell),
+    grid,
+    face,
+    quality,
+    inferenceMs: finite(o.inferenceMs, 'inferenceMs'),
+  };
+}
+
+export function parseScanServerMessage(json: unknown): ParseResult<ScanServerMessage> {
+  return guarded('scan message', () => {
+    if (typeof json !== 'object' || json === null || Array.isArray(json)) return bad('scan message must be an object');
+    const o = json as Obj;
+    if (o.schemaVersion !== 1) bad('unsupported schemaVersion');
+    switch (o.type) {
+      case 'ready':
+        return parseScanReady(json);
+      case 'frame_result':
+        return parseFrameResult(json);
+      case 'error':
+        return parseScanError(json);
+      default:
+        return bad('unknown message type');
+    }
   });
 }
 

@@ -254,6 +254,16 @@ describe('architecture boundaries', () => {
     expect(offenders.some((o) => o.includes('bad.ts:1') && o.startsWith('hooks'))).toBe(true);
   });
 
+  it('Demo code never references the WebSocket scan transport', () => {
+    const files = [
+      ...listSources(path.join(SRC, 'demo')),
+      path.join(SRC, 'features', 'scanner', 'DemoViewport.tsx'),
+      path.join(SRC, 'features', 'scanner', 'useDemoScanScript.ts'),
+    ].filter((f) => fs.existsSync(f));
+    expect(files.length).toBeGreaterThan(3);
+    expect(files.filter((f) => fs.readFileSync(f, 'utf8').includes('WebSocketScanTransport'))).toEqual([]);
+  });
+
   for (const dir of UP_LAYERS) {
     it(`src/${dir} does not import features/ or components/`, () => {
       expect(scanUpward(SRC, [dir])).toEqual([]);

@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-// Backend (FastAPI) is not implemented yet; these proxies target its planned
-// loopback address so the frontend never needs a cross-origin request.
+// These proxies target the FastAPI backend's loopback address so the frontend
+// never needs a cross-origin request.
 const BACKEND_HTTP = 'http://127.0.0.1:8000';
 const BACKEND_WS = 'ws://127.0.0.1:8000';
 

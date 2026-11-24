@@ -1,30 +1,119 @@
-import { Camera, CameraOff, Loader2 } from 'lucide-react';
+import * as React from 'react';
+import { Camera, CameraOff, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { CameraState } from '@/hooks/useCamera';
+import { useElementSize, useVideoFrameSize } from '@/hooks/useElementSize';
+import type { LiveConnection } from '@/hooks/useLiveScan';
+import { isReasonHint, stabilityProgress, type LiveScanState } from '@/lib/live-scan-machine';
+import { rotationStep } from '@/lib/rotation-steps';
+import { MIRROR_STYLE } from '@/lib/mirror';
+import { guideOverlay } from '@/lib/scan-roi';
+import { coachFrame } from '@/lib/scan-coaching';
+import type { FrameResult } from '@/types/api';
+import { CaptureFeedback } from './CaptureFeedback';
+import { LiveScanGuide } from './LiveScanGuide';
+import { RotationCue } from './RotationCue';
+import { FACE_NAMES } from './scan-guide';
+import type { FaceId } from '@/types/cube';
+
+const TICK_MS = 100; // progress bar refresh: never faster than ~10 Hz
 
 const FRAME_CLASS =
   'relative w-full aspect-[16/10] rounded-2xl overflow-hidden bg-[#111113] border border-zinc-800/90 shadow-[0_18px_60px_rgba(0,0,0,0.55)]';
+
+export interface LiveScanView {
+  connection: LiveConnection;
+  state: LiveScanState;
+  lastResult: FrameResult | null;
+  errorMessage: string | null;
+  onRetry: () => void;
+}
 
 export interface LiveViewportProps {
   camera: CameraState;
   videoRef: (el: HTMLVideoElement | null) => void;
   onEnableCamera: () => void;
+  /** null until the vision service is ready: then no guide and no strip detail. */
+  scan: LiveScanView | null;
+  /** Capture confirmation inputs; the confirmation shows when `count` rises. */
+  capture?: { count: number; face: FaceId | null; soundEnabled: boolean };
 }
 
-export function LiveViewport({ camera, videoRef, onEnableCamera }: LiveViewportProps) {
+/** Strip text for connection/camera/phase messages only; the guide owns the hint live region. */
+function stripText(active: boolean, scan: LiveScanView | null): string {
+  if (!active) return 'Enable the camera to start scanning';
+  if (!scan) return 'Waiting for the vision service';
+  if (scan.connection === 'error') return scan.errorMessage ?? 'The live scan stopped.';
+  if (scan.connection !== 'live') return 'Connecting to the vision service…';
+  switch (scan.state.phase) {
+    case 'done':
+      return 'All six faces captured.';
+    case 'captured':
+    case 'rotating':
+      return 'Saved. Rotate the whole cube to the next face.';
+    default:
+      return `Place the ${FACE_NAMES[scan.state.stage].fullName} face inside the square.`;
+  }
+}
+
+function LiveViewportImpl({ camera, videoRef, onEnableCamera, scan, capture }: LiveViewportProps) {
   const active = camera.status === 'active';
   const requesting = camera.status === 'requesting';
+  const [box, setBox] = React.useState<HTMLDivElement | null>(null);
+  const [video, setVideo] = React.useState<HTMLVideoElement | null>(null);
+  const setVideoEl = React.useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef(el);
+      setVideo(el);
+    },
+    [videoRef],
+  );
+  const viewSize = useElementSize(box);
+  const frameSize = useVideoFrameSize(video);
+
+  const phase = scan?.state.phase;
+  const searching = phase === 'aligning' || phase === 'stabilizing';
+  const ticking = active && !!scan && searching && scan.state.streak !== null;
+  const [now, setNow] = React.useState(() => performance.now());
+  React.useEffect(() => {
+    if (!ticking) return;
+    setNow(performance.now());
+    const id = setInterval(() => setNow(performance.now()), TICK_MS);
+    return () => clearInterval(id);
+  }, [ticking]);
+
+  const showGuide = active && !!scan;
+  const step = scan ? rotationStep(scan.state.step) : null;
+  // The arrow and its caption stay until the target centre is on screen, then give way to the lattice and progress.
+  const onTarget = phase === 'stabilizing' && step !== null && scan?.state.streak?.grid[4] === step.to;
+  const showCue = showGuide && step !== null && !onTarget && (phase === 'rotating' || searching);
+  const captured = phase === 'captured';
+  const overlay = React.useMemo(
+    () => guideOverlay(frameSize, viewSize, showGuide && (searching || captured) ? scan.lastResult : null),
+    [frameSize, viewSize, showGuide, searching, captured, scan?.lastResult],
+  );
+
+  // Coaching replaces only the generic per-frame hints; colour-gate, rotation and save hints keep priority.
+  const coaching = React.useMemo(
+    () => (showGuide && searching ? coachFrame(scan.lastResult) : { count: null, line: null }),
+    [showGuide, searching, scan?.lastResult],
+  );
+  const machineHint = scan?.state.hint ?? null;
+  const hint = machineHint !== null && !isReasonHint(machineHint) ? machineHint : (coaching.line ?? machineHint);
+
   return (
-    <div className={FRAME_CLASS}>
-      {/* Real camera frames, unmirrored and letterboxed so overlays can map via contain-fit later. */}
+    <>
+    <div ref={setBox} className={FRAME_CLASS}>
+      {/* Real camera frames, letterboxed. Only the DISPLAY is mirrored (like a mirror); the crop sent to the backend is not. */}
       <video
-        ref={videoRef}
+        ref={setVideoEl}
         autoPlay
         playsInline
         muted
         aria-label="Live camera preview"
         className={cn('absolute inset-0 w-full h-full object-contain bg-black', !active && 'invisible')}
+        style={MIRROR_STYLE}
       />
 
       {!active && (
@@ -65,19 +154,56 @@ export function LiveViewport({ camera, videoRef, onEnableCamera }: LiveViewportP
         </div>
       )}
 
-      {/* Capture is unavailable in every live state until a scan connection exists. */}
-      <div className="absolute bottom-0 inset-x-0 z-20 px-4 py-3 bg-[#09090B]/90 border-t border-zinc-800/80 flex items-center justify-between gap-4">
-        <span id="live-capture-unavailable" className="text-xs text-zinc-400">Capture unavailable — no vision connection</span>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled
-          aria-describedby="live-capture-unavailable"
-          className="shrink-0"
-        >
-          Capture Face
-        </Button>
-      </div>
+      {showGuide && (
+        <LiveScanGuide
+          square={overlay.square}
+          face={overlay.face}
+          boxes={searching ? overlay.boxes : []}
+          cells={searching ? (scan.lastResult?.cells ?? null) : null}
+          progress={searching ? stabilityProgress(scan.state, now) : 0}
+          phase={scan.state.phase}
+          hint={hint}
+          capturedGrid={phase === 'captured' ? (scan.state.pendingCapture?.grid ?? null) : null}
+          arrow={showCue ? step.arrow : null}
+        />
+      )}
+
+      {showGuide && capture && (
+        <CaptureFeedback
+          capturedCount={capture.count}
+          face={capture.face}
+          soundEnabled={capture.soundEnabled}
+          zone={overlay.square}
+        />
+      )}
+
+      {/* Outside the mirrored layer, so the text reads normally. */}
+      {coaching.count !== null && (
+        <span className="absolute left-3 top-3 z-10 rounded-md bg-black/65 px-2 py-1 text-xs font-semibold text-zinc-100 tabular-nums">
+          {coaching.count} of 9 stickers seen
+        </span>
+      )}
     </div>
+
+    {showCue && <RotationCue step={step} stage={scan.state.stage} saved={phase === 'rotating'} />}
+
+    {/* The cue takes the strip's slot while rotating (it is itself the status); errors still need Retry. */}
+    {(!showCue || scan.connection === 'error') && (
+    <div
+      role="status"
+      className="rounded-xl border border-zinc-800/80 bg-[#111113] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-300"
+    >
+      <span>{stripText(active, scan)}</span>
+      {scan?.connection === 'error' && active && (
+        <Button size="sm" variant="outline" onClick={scan.onRetry}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          Retry
+        </Button>
+      )}
+    </div>
+    )}
+    </>
   );
 }
+
+export const LiveViewport = React.memo(LiveViewportImpl);

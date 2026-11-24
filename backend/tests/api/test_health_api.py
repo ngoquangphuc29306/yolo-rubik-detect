@@ -11,7 +11,8 @@ ALLOWED = {
 
 
 def test_health_body(real_solver: Solver) -> None:
-    r = TestClient(create_app(solver=real_solver)).get("/health")
+    with TestClient(create_app(solver=real_solver)) as c:
+        r = c.get("/health")
     assert r.status_code == 200
     assert r.json() == {
         "schemaVersion": 1,
@@ -19,11 +20,12 @@ def test_health_body(real_solver: Solver) -> None:
         "detectorMode": "yolo",
         "visionReady": False,
         "solverReady": True,
-        "error": "Vision is not available in this build.",
+        "error": "Detection weights not found.",
     }
 
 
 def test_health_keys_match_frontend_fixture(real_solver: Solver) -> None:
-    body = TestClient(create_app(solver=real_solver)).get("/health").json()
+    with TestClient(create_app(solver=real_solver)) as c:
+        body = c.get("/health").json()
     assert set(body) <= ALLOWED
     assert set(body) == set(load_fixture("fixtures/health/model-unavailable.json"))

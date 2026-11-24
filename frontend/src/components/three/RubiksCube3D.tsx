@@ -99,6 +99,8 @@ interface CubieMeshProps {
   cubie: RenderCubie;
   highlighted?: boolean;
   wireframeTwin?: boolean;
+  /** Reference mode only: this face's stickers glow, the others are dimmed. */
+  highlightFace?: FaceId;
 }
 
 const FACE_OFFSETS: Record<
@@ -117,6 +119,7 @@ const CubieMesh = React.memo(function CubieMesh({
   cubie,
   highlighted = false,
   wireframeTwin = false,
+  highlightFace,
 }: CubieMeshProps) {
   const spacing = 1.015;
   const position: [number, number, number] = [
@@ -142,7 +145,10 @@ const CubieMesh = React.memo(function CubieMesh({
         const colorCode = cubie.stickers[faceKey];
         if (!colorCode) return null;
         const offset = FACE_OFFSETS[faceKey];
-        const hex = COLOR_META[codeToColorName(colorCode)].threeHex;
+        const baseHex = COLOR_META[codeToColorName(colorCode)].threeHex;
+        const isTarget = highlightFace === faceKey;
+        const dimmed = highlightFace !== undefined && !isTarget;
+        const hex = dimmed ? `#${new THREE.Color(baseHex).multiplyScalar(0.42).getHexString()}` : baseHex;
         return (
           <mesh key={faceKey} position={offset.pos} rotation={offset.rot}>
             <RoundedBox args={[0.78, 0.78, 0.05]} radius={0.045} smoothness={2}>
@@ -152,8 +158,8 @@ const CubieMesh = React.memo(function CubieMesh({
                 metalness={0.02}
                 clearcoat={0.85}
                 clearcoatRoughness={0.14}
-                emissive={highlighted ? '#34D399' : '#000000'}
-                emissiveIntensity={highlighted ? 0.08 : 0}
+                emissive={isTarget ? hex : highlighted ? '#34D399' : '#000000'}
+                emissiveIntensity={isTarget ? 0.55 : highlighted ? 0.08 : 0}
                 transparent={wireframeTwin}
                 opacity={wireframeTwin ? 0.78 : 1}
               />
@@ -300,6 +306,8 @@ interface CubeSceneProps extends ControlledProps {
   mode: 'hero' | 'interactive' | 'reference' | 'solving' | 'solved';
   heroTwinWireframe?: boolean;
   referenceRotation?: [number, number, number];
+  referenceRotationRef?: React.MutableRefObject<[number, number, number]>;
+  highlightFace?: FaceId;
   cameraResetToken?: number;
   autoRepositionCamera?: boolean;
   showMoveArrow?: boolean;
@@ -315,6 +323,8 @@ function CubeScene({
   mode,
   heroTwinWireframe = false,
   referenceRotation,
+  referenceRotationRef,
+  highlightFace,
   cameraResetToken = 0,
   autoRepositionCamera = false,
   showMoveArrow = false,
@@ -388,6 +398,10 @@ function CubeScene({
         if (!userDraggingRef.current) {
           rootGroupRef.current.rotation.y += delta * 0.42;
         }
+      } else if (mode === 'reference' && referenceRotationRef) {
+        // Driven by the caller's own loop through a ref: applied as is, no damping, no React state per frame.
+        const [rx, ry, rz] = referenceRotationRef.current;
+        rootGroupRef.current.rotation.set(rx, ry, rz);
       } else if (mode === 'reference' && referenceRotation) {
         rootGroupRef.current.rotation.x = THREE.MathUtils.damp(
           rootGroupRef.current.rotation.x,
@@ -471,7 +485,7 @@ function CubeScene({
 
       <group ref={rootGroupRef}>
         {staticCubies.map((cubie) => (
-          <CubieMesh key={cubie.id} cubie={cubie} wireframeTwin={heroTwinWireframe} />
+          <CubieMesh key={cubie.id} cubie={cubie} wireframeTwin={heroTwinWireframe} highlightFace={mode === 'reference' ? highlightFace : undefined} />
         ))}
 
         <group ref={pivotRef}>
@@ -518,6 +532,10 @@ export interface RubiksCube3DProps extends ControlledProps {
   mode?: 'hero' | 'interactive' | 'reference' | 'solving' | 'solved';
   heroTwinWireframe?: boolean;
   referenceRotation?: [number, number, number];
+  /** Reference mode: when given, the rotation is read from this ref every frame instead of damping toward `referenceRotation`. */
+  referenceRotationRef?: React.MutableRefObject<[number, number, number]>;
+  /** Reference mode: the face to emphasise (glow); the other faces are dimmed. Unset keeps the normal look. */
+  highlightFace?: FaceId;
   cameraResetToken?: number;
   autoRepositionCamera?: boolean;
   lockCameraAngle?: boolean;
@@ -525,6 +543,25 @@ export interface RubiksCube3DProps extends ControlledProps {
   cameraPosition?: [number, number, number];
   fov?: number;
   className?: string;
+}
+
+const POSITIONED = ['absolute', 'fixed', 'sticky', 'relative'];
+
+/** Longest the skeleton may stay when no frame is confirmed (never leaves the view covered). */
+export const READY_FALLBACK_MS = 5000;
+
+/** Placeholder over the canvas until WebGL has produced its first frames; same box as the canvas wrapper. */
+function CubeSkeleton() {
+  return (
+    <div
+      data-testid="cube-skeleton"
+      role="status"
+      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-[#111113]/90"
+    >
+      <div className="h-16 w-16 rounded-xl border border-zinc-700/70 bg-zinc-800/60 animate-skeleton-pulse" aria-hidden="true" />
+      <p className="text-xs text-zinc-400 text-center px-2">Preparing 3D view…</p>
+    </div>
+  );
 }
 
 export function RubiksCube3D({
@@ -535,6 +572,8 @@ export function RubiksCube3D({
   mode = 'interactive',
   heroTwinWireframe = false,
   referenceRotation,
+  referenceRotationRef,
+  highlightFace,
   cameraResetToken = 0,
   autoRepositionCamera = false,
   lockCameraAngle = false,
@@ -544,6 +583,29 @@ export function RubiksCube3D({
   className = 'w-full h-full',
 }: RubiksCube3DProps) {
   const [contextLost, setContextLost] = React.useState(false);
+  const [ready, setReady] = React.useState(false);
+  const rafs = React.useRef<number[]>([]);
+
+  // The canvas is created before WebGL has drawn (PMREM environment, shaders): wait two frames after creation.
+  const markCreated = React.useCallback(() => {
+    const first = requestAnimationFrame(() => {
+      const second = requestAnimationFrame(() => setReady(true));
+      rafs.current.push(second);
+    });
+    rafs.current.push(first);
+  }, []);
+  React.useEffect(() => {
+    if (ready || contextLost) return;
+    const fallback = setTimeout(() => setReady(true), READY_FALLBACK_MS);
+    return () => clearTimeout(fallback);
+  }, [ready, contextLost]);
+  React.useEffect(
+    () => () => {
+      rafs.current.forEach((id) => cancelAnimationFrame(id));
+      rafs.current = [];
+    },
+    [],
+  );
 
   const defaultCam = React.useMemo<[number, number, number]>(
     () =>
@@ -579,7 +641,8 @@ export function RubiksCube3D({
   }
 
   return (
-    <div className={className}>
+    <div className={className.split(' ').some((c) => POSITIONED.includes(c)) ? className : `${className} relative`}>
+      {!ready && <CubeSkeleton />}
       {/* frameloop must stay 'always': the controlled renderer reads frameRef every frame and the
           pivot, arrow pulse and camera damping all depend on a continuous loop ('demand' would freeze them). */}
       <Canvas
@@ -594,9 +657,11 @@ export function RubiksCube3D({
           alpha: true,
         }}
         onCreated={({ gl }) => {
+          markCreated();
           gl.domElement.addEventListener('webglcontextlost', (e) => {
             e.preventDefault();
             setContextLost(true);
+            setReady(false);
           });
           gl.domElement.addEventListener('webglcontextrestored', () => {
             setContextLost(false);
@@ -611,6 +676,8 @@ export function RubiksCube3D({
           mode={mode}
           heroTwinWireframe={heroTwinWireframe}
           referenceRotation={referenceRotation}
+          referenceRotationRef={referenceRotationRef}
+          highlightFace={highlightFace}
           cameraResetToken={cameraResetToken}
           autoRepositionCamera={autoRepositionCamera}
           lockCameraAngle={lockCameraAngle}

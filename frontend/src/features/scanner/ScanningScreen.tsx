@@ -6,6 +6,9 @@ import { COLOR_META } from '@/lib/colors';
 import { DEMO_CENTER_COLORS } from '@/demo/demo-fixtures';
 import { useBackendHealth } from '@/hooks/useBackendHealth';
 import { useCamera } from '@/hooks/useCamera';
+import { useLiveScan } from '@/hooks/useLiveScan';
+import { WebSocketScanTransport } from '@/services/scan-transport';
+import { scanSocketUrl } from '@/services/api-config';
 import { useCubeStore } from '@/stores/cube-store';
 import { captureDemoFace, restartScan, startDemoScan, startDemoShortcut } from '@/stores/demo-session';
 import { useScanStore, type ScanCondition } from '@/stores/scan-store';
@@ -18,8 +21,11 @@ import { ScanGuidePanel, type ScanMetrics } from './ScanGuidePanel';
 import { ScanSettingsDialog } from './ScanSettingsDialog';
 import { DemoViewport } from './DemoViewport';
 import { LiveViewport } from './LiveViewport';
+import { rotationStep } from '@/lib/rotation-steps';
 import { FACE_NAMES, scanGuide } from './scan-guide';
 import { useDemoScanScript } from './useDemoScanScript';
+
+const LIVE_HANDOFF_MS = 1200;
 
 /** Documented initial scan convention; every other centre is known only after its face is captured. */
 const LIVE_START_CENTERS: Partial<Record<FaceId, ColorName>> = { F: 'green', U: 'white' };
@@ -85,6 +91,7 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
   const isDemo = mode === 'demo';
   const sessionId = useSessionStore((s) => s.sessionId);
   const screenNow = useSessionStore((s) => s.screen);
+  const soundEnabled = useSessionStore((s) => s.settings.soundEnabled);
   const autoCaptureEnabled = useSessionStore((s) => s.settings.autoCaptureEnabled);
   const stageIndex = useScanStore((s) => s.stageIndex);
   const faceStatuses = useScanStore((s) => s.faceStatuses);
@@ -96,6 +103,39 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
 
   const camera = useCamera({ enabled: false });
   const { readiness, refresh } = useBackendHealth(mode === 'live');
+  const [videoEl, setVideoEl] = React.useState<HTMLVideoElement | null>(null);
+  const cameraVideoRef = camera.videoRef;
+  const combinedVideoRef = React.useCallback(
+    (el: HTMLVideoElement | null) => {
+      cameraVideoRef(el);
+      setVideoEl(el);
+    },
+    [cameraVideoRef],
+  );
+  const liveReady = !isDemo && readiness?.kind === 'ready';
+  const liveCameraActive = liveReady && camera.state.status === 'active';
+  const capturedCenters = React.useMemo(() => {
+    const centers: Partial<Record<FaceId, ColorName>> = {};
+    for (const f of SCAN_FACE_ORDER) {
+      const c = captured[f]?.grid[4];
+      if (c) centers[f] = c;
+    }
+    return centers;
+  }, [captured]);
+  const [lastCapturedFace, setLastCapturedFace] = React.useState<FaceId | null>(null);
+  // Called unconditionally (hooks rule); with enabled:false (Demo, no camera) it constructs nothing.
+  const liveScan = useLiveScan({
+    enabled: liveCameraActive,
+    video: videoEl,
+    createTransport: () => new WebSocketScanTransport(scanSocketUrl(window.location)),
+    onCapture: (face, grid) => {
+      const stored = useScanStore.getState().captureFace(face, grid, 'live');
+      if (stored) setLastCapturedFace(face);
+      return stored;
+    },
+    initialCenters: capturedCenters,
+  });
+  const resetLiveScan = liveScan.reset;
 
   const activeFace: FaceId = SCAN_FACE_ORDER[stageIndex] ?? 'F';
   const names = FACE_NAMES[activeFace];
@@ -111,16 +151,42 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
     const restarted = lastSession.current !== sessionId;
     lastSession.current = sessionId;
     if (restarted || screenNow !== 'scanning') stopCamera();
-  }, [screenNow, sessionId, stopCamera]);
+    if (restarted && !isDemo) resetLiveScan();
+  }, [screenNow, sessionId, stopCamera, isDemo, resetLiveScan]);
 
+  // After the sixth live capture: end camera/transport/capture loop now, then hand off to Reconstruction.
+  // Fires only on the false -> true transition while mounted: coming back to a complete scan must not bounce away.
+  const liveDone = !isDemo && allCaptured;
+  const wasLiveDone = React.useRef(liveDone);
+  const [handoff, setHandoff] = React.useState(0);
+  React.useEffect(() => {
+    if (liveDone && !wasLiveDone.current) setHandoff((n) => n + 1);
+    wasLiveDone.current = liveDone;
+  }, [liveDone]);
+  React.useEffect(() => {
+    if (handoff === 0 || !liveDone) return;
+    stopCamera();
+    const id = sessionId;
+    const timer = setTimeout(() => {
+      if (useSessionStore.getState().sessionId === id) useSessionStore.getState().setScreen('reconstructing');
+    }, LIVE_HANDOFF_MS);
+    return () => clearTimeout(timer);
+  }, [handoff, liveDone, sessionId, stopCamera]);
+
+  const liveRescan = liveScan.rescan;
   const selectFace = React.useCallback((face: FaceId) => {
     const before = faceStatuses[face];
+    if (!isDemo) {
+      const grid = captured[face]?.grid;
+      if (!grid && face !== activeFace) return; // live: only a captured face or the current stage can be selected
+      if (grid) liveRescan(face, grid[4]!); // read BEFORE the store deletes it
+    }
     // The captured grids change, so any in-flight or finished solve for the old grids is void.
     solveRequestGuard.reset();
     useCubeStore.getState().reset();
     useScanStore.getState().selectFaceForRescan(face);
     setRescan(before === 'captured' || before === 'rescan' ? { face, sessionId } : null);
-  }, [faceStatuses, sessionId]);
+  }, [faceStatuses, sessionId, isDemo, captured, activeFace, liveRescan]);
 
   const resumeDetection = React.useCallback(() => useScanStore.getState().setCondition('ready'), []);
 
@@ -140,7 +206,28 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
     }
     return known;
   }, [isDemo, captured]);
-  const guide = React.useMemo(() => scanGuide(activeFace, knownCenters), [activeFace, knownCenters]);
+  const guide = React.useMemo(() => scanGuide(activeFace, knownCenters, !isDemo), [activeFace, knownCenters, isDemo]);
+  // The move the preview arrow shows (same rule as LiveViewport's cue): the reference cube repeats it.
+  const liveState = liveReady ? liveScan.state : null;
+  const liveStep = liveState ? rotationStep(liveState.step) : null;
+  const refStep =
+    liveState && liveStep && (liveState.phase === 'rotating' || liveState.phase === 'aligning' || liveState.phase === 'stabilizing') &&
+    !(liveState.phase === 'stabilizing' && liveState.streak?.grid[4] === liveStep.to)
+      ? liveStep
+      : null;
+  const scanView = React.useMemo(
+    () =>
+      liveReady
+        ? {
+            connection: liveScan.connection,
+            state: liveScan.state,
+            lastResult: liveScan.lastResult,
+            errorMessage: liveScan.errorMessage,
+            onRetry: liveScan.retry,
+          }
+        : null,
+    [liveReady, liveScan.connection, liveScan.state, liveScan.lastResult, liveScan.errorMessage, liveScan.retry],
+  );
   const rescanning = rescan?.face === activeFace && rescan.sessionId === sessionId && !captured[activeFace];
 
   // Demo-only scripted readouts (computed only in the demo branch; no stability dependency).
@@ -213,7 +300,17 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
             <div className="flex items-center gap-3 text-xs text-zinc-400 font-mono tabular-nums">
               <span>Face {capturedCount}/6 captured</span>
               <span aria-hidden="true">·</span>
-              <span>{!isDemo ? 'Capture unavailable' : autoCaptureEnabled ? 'Auto-capture on' : 'Manual capture'}</span>
+              <span>
+                {!isDemo
+                  ? liveScan.connection === 'live'
+                    ? 'Auto-capture on'
+                    : liveScan.connection === 'idle'
+                      ? 'Auto-capture starts with the camera'
+                      : 'Waiting for the vision service'
+                  : autoCaptureEnabled
+                    ? 'Auto-capture on'
+                    : 'Manual capture'}
+              </span>
             </div>
           </div>
 
@@ -230,7 +327,13 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
               onResumeDetection={resumeDetection}
             />
           ) : (
-            <LiveViewport camera={camera.state} videoRef={camera.videoRef} onEnableCamera={camera.start} />
+            <LiveViewport
+              camera={camera.state}
+              videoRef={combinedVideoRef}
+              onEnableCamera={camera.start}
+              scan={scanView}
+              capture={{ count: capturedCount, face: lastCapturedFace, soundEnabled }}
+            />
           )}
 
           {/* Quick Controls Footer */}
@@ -283,6 +386,10 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
             guide={guide}
             metrics={demoMetrics}
             rescanning={rescanning}
+            emphasis={!isDemo && activeFace === 'F' && capturedCount === 0}
+            live={!isDemo}
+            step={refStep}
+            stageFace={activeFace}
           />
           <CapturedFacesPanel faceStatuses={faceStatuses} captured={captured} onSelectFace={selectFace} />
         </aside>

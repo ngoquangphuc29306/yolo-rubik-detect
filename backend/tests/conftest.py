@@ -22,3 +22,12 @@ def real_solver() -> CubeSolverAdapter:
     except SolverTablesMissing as exc:
         pytest.fail(str(exc), pytrace=False)
     return adapter
+
+
+@pytest.fixture(autouse=True)
+def _no_real_model(
+    request: pytest.FixtureRequest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ordinary tests never load the real checkpoint; only `model`-marked ones may."""
+    if request.node.get_closest_marker("model") is None:
+        monkeypatch.setenv("RUBIK_MODEL_PATH", str(tmp_path / "absent" / "best.pt"))
