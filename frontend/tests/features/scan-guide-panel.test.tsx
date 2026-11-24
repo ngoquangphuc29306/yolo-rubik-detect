@@ -66,6 +66,15 @@ describe('ScanGuidePanel - live layout', () => {
     expect(screen.getByTestId('target-face-chip').textContent).toBe('R');
   });
 
+  it('the large cube sits far enough back that its corners stay inside the frame while it turns', () => {
+    live('R', 1);
+    const [, , z] = last().cameraPosition as [number, number, number];
+    const fov = last().fov as number;
+    const halfHeight = z * Math.tan((fov * Math.PI) / 360);
+    const cornerRadius = (3 * Math.sqrt(3)) / 2; // half the cube's space diagonal
+    expect(halfHeight).toBeGreaterThan(cornerRadius * 1.05);
+  });
+
   it('a return step highlights Front (not scanned)', () => {
     live('U', 4);
     expect(last().highlightFace).toBe('F');

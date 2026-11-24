@@ -13,6 +13,9 @@ import type { ScanGuide } from './scan-guide';
 // Reference-only solved cube showing the required holding orientation (no scan data involved).
 const REFERENCE_SOLVED_CUBE = toCubies(SOLVED, DEMO_CENTER_COLORS);
 
+/** Far enough back that the cube's corners stay inside the square while it turns (half-diagonal 2.6 at fov 36). */
+const LARGE_CUBE_CAMERA: [number, number, number] = [0, 0.3, 9.4];
+
 export interface ScanMetrics {
   centerName: string | null;
   centerHex: string | null;
@@ -120,6 +123,7 @@ function ScanGuidePanelImpl({ stageNumber, faceLabel, guide, metrics, rescanning
               referenceRotationRef={animate ? rotationRef : undefined}
               highlightFace={targetFace}
               fov={36}
+              cameraPosition={LARGE_CUBE_CAMERA}
               className="w-full h-full"
             />
           </div>
