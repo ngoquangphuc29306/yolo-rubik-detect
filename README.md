@@ -16,8 +16,6 @@ Guided scanning with a YOLO26s detector, a validated two-phase solver, and a 3D 
 
 </div>
 
-> **Project status.** Phases 0 to 2 (frontend, backend, solver) are merged. Live YOLO26s scanning (Phase 3) and its follow-up usability work (Phase 3b) are implemented on feature branches and await review. The model metrics below are measured on a held-out dataset split. **The test with a real webcam and a real cube is still pending** ([checklist](docs/superpowers/reports/phase3-physical-test-checklist.md)), so nothing here is verified against a physical cube yet.
-
 ## Contents
 
 - [How it works](#how-it-works)
