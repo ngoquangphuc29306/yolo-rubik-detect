@@ -51,7 +51,10 @@ backend/.solver-cache/
 
 # Phase 3 training artifacts (notebooks stay tracked)
 training/datasets/
-training/runs/
+# Track the training runs' charts, metrics and logs, but never their weights
+# (.pt files are already ignored globally above; the weights folders stay out too).
+!training/runs/
+training/runs/**/weights/
 training/exports/
 training/*.zip
 backend/.ultralytics/
