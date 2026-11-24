@@ -367,8 +367,8 @@ describe('ScanningScreen - LIVE', () => {
     render(<ScanningScreen />);
     await flushReal();
     const panel = () => screen.getByTestId('scan-guide-panel');
-    expect(panel().textContent).toMatch(/green center/);
-    expect(panel().textContent).toMatch(/white center/);
+    expect(panel().textContent).toMatch(/green cent(er|re)/);
+    expect(panel().textContent).toMatch(/white cent(er|re)/);
     expect(panel().textContent).not.toMatch(/\b(red|blue|orange|yellow)\b/i);
     const greenFace = Array(9).fill('green') as unknown as FaceGrid;
     act(() => { useScanStore.getState().captureFace('F', greenFace, 'live'); });

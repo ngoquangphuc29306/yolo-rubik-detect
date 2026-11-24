@@ -21,6 +21,7 @@ import { ScanGuidePanel, type ScanMetrics } from './ScanGuidePanel';
 import { ScanSettingsDialog } from './ScanSettingsDialog';
 import { DemoViewport } from './DemoViewport';
 import { LiveViewport } from './LiveViewport';
+import { rotationStep } from '@/lib/rotation-steps';
 import { FACE_NAMES, scanGuide } from './scan-guide';
 import { useDemoScanScript } from './useDemoScanScript';
 
@@ -200,6 +201,14 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
     return known;
   }, [isDemo, captured]);
   const guide = React.useMemo(() => scanGuide(activeFace, knownCenters, !isDemo), [activeFace, knownCenters, isDemo]);
+  // The move the preview arrow shows (same rule as LiveViewport's cue): the reference cube repeats it.
+  const liveState = liveReady ? liveScan.state : null;
+  const liveStep = liveState ? rotationStep(liveState.step) : null;
+  const refStep =
+    liveState && liveStep && (liveState.phase === 'rotating' || liveState.phase === 'aligning' || liveState.phase === 'stabilizing') &&
+    !(liveState.phase === 'stabilizing' && liveState.streak?.grid[4] === liveStep.to)
+      ? liveStep
+      : null;
   const scanView = React.useMemo(
     () =>
       liveReady
@@ -369,6 +378,9 @@ function ScanSession({ mode }: { mode: 'demo' | 'live' }) {
             metrics={demoMetrics}
             rescanning={rescanning}
             emphasis={!isDemo && activeFace === 'F' && capturedCount === 0}
+            live={!isDemo}
+            step={refStep}
+            stageFace={activeFace}
           />
           <CapturedFacesPanel faceStatuses={faceStatuses} captured={captured} onSelectFace={selectFace} />
         </aside>

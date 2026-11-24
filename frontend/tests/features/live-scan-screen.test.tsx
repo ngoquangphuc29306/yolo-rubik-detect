@@ -227,7 +227,7 @@ describe('Live scanning screen', () => {
     setLive({}, { stage: 'U', phase: 'aligning', step: 4 });
     render(<ScanningScreen />);
     expect(screen.getByText('No scan on this step.')).toBeTruthy();
-    expect(screen.getByText('Next: green centre')).toBeTruthy();
+    expect(screen.getAllByText('Next: green centre')).toHaveLength(2); // the cue and the reference-cube caption
     expect(screen.getByTestId('rotation-arrow').getAttribute('data-direction')).toBe('right');
   });
 
@@ -254,7 +254,7 @@ describe('Live scanning screen', () => {
   it('start pose emphasis before any capture', () => {
     render(<ScanningScreen />);
     expect(screen.getByText('Start pose: green centre toward the camera, white centre on top.')).toBeTruthy();
-    expect(screen.getByTestId('cube-stub').parentElement!.className).toContain('w-40');
+    expect(screen.getByTestId('cube-stub').parentElement!.parentElement!.className).toContain('aspect-square');
   });
 
   describe('status strip', () => {
